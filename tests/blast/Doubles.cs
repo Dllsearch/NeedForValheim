@@ -1,7 +1,7 @@
 // Controlled Valheim/Unity API responses; no simulation of physics or native RPCs.
 using System;
 using System.Collections.Generic;
-namespace Rachel350Z { public struct ModelVertex {public float x,y,z;} }
+namespace NeedForValheim { public struct ModelVertex {public float x,y,z;} }
 namespace UnityEngine {
 public class Component { }
 public class Collider:Component {

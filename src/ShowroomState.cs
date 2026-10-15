@@ -1,5 +1,5 @@
 using System;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Normalized playback only; visual animations never operate the chassis.
 public sealed class ShowroomState {
     public readonly float[] Progress=new float[4]; // NFS LEFT, NFS RIGHT, hood, hatch

@@ -3,7 +3,7 @@ using BepInEx.Configuration;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     ConfigEntry<bool> nitroBlurEnabled,nitroTrailsEnabled;
     ConfigEntry<float> nitroVisualStrength;
@@ -50,7 +50,7 @@ public partial class Plugin {
     Rect ProtectedCarRect(Camera camera) {
         if(camera==null)return Rect.MinMaxRect(0,0,1,1);
         float left=1,right=0,bottom=1,top=0;
-        float width=IsHummer?1.2f:1.1f,height=IsHummer?2.15f:1.55f,length=IsHummer?2.7f:2.5f;
+        float width=IsSuv?1.2f:1.1f,height=IsSuv?2.15f:1.55f,length=IsSuv?2.7f:2.5f;
         for(int i=0;i<8;i++) {
             var p=camera.WorldToViewportPoint(car.transform.TransformPoint(new Vector3((i&1)==0?-width:width,(i&2)==0?0:height,(i&4)==0?-length:length)));
             // Close camera / clipping: protect the full image instead of flashing
@@ -68,10 +68,10 @@ public partial class Plugin {
     }
     void DrawNitroVisualSettings() {
         nitroBlurEnabled.Value=UiToggle(new Rect(25,322,510,28),nitroBlurEnabled.Value," Nitro-Tunnelblick");
-        nitroTrailsEnabled.Value=UiToggle(new Rect(25,355,510,28),nitroTrailsEnabled.Value," Rote Rücklichtspuren bei Nitro");
-        UiLabel(new Rect(25,394,510,25),"Effektstärke  "+Mathf.RoundToInt(nitroVisualStrength.Value*100)+" %",labelStyle);
+        nitroTrailsEnabled.Value=UiToggle(new Rect(25,355,510,28),nitroTrailsEnabled.Value," red taillight trails on nitro");
+        UiLabel(new Rect(25,394,510,25),"Effect strength  "+Mathf.RoundToInt(nitroVisualStrength.Value*100)+" %",labelStyle);
         nitroVisualStrength.Value=UiSlider(new Rect(25,428,505,22),nitroVisualStrength.Value,0,1);
-        UiLabel(new Rect(25,463,510,44),"Gilt für beide Autos, am Boden und im Flug.\nRücklichtspuren erscheinen bei eingeschaltetem Licht.",mutedStyle);
+        UiLabel(new Rect(25,463,510,44),"Applies to both cars, on the ground and in flight.\nTaillight trails require lights on.",mutedStyle);
     }
 }
 }

@@ -3,7 +3,7 @@ using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.InputSystem;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     internal static Plugin ControlsOwner;
     Harmony controlsHarmony;
@@ -16,17 +16,21 @@ public partial class Plugin {
     readonly ReleaseGate controlsGate=new ReleaseGate();
     string songToast;float songToastUntil;VehicleRadio toastRadio;int toastTrack=-1;
     void InitializeControls() {
-        uiLanguage=Config.Bind("Interface","Language","DE",new ConfigDescription("Interface language.",new AcceptableValueList<string>("DE","EN")));
+        uiLanguage=Config.Bind("Interface","Language","EN",new ConfigDescription("Interface language.",new AcceptableValueList<string>("DE","EN")));
         controllerStyle=Config.Bind("Controls","ControllerStyle","Auto",new ConfigDescription("Button labels; override for controllers exposed as Xbox by input wrappers.",new AcceptableValueList<string>("Auto","Xbox","PlayStation")));
         stickDeadzone=Config.Bind("Controls","StickDeadzone",.16f,new ConfigDescription("Controller stick deadzone.",new AcceptableValueRange<float>(.05f,.4f)));
         controllerSensitivity=Config.Bind("Camera","ControllerSensitivity",120f,new ConfigDescription("Controller orbit degrees per second.",new AcceptableValueRange<float>(30,300)));
         controllerInvertY=Config.Bind("Camera","ControllerInvertY",false,"Invert controller vertical camera movement.");
         hintScale=Config.Bind("Interface","HintScale",1f,new ConfigDescription("Control hint text scale.",new AcceptableValueRange<float>(.8f,1.5f)));
-        ControlsOwner=this;controlsHarmony=new Harmony("local.rachel350z.controls");controlsHarmony.PatchAll(typeof(NativeControlCapture));
+        ControlsOwner=this;controlsHarmony=new Harmony("local.needforvalheim.controls");controlsHarmony.PatchAll(typeof(NativeControlCapture));
         controlsHarmony.PatchAll(typeof(NativeHotbarNavigation));
         controlsHarmony.PatchAll(typeof(NativeHotbarClick));
         controlsHarmony.PatchAll(typeof(NativeHotbarUse));
         controlsHarmony.PatchAll(typeof(NativeMenuLookCapture));
+        controlsHarmony.PatchAll(typeof(NativeInventoryDuringGarage));
+        controlsHarmony.PatchAll(typeof(NativePauseDuringGarage));
+        VehicleExitSafety.Install(controlsHarmony);
+        Logger.LogInfo("Garage input hooks registered: InventoryGui.Show and Menu.Show");
         controlsHarmony.PatchAll(typeof(NativeVehicleCameraShake));
         InitializeHordeGame();
     }
@@ -56,8 +60,8 @@ public partial class Plugin {
     }
     bool ControlsHeld()=>pad!=null&&(pad.rightTrigger.ReadValue()>.06f||pad.leftTrigger.ReadValue()>.06f||pad.buttonWest.isPressed||pad.buttonSouth.isPressed||pad.leftShoulder.isPressed||pad.rightShoulder.isPressed)||Input.GetKey(KeyCode.W)||Input.GetKey(KeyCode.S)||Input.GetKey(KeyCode.Space)||Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.LeftControl)||Input.GetMouseButton(0)||Input.GetMouseButton(1);
     void SelectControlMode(int mode) {
-        if(HordeVehicle){if(mode!=0)ShowVehicleWarning("Hordenmodus: nur Gelände verfügbar.");return;}
-        if(driving&&!DriverInputReady||IsHummer&&mode==2)return;
+        if(HordeVehicle){if(mode!=0)ShowVehicleWarning("Horde mode: off-road driving only.");return;}
+        if(driving&&!DriverInputReady||!current.Profile.capabilities.drift&&mode==2)return;
         int previousMode=CurrentControlMode;
         exitAfterLanding=false;
         if(mode==3)SelectFlightMode();
@@ -70,21 +74,22 @@ public partial class Plugin {
         // Use the requested ground mode during landing, not the flight phase label.
         int selectedMode=CurrentControlMode;
         if(selectedMode!=previousMode&&MessageHud.instance!=null) {
-            string name=selectedMode==3?"Fliegen":selectedMode==2?"Drift":selectedMode==0?"Gelände":"Straße";
-            MessageHud.instance.ShowMessage(MessageHud.MessageType.Center,Tr("Fahrmodus")+": '"+Tr(name)+"'",log:false);
+            string name=selectedMode==3?"Flight":selectedMode==2?"Drift":selectedMode==0?"Off-road":"Road";
+            MessageHud.instance.ShowMessage(MessageHud.MessageType.Center,Tr("Drive mode")+": '"+Tr(name)+"'",log:false);
         }
     }
-    int CurrentControlMode=>HordeVehicle?0:Flying&&!current.flight.State.Landing?3:!IsHummer&&driftMode.Value?2:terrainMode.Value?0:1;
+    int CurrentControlMode=>HordeVehicle?0:Flying&&!current.flight.State.Landing?3:current.Profile.capabilities.drift&&driftMode.Value?2:terrainMode.Value?0:1;
     void TickControlActions(MonoBehaviour local) {
-        if(Input.GetKeyDown(KeyCode.F7)||PadDown("back")) {
-            if(driving){if(Flying){exitAfterLanding=true;current.flight.Land();status="Landung zum Aussteigen …";}else RequestExit();}
+        if(Input.GetKeyDown(KeyCode.F7)||PadDown("back")||driving&&vehicleInteractFrame!=Time.frameCount&&ZInput.GetButtonDown("Use")) {
+            if(driving){if(Flying){exitAfterLanding=true;current.flight.Land();status="Landing before exit \u00b7";}else RequestExit();}
             else if(CanAccessCurrent(local))Enter(local);
             controlsGate.Block();
         }
         if(!driving||!DriverInputReady)return;
         for(int i=0;i<4;i++)if(Input.GetKeyDown(KeyCode.Alpha1+i))SelectControlMode(i);
-        if(PadDown("up"))SelectControlMode(ControlRules.CycleMode(CurrentControlMode,1,IsHummer));
-        if(PadDown("down"))SelectControlMode(ControlRules.CycleMode(CurrentControlMode,-1,IsHummer));
+        var caps=current.Profile.capabilities;
+        if(PadDown("up"))SelectControlMode(ControlRules.CycleMode(CurrentControlMode,1,caps));
+        if(PadDown("down"))SelectControlMode(ControlRules.CycleMode(CurrentControlMode,-1,caps));
         if(vehicleRadio!=null&&radioEnabled.Value) {
             if(PadDown("prev")||Input.GetKeyDown(KeyCode.LeftArrow))vehicleRadio.Previous();
             if(PadDown("next")||Input.GetKeyDown(KeyCode.RightArrow))vehicleRadio.Next();

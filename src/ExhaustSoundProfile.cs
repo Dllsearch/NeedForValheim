@@ -1,4 +1,4 @@
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Alternative treatments of the installed original engine recordings.
 // These are NFVU2 presets, not recovered NFS exhaust upgrade sound banks.
 public static class ExhaustSoundProfile {

@@ -36,8 +36,8 @@ class RadioCompressionTests(unittest.TestCase):
             self.assertEqual({p.name for p in (out/'radio').iterdir()}, {'song.ogg', 'tracks.json'})
             self.assertEqual((source/'song.wav').read_bytes(), b'original WAV fixture')
             self.assertEqual(json.loads((out/'radio/tracks.json').read_text())[0]['title'], 'Artist - Song')
-            for name in ('Rachel350Z.dll', 'body.json'):
-                (out/name).write_bytes(b'fixture')
+            for name in ('NeedForValheim.dll', 'body.json', 'cars.json'):
+                (out/name).write_bytes(b'[]' if name=='cars.json' else b'fixture')
             names = {p.as_posix() for p in payload_files(out)}
             self.assertIn('radio/song.ogg', names)
             self.assertNotIn('radio/song.wav', names)

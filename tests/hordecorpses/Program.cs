@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using Rachel350Z;
+using NeedForValheim;
 using UnityEngine;
 namespace UnityEngine {
     public class MonoBehaviour {
@@ -34,7 +34,7 @@ public class ZNetScene {
 }
 public class CharacterDrop:MonoBehaviour {}
 public class Ragdoll:MonoBehaviour {public bool m_dropItems=true;public void Setup(CharacterDrop characterDrop){}}
-namespace Rachel350Z {
+namespace NeedForValheim {
  public partial class Plugin {
   ZNetScene hordeScene=ZNetScene.instance;ZDOMan hordeManager=ZDOMan.instance;
   public void Track(Projectile p)=>RegisterHordeProjectile(p);

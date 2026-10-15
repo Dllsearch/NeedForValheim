@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 [HarmonyPatch(typeof(Projectile),nameof(Projectile.Setup))]
 static class HordeProjectileSetup {
     static void Prefix(Projectile __instance,Character owner) {

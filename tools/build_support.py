@@ -20,7 +20,7 @@ def compile_cs(output,sources,refs,resources=(),library=False):
     output.parent.mkdir(parents=True,exist_ok=True)
     args=['-nostdlib+','-deterministic+','-langversion:latest','-target:'+('library' if library else 'exe'),f'-out:"{output}"']
     args += [f'-reference:"{p}"' for p in refs]
-    args += [f'-resource:"{p}",Rachel350Z.Audio.{p.name}' for p in resources]
+    args += [f'-resource:"{p}",NeedForValheim.Audio.{p.name}' for p in resources]
     args += [f'"{p}"' for p in sources]
     response=output.with_suffix('.rsp');response.write_text('\n'.join(args),encoding='utf-8')
     subprocess.run(['dotnet',str(compiler),'@'+str(response)],check=True)

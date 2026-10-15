@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 public sealed class VehicleHandling {
     readonly Rigidbody body;
     readonly WheelCollider[] wheels;
@@ -45,7 +45,7 @@ public sealed class VehicleHandling {
     public void SetDriftMode() {
         SetTerrainMode(false);DriftMode=true;VehicleDriftTuning.Apply(wheels);
     }
-    public void Step(bool driving,float throttle,float steer,float brake,bool burnoutRequested=false,bool handbrakeRequested=false) {
+    public void Step(bool driving,float throttle,float steer,float brake,bool burnoutRequested=false,bool handbrakeRequested=false,float torqueMultiplier=1,float speedMultiplier=1,float brakeMultiplier=1) {
         float dt=Time.fixedDeltaTime;
         if(driving && (throttle!=0 || steer!=0 || burnoutRequested))body.WakeUp();
         float speed=Vector3.Dot(body.linearVelocity,body.transform.forward);
@@ -63,7 +63,9 @@ public sealed class VehicleHandling {
         float maxSteer=DriftMode?VehicleDriftTuning.SteeringLimit(speed):DrivingMath.SteeringLimit(speed,terrain);
         // Parking keeps the actual angle, including partial steering during exit.
         if(driving)appliedSteering=Mathf.MoveTowards(appliedSteering,steer*maxSteer,dt*(DriftMode?150f:85f));
-        float torque=DrivingMath.BaseTorque(terrain)*appliedThrottle*DrivingMath.TorqueFactor(speed,throttle,terrain)*DrivingMath.LaunchTorqueFactor(speed,throttle);
+        // Reverse speed and the direction-change gate stay at the stock values.
+        float limitedSpeed=throttle>0?speed/DrivingMath.Clamp(speedMultiplier,1,1.5f):speed;
+        float torque=DrivingMath.BaseTorque(terrain)*appliedThrottle*DrivingMath.TorqueFactor(limitedSpeed,throttle,terrain)*DrivingMath.LaunchTorqueFactor(speed,throttle)*DrivingMath.Clamp(torqueMultiplier,1,2.2f);
         if(DriftMode)torque*=1.2f;
         if(burnoutGrip!=BurnoutActive) {
             for(int i=2;i<4;i++) {
@@ -87,6 +89,8 @@ public sealed class VehicleHandling {
                 wheel.motorTorque=i<2?0:1800*appliedThrottle;
                 wheel.brakeTorque=i<2?6000:0;
             }
+            // Upgrade service brakes, never the parking or burnout holding brake.
+            if(driving&&(brake>0||directionBrake)&&!BurnoutActive)wheel.brakeTorque*=DrivingMath.Clamp(brakeMultiplier,1,1.6f);
         }
         AntiRoll(0,1);AntiRoll(2,3);
         LogDriveState(driving,throttle,speed,directionBrake);
@@ -99,7 +103,7 @@ public sealed class VehicleHandling {
         diagnosticElapsed=0;diagnosticSamples++;
         int groundCount=0;for(int i=0;i<4;i++)if(grounded[i])groundCount++;
         log(string.Format(System.Globalization.CultureInfo.InvariantCulture,
-            "350Z drive: input={0:F1}, applied={1:F2}, speed={2:F2}m/s, contacts={3}/4, motor=[{4:F0},{5:F0},{6:F0},{7:F0}]Nm, brake={8:F0}Nm, reverseBrake={9}, sleeping={10}, kinematic={11}, terrain={12}, up={13:F2}, rearRPM={14:F0}",
+            "Vehicle drive: input={0:F1}, applied={1:F2}, speed={2:F2}m/s, contacts={3}/4, motor=[{4:F0},{5:F0},{6:F0},{7:F0}]Nm, brake={8:F0}Nm, reverseBrake={9}, sleeping={10}, kinematic={11}, terrain={12}, up={13:F2}, rearRPM={14:F0}",
             throttle,appliedThrottle,speed,groundCount,wheels[0].motorTorque,wheels[1].motorTorque,wheels[2].motorTorque,wheels[3].motorTorque,
             wheels[0].brakeTorque,directionBrake,body.IsSleeping(),body.isKinematic,terrain,body.transform.up.y,wheels[2].rpm));
     }

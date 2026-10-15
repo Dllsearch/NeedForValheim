@@ -1,32 +1,19 @@
 from project import BASE, LOCAL, OUTPUT, disc_root, vgmstream_path
-import zipfile
 import argparse
-from pathlib import Path
-from inspect_discs import Disc
-from extract_assets import DiscFile
+from asset_source import extract_matching
 
 parser=argparse.ArgumentParser(description='Extract local NFS vehicle audio; original data stays in .local.')
 parser.add_argument('--turbo-only',action='store_true')
+parser.add_argument('--car',action='append',default=[],help='engine bank to extract, matched by name (e.g. 350Z, Skyline)')
+parser.add_argument('--gin',action='append',default=[],help='exact bank file under SOUND/ENGINE; cars share banks')
 args=parser.parse_args()
-base=LOCAL/'nfs-assets'
-extracted=0
-for image in disc_root().glob('CD*/*.bin'):
-    disc=Disc(image)
-    try:
-        for rec in disc.walk():
-            if rec['name']!='COMPRESS.ZIP': continue
-            with zipfile.ZipFile(DiscFile(disc,rec)) as archive:
-                for item in archive.infolist():
-                    name=item.filename.replace('\\','/'); upper=name.upper()
-                    turbo=upper.startswith('SOUND/TURBO/TURBO_MED_') and upper.endswith('.ABK') or upper=='SOUND/EVT_SYS/UG2_TURBO.CSI'
-                    wanted=turbo or (not args.turbo_only and ((upper.startswith('SOUND/ENGINE/') and '350Z' in upper and upper.endswith('.GIN')) or upper.startswith('SOUND/SKIDS/') or upper in ('SOUND/IG_GLOBAL/ROADNOISE_00_MB.ABK','SOUND/IG_GLOBAL/FX_MAIN_MEM_MB.ABK')))
-                    if not wanted or item.is_dir(): continue
-                    target=(base/name).resolve()
-                    if not target.is_relative_to(base): raise ValueError('unsafe archive path')
-                    target.parent.mkdir(parents=True,exist_ok=True)
-                    target.write_bytes(archive.read(item))
-                    extracted+=1
-                    print(name,item.file_size)
-    finally:
-        disc.f.close()
-if not extracted:raise SystemExit('No audio sources found. Check the local CD image configuration.')
+cars=[car.upper() for car in args.car]
+gins=[gin.upper() for gin in args.gin]
+def wanted(upper):
+    turbo=upper.startswith('SOUND/TURBO/TURBO_MED_') and upper.endswith('.ABK') or upper=='SOUND/EVT_SYS/UG2_TURBO.CSI'
+    engine=upper.startswith('SOUND/ENGINE/') and upper.endswith('.GIN') and (any(car in upper for car in cars)
+        or upper.rsplit('/',1)[-1] in gins)
+    return turbo or (not args.turbo_only and (engine or upper.startswith('SOUND/SKIDS/') or upper in ('SOUND/IG_GLOBAL/ROADNOISE_00_MB.ABK','SOUND/IG_GLOBAL/FX_MAIN_MEM_MB.ABK')))
+extracted=extract_matching(LOCAL/'nfs-assets',wanted)
+for name in sorted(extracted):print(name)
+if not extracted:raise SystemExit('No audio sources found. Check the local NFSU2 data configuration.')

@@ -1,0 +1,121 @@
+350Z vehicle audio – version 0.5.0
+
+The following original recordings were extracted from the locally supplied
+NFS Underground 2 CD images:
+
+Acceleration:
+SOUND/ENGINE/GIN_350Z_Jason_shrt2.gin
+Lifting off:
+SOUND/ENGINE/GIN_Nissan_350ZX_Jason_DCL.gin
+Road noise:
+SOUND/IG_GLOBAL/ROADNOISE_00_MB.abk, substream 4
+Tyre skid:
+SOUND/SKIDS/SKID_PAV_MB.abk, substream 1
+
+Decoded with the unmodified official vgmstream CLI r2117:
+https://github.com/vgmstream/vgmstream/releases/tag/r2117
+GIN format parser:
+https://github.com/vgmstream/vgmstream/blob/master/src/meta/gin.c
+
+For engine playback, the decoded recordings were split into eight loops using
+the RPM/cycle markers in the GIN files. The loops were time-adjusted, crossfaded
+at their boundaries, had their DC offset removed and were volume-matched.
+Acceleration and lifting off use separate recordings. The two adjacent RPM
+ranges are smoothly mixed.
+
+The horn is a newly synthesized dual-tone horn at 420/500 Hz, not a recording
+extracted from NFS.
+
+Reverse gear since 0.5.0:
+Newly synthesized periodic loop with a 320 Hz fundamental, harmonics and slight
+modulation. Pitch/volume follow reverse speed. It stays silent while stopped,
+driving forward and after exiting. The local SOUND file inventory and examined
+CSI events have not identified a reverse-gear whine; this is explicitly not an
+NFS sample.
+
+Burnout since 0.5.0:
+Uses the existing original SKID_PAV_MB.abk sample (substream 1). During a burnout,
+the previous minimum driving speed requirement for skid audio is removed; rear
+wheel RPM and ground contact instead determine its volume. The engine stays
+audibly under load in first gear at a minimum of 5000 RPM. Smoke uses the original
+SFX_SMOKE_B_CS texture with a custom Unity animation.
+
+Turbo:
+SOUND/TURBO/TURBO_MED_2_MB.abk, substreams 1 (spooling),
+2/3 (two blow-off variants). The role mapping is provisional; the triggers use
+custom NFVU2 logic with load/RPM buildup and a single release. The original tables
+have separate spooling, low/high-boost blow-off and 0.5 s ChargeTime. Rachel's
+actual performance stage remains to be checked.
+https://github.com/nlgxzef/NFSU2CarSoundTuner
+The original bank checksum and decoder provenance are recorded in the locally generated manifest.
+
+Nitro and purge:
+SOUND/NOS/Nitrous_00_MB.abk, loops 1 and 4. Both are original mono-decoded loop
+substreams; their boost/purge mapping is provisional and can be adjusted during
+import. The local UG2_MAIN_AEMS.csi lists FX_NITROUS and FX_PURGE separately.
+tools/prepare_effects_audio.py uses the original loop boundaries, removes DC
+offset and matches volume. Checksums, decoder and provenance data are in
+.local/audio-effects/manifest.json.
+
+Backfire research:
+UG2_ENGINES_AEMS2.csi lists Sputter_Message, CAR_SputOutput and CAR_Sputter.
+The reconstructed 350Z sweetener table uses SWTN_CAR_27_MB.abk with SputterVol.
+Unlimiter distinguishes CARFX_NITRO, CARFX_EXHAUST_BLOWOFF and CARFX_NOS_BLOWOFF.
+This establishes the effect types, not the exact throttle-change/tuning
+conditions. The matching sputter substream has not been identified, so no
+backfire.wav was exported. The optional flame burst therefore has no bang sound
+for now.
+https://github.com/nlgxzef/NFSU2Unlimiter/blob/master/CarEffect.h
+https://github.com/nlgxzef/NFSU2CarSoundTuner/blob/master/CarSoundData/SweetnerDataSet/27.ini
+https://github.com/vgmstream/vgmstream/blob/master/src/meta/ea_schl_abk.c
+
+Radio:
+SDATA/SDAT.VIV contains pfdata/MusicSFx.mpf and MusicSFx.mus.
+vgmstream decodes the streams as stereo PCM. Since 0.2.1, the playlist contains
+27 verified EA Trax songs with artist and title. The mapping follows the original
+song table and MPF events/playback nodes; the title strings were also checked in
+the local original EXE (without running it). tools/music_titles.json contains
+sources, the MPF hash and SHA-256 values for the decoded WAVs. Incorrect or
+modified audio content is not automatically assigned these names. The other 16
+previously imported streams are not among the 27 EA Trax events; they remain
+local but outside the playlist.
+https://github.com/nlgxzef/NFSU2TraxRenamer
+https://github.com/RadeonChan/XtraTrax/blob/main/patcher.py
+https://github.com/vgmstream/vgmstream/blob/master/src/meta/ea_schl_map_mpf_mus.c
+
+The mod uses its own RPM/shift logic for audio. It does not run the original NFS
+driving physics or audio engine. The exact mapping to Rachel's tuning sound has
+not been established. The original recordings were selected based on their 350Z
+filenames.
+
+The file 350Z-Soundvorschau.wav demonstrates an externally rendered drive:
+idling, acceleration with gear shifts, lifting off, horn and fade-out. It is not
+a recording from the game.
+
+RUST TURRET (0.9.0, optional)
+From the user's Rust installation: ak47-gunshot-body-01 through -03,
+ak47-gunshot-tail-outdoor-01, autoturret-movement-loop,
+autoturret-reload-full and autoturret-turn-on.
+UnityPy exports the original samples; spatial sources are downmixed to mono.
+Firing cadence, reload time and volumes are NFVU2 adjustments. Since 0.10.0,
+`explosive-ammo-close` from Rust is also used for explosive hits.
+HUMMER H2 (0.12.0)
+Original: SOUND/ENGINE/GIN_Hummer.gin from the user's own NFSU2 CDs.
+Stock mapping: HUMMER -> CarDataMapping 14 -> EngineData 38,
+UseDualGinsu=0, 1000–4782 RPM. Eight local PCM loops for Unity;
+lifting off uses the same sound at lower load/volume. No separate Hummer
+acceleration recording is claimed. Four audible gears and shift points are
+adjusted for Valheim. Tyres/horn/reverse whine share the existing system. H2
+engine loops are installed externally in audio/h2; original files remain in
+ignored .local.
+
+NFS MENU (0.13.0)
+Original bank: SOUND/GLOBAL/FE_COMMON_MB.abk from the user's own NFSU2 files.
+tools/export_menu.py decodes three short mono samples with vgmstream:
+Navigation = Substream 1, Confirm = 3, Back = 2 (configurable CLI values).
+Sample provenance and checksums are recorded in menu/provenance.json.
+Mapping them to these mod actions is not a verified recreation of the original
+event table. There is no synthesized substitute; without media, the menu remains
+silent but usable. It uses its own 2D source in the SFX mixer, Menu.SoundVolume
+0–1. Icons come from FRONTEND/FrontB.lzc; seven German titles are mapped by hash
+from LANGUAGES/Labels.bin and German.bin. Layout and actions are specific to NFVU2.

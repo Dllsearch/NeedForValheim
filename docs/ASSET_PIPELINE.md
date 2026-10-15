@@ -4,17 +4,21 @@ Detailed import notes retained in German from the former README.
 Start with [CONTRIBUTING](../CONTRIBUTING.md) for prerequisites and build steps.
 All source assets, tools, exports and binary packages stay ignored locally.
 
-## Lokale Daten erzeugen
+## Generate local data
 
-Alle folgenden Befehle im Projektverzeichnis ausführen:
+Run all the following commands from the project directory:
 
 ```powershell
 python -m pip install -r requirements.txt
 python tools/extract_assets.py
-python tools/export_geometry.py
-python tools/export_rachel.py
-python tools/export_hummer.py
-python tools/prepare_hummer_audio.py
+python tools/export_car.py 350z
+python tools/export_car.py h2
+python tools/export_car.py SKYLINE
+python tools/build_catalog.py
+python tools/prepare_engine_audio.py
+python tools/extract_audio.py --car Skyline
+python tools/prepare_engine_audio.py --car skyline --gin GIN_Nissan_Skyline.gin \
+    --bands 1500,2500,3500,4400,5400,6400,7300,8300
 python tools/export_hud.py
 python tools/export_menu.py
 python tools/import_rust_logo.py --download
@@ -28,38 +32,80 @@ python tools/prepare_effects_audio.py
 python tools/extract_music.py
 ```
 
-Den offiziellen vgmstream-Decoder vorher lokal entpacken und seinen Pfad in
-`config.local.json` eintragen. Der Import liest ausschließlich benötigte Daten
-aus den CD-Abbildern; er führt keinen NFS-Installer aus.
+First extract the official vgmstream decoder locally and enter its path in
+`config.local.json`. The importer reads only the required data from the CD images;
+it does not run an NFS installer.
 
-Das Radio lädt lokale Stereo-WAV/OGG-Dateien aus dem Unterordner `radio/`
-neben der DLL. Der Import erzeugt `.local/radio/tracks.json` mit 27 verifizierten
-EA-Trax-Songs und echten Künstler-/Titelnamen. Die Zuordnung in
-`tools/music_titles.json` wird durch MPF- und Audio-Prüfsummen abgesichert;
-weitere Containerstreams werden nicht als Songs angeboten. Bestehende
-Importe können mit `python tools/extract_music.py --refresh-titles` aktualisiert
-werden. `python tools/prepare_radio.py --ffmpeg path/to/ffmpeg.exe` erzeugt
-anschließend kleinere Ogg-Vorbis-Kopien unter `.local/radio-ogg/` (Zielbitrate
-192 kbit/s). WAV-Master bleiben unverändert; Songs werden vollständig
-zurückdekodiert und auf Stereo, Abtastrate und Dauer geprüft. Der Build nutzt
-die komprimierte Playlist nach Prüfsummenabgleich automatisch. Nach erneutem
-Import oder Titeländerungen die Ogg-Vorbereitung wiederholen.
-Turbo-Samples liegen separat
-unter `.local/audio-turbo/`, Nitro-/Purge-Sounds unter `.local/audio-effects/`;
-Build, Paket und Installer übernehmen die Medienordner.
-Die 19 kurzen Motor-/Fahrgeräusche bleiben in der DLL eingebettet.
-Der H2-Import verwendet dieselben lokalen CD-Abbilder und den vorhandenen
-Geometrie-/Texturleser. Er erzeugt `.local/hummer/h2.json` und acht originale
-Motorloops unter `.local/audio-hummer/`. Build und Installer übernehmen diese
-als `hummer/` und `audio/hummer/` neben der unverändert benannten DLL.
-`tools/render_hummer.py` erstellt mit Blender eine lokale Vorschau.
+The radio loads local stereo WAV/OGG files from the `radio/` subfolder beside
+the DLL. The import creates `.local/radio/tracks.json` with 27 verified EA Trax
+songs and their actual artist/title names. MPF and audio checksums validate the
+mapping in `tools/music_titles.json`; other container streams are not offered as
+songs. Existing imports can be updated with
+`python tools/extract_music.py --refresh-titles`. Then,
+`python tools/prepare_radio.py --ffmpeg path/to/ffmpeg.exe` creates smaller Ogg
+Vorbis copies under `.local/radio-ogg/` (target bitrate 192 kbit/s). WAV masters
+remain unchanged; songs are fully decoded again and checked for stereo, sample
+rate and duration. After checksum verification, the build automatically uses the
+compressed playlist. Repeat Ogg preparation after reimporting or changing titles.
+Turbo samples are stored separately in `.local/audio-turbo/`, Nitro/Purge sounds
+under `.local/audio-effects/`; the build, package and installer include these
+media folders. The 19 short engine/driving sounds remain embedded in the DLL.
+The H2 import uses the same local CD images and existing geometry/texture reader.
+It creates `.local/h2/h2.json` and eight original engine loops under
+`.local/audio-h2/`. The build and installer include them as `h2/` and
+`audio/h2/` beside the DLL, whose name remains unchanged.
+`tools/render_vehicle.py -- h2` creates a local preview with Blender.
 
-### Optionaler 350Z-Innenraum und Fahrer
+### Shared vehicle pipeline
 
-Die lokal bereitgestellte ZIP „Nissan 350Z FIX UKBEAMNG“ wird unter
-`.local/interior-source/beamng-350z/` entpackt; dort muss
-`vehicles/Nis350Z/Nis350Z.dae` liegen. Nur Modelle, Texturen und Materialdaten
-werden verarbeitet, keine BeamNG-Skripte ausgeführt.
+`tools/export_car.py <CAR>` reads a vehicle completely from its own
+`CARS/<CAR>/GEOMETRY.BIN` families: body from `<CAR>_BASE` and
+`<CAR>_KIT00_*`, native wheels/brakes or configured shared packs, including separate spinner meshes, rim diameter from tyre triangles,
+brake scaling at the wheel. The four wheel locators are in the unpacked
+`GlobalB.lzc` at `NAME\0 + 0x120` with a stride of `0x30`; they provide
+track width and front/rear axle positions. The export writes schema 3
+(`.local/<car>/<car>.json`), including original panel animations, engine
+variants, four trunk layouts, shared audio components and exhaust styles where mounted, and also `.local/<car>/profile.json` with
+suspension values from locators and bounding dimensions.
+
+`tools/build_catalog.py` combines all `profile.json` files into
+`.local/cars/cars.json`; the build places the file beside the DLL, where the game
+reads it.
+`tools/prepare_engine_audio.py --car <car> --gin <GIN> --engine <N> --bands …`
+creates original engine loops in the same format. `tools/extract_audio.py`
+needs the **bank name** (`--gin GIN_Mazda_RX7.gin`), not the vehicle name:
+NFSU2 shares engine banks; for example, SUPRA and IS300 use the
+350Z bank. `--engine` is the `EngineData` number from which the bank comes and
+is recorded in the provenance. `tools/render_vehicle.py -- <car>` renders the
+preview using the exact wheel positions from the profile.
+
+All **28 drivable vehicles** in the roster have been imported (67–92 sections,
+9–12 textures, 8 engine loops each): Skyline, RX-7, RX-8, Supra, Miata, 240SX,
+Eclipse, 3000GT, Mustang GT, GTO, A3, Golf, Celica, Civic, Corolla, Corsa,
+Focus, RSX, Lancer Evo 8, Impreza WRX, IS300, G35, Tiburon, Sentra, Peugot 206,
+Peugot 106, Escalade and Navigator. Vehicle data is stored in a
+`SPECS` entry per car; the importer itself is shared by all vehicles.
+Not exported: decals, engine bays, trunk audio and body kit variants.
+
+Two format details were needed for completeness:
+Vertex records come in two strides — 36 bytes (position, normal, reserved, UV)
+and 24 bytes without a normal; the index buffer determines which applies since
+it fits only one of the two sizes. Mesh names in geometry headers are truncated
+at 24 characters, so `_FRONT_WHEEL` appears as `_FRONT_WHEE` and `_FRONT_BRAKE`
+as `_FRONT_BRAK`; families are therefore identified by suffix rather than
+substring — `_BRAKELIGHT` is a rear light strip and belongs to the body. Material
+and texture slots use `255` for “unused”, which meshes without normals lack.
+
+The spawn hub is calculated from the **bottom of the body**, excluding exhaust
+meshes: NFSU2 mounts tailpipes underneath, and on COROLLA and NAVIGATOR they hang
+20 cm below the bottom, which would have lifted the whole car above its tyres.
+
+### Optional 350Z interior and driver
+
+Extract the locally supplied ZIP “Nissan 350Z FIX UKBEAMNG” to
+`.local/interior-source/beamng-350z/`; it must contain
+`vehicles/Nis350Z/Nis350Z.dae`. Only models, textures and material data are
+processed; no BeamNG scripts are run.
 
 ```powershell
 python tools/export_interior.py
@@ -67,48 +113,50 @@ python tools/build.py
 python tools/test.py --skip-build
 ```
 
-Der Import erzeugt den optionalen Mod-Payload `interior/interior.json`:
-62 Teilmeshes, rund 41.000 Dreiecke und 15 eingebettete Texturen. Zwei fehlende
-Quelltexturen erhalten einfache dunkle Ersatzmaterialien. Dach und Kofferraum
-bleiben aus dem NFS-Modell; überlappende Innenflächen werden ersetzt.
-`tools/render_interior.py` erzeugt mit Blender lokale Kontrollansichten.
+The import creates the optional mod payload `interior/interior.json`:
+62 submeshes, about 41,000 triangles and 15 embedded textures. Two missing source
+textures receive simple dark replacement materials. The roof and trunk remain
+from the NFS model; overlapping interior surfaces are replaced.
+`tools/render_interior.py` creates local review renders with Blender.
 
-F7 im Stand: Der Charakter geht zur linken Fahrertür, die Tür öffnet, er nimmt
-sichtbar Platz und die Tür schließt. Erst dann werden Gas, Nitro und Turret
-freigegeben. F7 zum Aussteigen benötigt Stillstand und einen freien Platz
-neben der Fahrertür. F8 entfernt das Fahrzeug und stellt den Spieler sofort
-wieder her. Menüs/Fokusverlust pausieren den Übergang. H2 bleibt unverändert.
+F7 while stopped: the character walks to the left driver's door, it opens, the
+character visibly gets in and the door closes. Throttle, nitro and turret are
+enabled only afterward. F7 to exit requires the car to be stopped and clear space
+beside the driver's door. F8 removes the car and immediately restores the player.
+Menus/focus loss pause the transition. The H2 is unchanged.
 
-Seit 0.14.1 sitzt der Fahrer tiefer; die gemessene Kopfposition begrenzt seine
-Höhe unter dem Dach. Die rechte Hand lenkt, der linke Arm ruht am offenen
-Fahrerfenster. Beim Öffnen der Tür wird der linke Arm eingezogen. Die Drehrichtung
-des sichtbaren Lenkrads ist korrigiert; die rechte Hand folgt derselben Drehung.
-F9 → Türen bietet eine gespeicherte Scheibentönung von 0 % (klar) bis 100 %
-(dunkel) für die geschlossenen 350Z-Scheiben. Im Stand lassen sich die Türen
-auch vom Sitz aus bedienen, nach Abschluss des Ein-/Ausstiegs. Der Menüaufruf
-pausiert beim Sitzen die Türbewegung nicht; beim Losfahren schließen die Türen.
+Since 0.14.1, the driver sits lower; the measured head position limits the
+height beneath the roof. The right hand steers, while the left arm rests by the
+open driver's window. The left arm retracts when the door opens. The visible
+steering wheel rotation has been corrected; the right hand follows the same
+rotation. F9 → Doors provides saved window tint from 0% (clear) to 100% (dark)
+for closed 350Z windows. While stopped, doors can also be operated from the seat,
+after entering/exiting has completed. Opening the menu while seated does not
+pause door movement; the doors close when driving off.
 
-0.14.2 entfernt die geerbte rote Eigenleuchtung einer möglichen Lava-Laternen-
-Glasvorlage. Das Fenstermaterial übernimmt nur den geladenen Shader und nutzt
-neutrale Grauwerte ohne Eigenleuchtung.
+0.14.2 removes inherited red self-illumination from a possible lava-lantern
+glass template. The window material uses only the loaded shader and neutral gray
+values without self-illumination.
 
-Der sichtbare Fahrer verwendet Valheims vorhandene Stuhl-Sitzanimation,
-einen eigenen Bewegungsablauf und prozedurale Ausrichtung der Gliedmaßen.
-Das Charaktervisual wird im Sitz auf 85 % skaliert; Spielfigur, Inventar und
-Ausrüstung bleiben dieselben. Die Animation ist keine original aus BeamNG
-übernommene Einsteigeanimation. Pose, Kleidung, Fenstershader, Türstile und
-Kollisionen müssen im Spiel geprüft werden.
+The visible driver uses Valheim's existing chair-sitting animation, a custom
+movement sequence and procedural limb alignment. The character visual is scaled
+to 85% while seated; the player, inventory and equipment remain the same. The
+animation is not an entry animation copied from BeamNG. The pose, clothing,
+window shader, door styles and collisions need in-game checks.
 
-Quelle: [Modland — Nissan 350Z FIX UKBEAMNG](https://www.modland.net/beamng.drive-mods/cars/nissan-350z-fix-ukbeamng.html).
-Der Originalautor ist auf der Downloadseite unbekannt; eine Freigabe zur
-Weiterveröffentlichung der Assets ist nicht belegt. Archiv, extrahierte Dateien
-und generierter Innenraum bleiben ignorierte lokale Dateien.
+Source: [Modland — Nissan 350Z FIX
+UKBEAMNG](https://www.modland.net/beamng.drive-mods/cars/nissan-350z-fix-ukbeamng.html)
+UKBEAMNG](https://www.modland.net/beamng.drive-mods/cars/nissan-350z-fix-ukbeamng.html)
+UKBEAMNG](https://www.modland.net/beamng.drive-mods/cars/nissan-350z-fix-ukbeamng.html).
+The original author is not identified on the download page; permission to
+redistribute the assets has not been established. The archive, extracted files
+and generated interior remain ignored local files.
 
-### Optionaler Rust-Import
+### Optional Rust import
 
-In der ignorierten `config.local.json` den Schlüssel `rust_dir` auf die eigene
-Rust-Installation setzen. Der Import liest deren Bundles unverändert und legt
-nur die ausgewählten Modelle, Texturen und acht Sounds in `.local/turret/` ab:
+In the ignored `config.local.json`, set the `rust_dir` key to your Rust
+installation. The importer reads its bundles unchanged and places only the
+selected models, textures and eight sounds in `.local/turret/`:
 
 ```powershell
 python -m pip install --target .local/tools/unitypy UnityPy==1.25.4 numpy
@@ -118,8 +166,40 @@ python tools/test.py --skip-build
 python tools/install.py
 ```
 
-Rust wird zum Import benötigt, nicht während der Fahrt. Ohne importierte Assets
-bleibt der Turret-Menüpunkt mit Erklärung deaktiviert. Der Reader unterstützt
-die lokal geprüften UnityFS-Bundles mit unkomprimierten Nutzdaten; andere
-Bundlevarianten werden abgelehnt. Originaldateien, Werkzeuge, Exporte und
-lokale Pakete bleiben ignoriert und gehören nicht ins Git-Repository.
+Rust is required for import, not while driving. Without imported assets, the
+turret menu item remains disabled with an explanation. The reader supports the
+locally verified UnityFS bundles with uncompressed payloads; other bundle
+variants are rejected. Original files, tools, exports and local packages remain
+ignored and do not belong in the Git repository.
+
+`tools/prepare_engine_audio.py` prepares GIN engine loops for any vehicle.
+
+### Export, preview and validate all vehicles
+
+```powershell
+python tools/export_car.py all
+python tools/build_catalog.py
+python tools/build.py
+python tools/test.py --skip-build --suite fleet --suite vehicle_assets
+blender --background --python tools/render_vehicle.py -- h2 --open 1 --view rear
+blender --background --python tools/render_vehicle.py -- 350z --door-style SCISSOR --open 1
+```
+
+Use `--output <root>` for isolated export fixtures and
+`tools/test.py --vehicle-assets-root <root> --suite vehicle_assets --skip-build`
+to load them with the actual C# model loader. Rendering accepts `--root`,
+`--layout`, `--engine`, `--exhaust`, `--view wheel` and `--paint <composite.png>`.
+It uses embedded textures, supports compressed MW models and extra axles, and
+poses panels around their own source pivots. Audio equipment stays on the trunk floor.
+The DDAY 350Z assembly remains an explicit visual preset (`vehicle_preset.py`);
+its fitted parts, artwork and hood repair are preserved, not copied onto other cars.
+Shared wheel/brake/exhaust conversion is in `vehicle_geometry.py`.
+Showroom lighting for schema-3 vehicles is fitted to their own trunk bounds.
+These checks and Blender previews do not execute Unity physics or audio playback.
+
+When exporting into `.local`, existing styling catalogs are refreshed together
+with their base model so mesh replacement names and wheel fit cannot drift.
+Shared rim conversion preserves original authored wheel textures; visual size
+comes from export provenance, including adapted tyres and shared wheel packs.
+Use `--audio 1,2,5,9,3,4` to preview individual trunk components and
+`--save-blend` to retain an editable scene with embedded images.

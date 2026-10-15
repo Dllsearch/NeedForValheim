@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Original parts are created by the staged loader and owned by the vehicle.
 // This selector only changes visibility; it allocates no meshes or materials.
 public sealed class VehicleExhaustVisuals {

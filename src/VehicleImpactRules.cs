@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Game-independent rules: only these destructible vegetation prefabs can be hit.
 public static class VehicleImpactRules {
     public const float VegetationMinSpeed=.25f;

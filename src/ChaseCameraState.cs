@@ -1,5 +1,5 @@
 using System;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // World-space heading: steering the car does not instantly rotate the camera.
 public sealed class ChaseCameraState {
     public float Yaw {get;private set;}

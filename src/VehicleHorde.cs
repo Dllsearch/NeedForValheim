@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     sealed class HordeMember {public Character Character;public ZDOID Id;public float Radius,MaxHealth;public bool Killed,HealthApplied;public string Prefab;public HordePact Pact;}
     readonly HordeWave hordeWave=new HordeWave();
@@ -30,7 +30,7 @@ public partial class Plugin {
             bool clear=Input.GetKeyDown(KeyCode.Keypad0)||(Keyboard.current?.numpad0Key.wasPressedThisFrame??false);
             bool start=Input.GetKeyDown(KeyCode.Keypad9)||(Keyboard.current?.numpad9Key.wasPressedThisFrame??false);
             if(hordeResultLeft>0)hordeResultLeft=Mathf.Max(0,hordeResultLeft-Time.deltaTime);
-            if(clear){ClearHorde();hordeResult=null;ShowVehicleWarning("Die Horde wurde entfernt.");return;}
+            if(clear){ClearHorde();hordeResult=null;ShowVehicleWarning("The horde has been removed.");return;}
             if(start)StartHorde(local as Player);
             if(!hordeWave.Active)return;
             hordeCorpses?.Tick(Time.deltaTime);
@@ -42,7 +42,7 @@ public partial class Plugin {
             hordeAlive=CountHordeAlive();
             if(hordeBoss?.Character!=null&&!hordeBoss.Killed&&!hordeBossEnraged&&hordeBoss.Character.GetHealth()<=hordeBoss.MaxHealth*.5f) {
                 hordeBossEnraged=true;ConfigureDragonFlight(hordeBoss.Character);
-                ShowVehicleWarning("Moder gerät in Zorn! Ihre Angriffe werden stärker.");
+                ShowVehicleWarning("Moder is enraged! Her attacks grow stronger.");
             }
             bool pending=hordeWave.Pending;
             int wave=hordeWave.Number;
@@ -50,17 +50,17 @@ public partial class Plugin {
             if(hordeWave.Number!=wave){RemoveHordeMembers();EndHordeWave();hordeGroup=-1;hordeWaveKills=0;hordeRequiredAlive=0;hordePactSelection=0;}
             else if(pending&&!hordeWave.Pending) {
                 Logger.LogInfo("Forest horde wave "+wave+": "+hordeWave.Spawned+" / "+hordeWave.Size+" enemies; "+hordeWave.Attempts+" placement attempts.");
-                if(hordeWave.NoGround){ClearHorde();ShowVehicleWarning("Kein freier Boden für die Horde. Suche eine offene Fläche.");}
-                else if(hordeWave.Spawned<hordeWave.Size){hordeCompleteRoster=false;ShowVehicleWarning("Zu wenig freier Boden. Eine kleinere Horde greift an.");}
+                if(hordeWave.NoGround){ClearHorde();ShowVehicleWarning("No clear ground for the horde. Find an open area.");}
+                else if(hordeWave.Spawned<hordeWave.Size){hordeCompleteRoster=false;ShowVehicleWarning("Not enough clear ground. A smaller horde attacks.");}
             }
             if(hordeWave.Completed)FinishHordeGame(true);
-        }catch(Exception error){Logger.LogWarning("Test horde stopped: "+error);ClearHorde();ShowVehicleWarning("Horde konnte nicht erstellt werden. Siehe BepInEx-Log.");}
+        }catch(Exception error){Logger.LogWarning("Test horde stopped: "+error);ClearHorde();ShowVehicleWarning("Could not spawn the horde. See the BepInEx log.");}
     }
     void StartHorde(Player local) {
         if(local==null||local.IsDead()||local.IsTeleporting())return;
-        if(Multiplayer()){ShowVehicleWarning("Nur in einer lokalen Einzelspieler-Testwelt verwenden.");return;}
-        if(hordeWave.Active||CountHordeAlive()>0){ShowVehicleWarning("Eine Horde ist noch aktiv. Numpad 0 entfernt sie.");return;}
-        if(!driving||IsHummer||Flying||!DriverInputReady||turret==null||!turret.ExplosiveAvailable){ShowVehicleWarning("Hordenmodus: im 350Z mit geladenem Turret auf dem Boden starten.");return;}
+        if(Multiplayer()){ShowVehicleWarning("Use only in a local single-player test world.");return;}
+        if(hordeWave.Active||CountHordeAlive()>0){ShowVehicleWarning("A horde is still active. Numpad 0 removes it.");return;}
+        if(!driving||!current.Profile.capabilities.turret||Flying||!DriverInputReady||turret==null||!turret.ExplosiveAvailable){ShowVehicleWarning("Horde mode: start on the ground, seated in a vehicle with a loaded turret.");return;}
         ClearHorde();
         var scene=ZNetScene.instance;
         if(scene==null||ZoneSystem.instance==null||ZDOMan.instance==null)return;
@@ -92,7 +92,7 @@ public partial class Plugin {
     void RegisterHordeKill(HordeMember member) {
         if(member.Killed)return;
         member.Killed=true;hordeWaveKills++;hordeRun.Kill(member.Prefab);
-        if(member==hordeBonusTarget&&hordeBonus.Claim()){hordeRun.Bonus();ShowVehicleWarning("Jagdauftrag erfüllt: +500 Punkte und +250 HP!");}
+        if(member==hordeBonusTarget&&hordeBonus.Claim()){hordeRun.Bonus();ShowVehicleWarning("Hunt complete: +500 points and +250 HP!");}
     }
     void ConfigureHordeMember(HordeMember member) {
         var enemy=member.Character.gameObject;

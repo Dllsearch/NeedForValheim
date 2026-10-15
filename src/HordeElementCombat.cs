@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Bounded visual pool and a single chain per cooldown; no recursive hit callbacks.
 public sealed class HordeElementCombat : IDisposable {
     readonly LineRenderer[] bolts=new LineRenderer[16];

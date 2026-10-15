@@ -1,6 +1,6 @@
 using System;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Shared acoustic/HUD load model, not NFS's recovered boost physics.
 // ChargeTime=.5 and sample gain ratios come from the 350Z's TurboDataSet 08.
 // Pressure scale, dynamic gain and vacuum/flutter timing are NFVU2 adaptations.

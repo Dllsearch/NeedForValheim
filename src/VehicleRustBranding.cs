@@ -1,5 +1,5 @@
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     void DrawRustMenuBadge(Rect button) {
         var logo=menuAssets?.RustLogo;

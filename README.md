@@ -9,8 +9,15 @@ or take off and fly. Viking transportation got a little out of hand.
 
 ### What you get
 
-- Nissan 350Z and Hummer H2, with road, off-road and flight modes; drift mode for the 350Z.
+The source build includes the expanded garage below; the published installer is still v0.28.0.
+
+- A 76-car local garage: 30 Underground 2 cars and the 46 Racing entries from the installed Most Wanted roster, with separate U2/MW tabs, saved rosters and three named builds per model.
+- Stage 1–3 engine, turbo, transmission, tyre, brake and NOS upgrades; paint, vinyls, bodykits, bumpers, hoods, spoilers, roof scoops, brakes and branded rims. MW includes all four native wheel-size variants, native decal slots/logos, window tint and original acceleration/coast engine stages.
 - Nitro, neon, wheel and exhaust tuning, vehicle sounds, radio and a 350Z roof turret.
+- Buildable garage service bay, prototype 1-Coin purchases/upgrades, live car map
+  markers, visible driver controls and optional road dust/grime/wet paint.
+- Separate U2/MW radio stations, saved EA TRAX exclusions and shuffled playback;
+  switchable original U2/MW menu artwork and frontend sounds.
 - Horde mode, cargo storage, controller support and English/German menus.
 
 ### Install & drive
@@ -23,9 +30,21 @@ Windows 10/11, 64-bit. **Single-player only**; cars are temporary and are not sa
 2. Click **Install / Update**. Music is included; BepInEx is installed if needed.
 3. Launch Valheim, enter a single-player world and press **F9 / L3 → Garage** to spawn a car.
 
+The local development build also opens from **Inventory → CARS / GARAGE**.
+Use **E** at a car to enter, **Shift+E** to customize, and **Tab** while seated to open
+the frontend. **My garage → REMOVE** removes a parked car; duplicate models are blocked.
+
 **F7 / B (Xbox) / Circle (PlayStation)** enters or exits a car.
 Drive with **WASD** or the **left stick + triggers**. On-screen hints show the rest.
-Customization and language settings are in **F9 / L3**.
+Customization and language settings are in **F9 / L3**. See the [garage guide](docs/GARAGE.md) for the current local development build; the linked release installer retains its published feature set.
+The source build adds **Hammer → Crafting → NFS Garage**; see the
+[station and test prices](docs/GARAGE_STATION.md), [driver](docs/DRIVER.md) and
+[menu designs / EA TRAX](docs/TRAX.md) guides.
+
+The [Most Wanted (2005) importer](docs/MW_IMPORT.md) reads all 46 Racing entries
+from your own PC installation, including original parts, vinyls, decals and engine
+banks. Original chassis/performance data is retained; driving and Stage 1–3 remain
+NFVU2 adaptations. The archived BMW M3 uses an explicitly recorded GTR data donor.
 
 To update or uninstall, run the installer again and select the same game.
 

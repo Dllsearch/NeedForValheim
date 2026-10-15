@@ -8,7 +8,8 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
 from project import LOCAL
 from nfs_formats import TexturePack,bin_hash,jdlz
 from export_geometry import parse
-from export_rachel import wheel_source_radius,wheel_geometry,wheel_finish_sections,exhaust_mouths,sport_brake_geometry,rear_lens_sections
+from vehicle_geometry import wheel_source_radius,wheel_geometry,wheel_finish_sections,exhaust_mouths,sport_brake_geometry
+from vehicle_preset import rear_lens_sections
 
 
 class AssetImportTests(unittest.TestCase):

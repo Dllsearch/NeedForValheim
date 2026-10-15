@@ -6,7 +6,7 @@ public sealed class Collider {public Heightmap map;public T GetComponentInParent
 public struct RaycastHit {public Collider collider;public Vector3 point;}
 public static class Mathf {public static float Min(float a,float b)=>Math.Min(a,b);}
 }
-namespace Rachel350Z {public struct ModelVertex {public float x,y,z;}}
+namespace NeedForValheim {public struct ModelVertex {public float x,y,z;}}
 public class TerrainModifier {public enum PaintType {Dirt}}
 public class TerrainOp {
  public class Settings {

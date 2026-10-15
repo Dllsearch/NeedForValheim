@@ -1,7 +1,7 @@
 using System;
 using BepInEx.Configuration;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     ConfigEntry<bool> dynamicCamera,hudEnabled,hudMph;
     ConfigEntry<int> hudDesign;
@@ -19,21 +19,21 @@ public partial class Plugin {
         hudColor=Config.Bind("HUD","Color","Cyan",new ConfigDescription("Gauge accent colour.",new AcceptableValueList<string>(ColorNames)));
         if(driftMode.Value)terrainMode.Value=false;
     }
-    void ApplyDriveMode(){if(Flying)return;if(EffectiveDrift&&!IsHummer)handling?.SetDriftMode();else handling?.SetTerrainMode(EffectiveTerrain);if(IsHummer&&body!=null)HummerTuning.Configure(body,wheels);}
-    string DriveModeName=>Flying?(current.flight.State.Landing?"Flugmodus / Landung":current.flight.State.Phase==FlightPhase.Folding?"Flugmodus / Start":"Flugmodus / Schweben"):EffectiveDrift&&!IsHummer?"Drift / Heckantrieb":EffectiveTerrain?"Gelände / Allradhilfe":"Straße / Heckantrieb";
+    void ApplyDriveMode(){if(Flying)return;var caps=current.Profile.capabilities;if(EffectiveDrift&&caps.drift)handling?.SetDriftMode();else handling?.SetTerrainMode(EffectiveTerrain);if(caps.suvTuning&&body!=null)SuvTuning.Configure(body,wheels);else if(body!=null&&current.Profile.sourceGame==CarCatalog.MostWanted)MwChassisTuning.Configure(body,wheels);current.appliedGrip=1;}
+    string DriveModeName=>Flying?(current.flight.State.Landing?"Flight / landing":current.flight.State.Phase==FlightPhase.Folding?"Flight / take-off":"Flight / hovering"):EffectiveDrift&&current.Profile.capabilities.drift?"Drift / rear-wheel drive":EffectiveTerrain?"Off-road / all-wheel assist":"Road / rear-wheel drive";
     void DrawDrivingDisplayMenu() {
         hudEnabled.Value=UiToggle(new Rect(25,142,250,28),hudEnabled.Value," Tacho anzeigen");
         hudMph.Value=UiToggle(new Rect(310,142,210,28),hudMph.Value," MPH statt KM/H");
         hudDesign.Value=UiGrid(new Rect(25,177,510,96),hudDesign.Value,GaugeNames,4);
-        UiLabel(new Rect(25,280,510,24),"Größe  "+Mathf.RoundToInt(hudScale.Value*100)+" %",labelStyle);
+        UiLabel(new Rect(25,280,510,24),"Size  "+Mathf.RoundToInt(hudScale.Value*100)+" %",labelStyle);
         hudScale.Value=UiSlider(new Rect(25,311,510,18),hudScale.Value,.65f,1.4f);
         int selected=Math.Max(0,Array.IndexOf(ColorNames,hudColor.Value));
         hudColor.Value=ColorNames[UiGrid(new Rect(25,343,510,52),selected,ColorNames,4)];
         dynamicCamera.Value=UiToggle(new Rect(25,406,510,28),dynamicCamera.Value," Dynamische Verfolgerkamera");
-        UiLabel(new Rect(25,440,510,25),"Nachziehen: weich                         direkt",mutedStyle);
+        UiLabel(new Rect(25,440,510,25),"Camera follow: smooth                         direct",mutedStyle);
         GUI.enabled=dynamicCamera.Value;
         cameraFollow.Value=UiSlider(new Rect(25,470,510,18),cameraFollow.Value,1,6);GUI.enabled=true;
-        UiLabel(new Rect(25,495,510,24),dashboard==null?"Originalgrafiken fehlen – einfache Anzeige aktiv.":padActive?"RS: Kamera · R3: Hupe":"Mittlere Maustaste: Kamera zentrieren",mutedStyle);
+        UiLabel(new Rect(25,495,510,24),dashboard==null?"Original artwork missing \u00b7 basic display active.":padActive?"RS: camera \u00b7 R3: horn":"Middle mouse: centre camera",mutedStyle);
     }
     void DrawDashboard() {
         if(!driving||body==null||!hudEnabled.Value||audioBlocked||Hud.IsUserHidden())return;
@@ -41,8 +41,8 @@ public partial class Plugin {
         int gear=vehicleAudio?.Gear??(throttle<0?-1:1);
         float charge=ActiveNitro?.Charge??0;
         bool nos=ActiveNitro!=null&&nitroEnabled.Value;
-        if(dashboard==null){UiBox(new Rect(Screen.width-280,Screen.height-VehicleHintBottomInset-75,265,65),Mathf.RoundToInt(HudMath.Speed(speed,hudMph.Value))+(hudMph.Value?" MPH":" KM/H")+" | "+(gear<0?"R":"G "+gear)+"\nNOS "+(nos?Mathf.RoundToInt(charge*100)+" %":"AUS"));return;}
-        dashboard.Draw(hudDesign.Value,hudScale.Value,NeonColors[Math.Max(0,Array.IndexOf(ColorNames,hudColor.Value))],hudMph.Value,speed,rpm,gear,charge,nos,ActiveNitro!=null&&ActiveNitro.Boosting,VehicleHintBottomInset,vehicleAudio?.TurboPressure??0,!IsHummer);
+        if(dashboard==null){UiBox(new Rect(Screen.width-280,Screen.height-VehicleHintBottomInset-75,265,65),Mathf.RoundToInt(HudMath.Speed(speed,hudMph.Value))+(hudMph.Value?" MPH":" KM/H")+" | "+(gear<0?"R":"G "+gear)+"\nNOS "+(nos?Mathf.RoundToInt(charge*100)+" %":"OFF"));return;}
+        dashboard.Draw(hudDesign.Value,hudScale.Value,NeonColors[Math.Max(0,Array.IndexOf(ColorNames,hudColor.Value))],hudMph.Value,speed,rpm,gear,charge,nos,ActiveNitro!=null&&ActiveNitro.Boosting,VehicleHintBottomInset,vehicleAudio?.TurboPressure??0,current.Profile.capabilities.turbo);
     }
 }
 }

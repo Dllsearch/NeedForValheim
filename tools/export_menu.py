@@ -1,4 +1,4 @@
-"""Import selected original NFSU2 menu icons, German labels and navigation clips.
+"""Import selected original NFSU2 menu icons, local labels and navigation clips.
 
 NFVU2 authors the layout and actions. Frontend bank roles are configurable;
 their exact original event-to-substream mapping awaits an in-game comparison.
@@ -35,8 +35,8 @@ def language_table(data):
 
 
 def export(navigate=1, accept=3, back=2):
-    names = ['FRONTEND/FrontB.lzc', 'LANGUAGES/Labels.bin', 'LANGUAGES/German.bin',
-             'SOUND/GLOBAL/FE_COMMON_MB.abk']
+    names = ['FRONTEND/FrontB.lzc', 'LANGUAGES/Labels.bin', 'LANGUAGES/English.bin',
+             'SOUND/GLOBAL/FE_COMMON_MB.abk','TRACKS/STREAML4RR.BUN']
     extract_missing(names)
     root = LOCAL / 'nfs-assets'
     out = LOCAL / 'menu'
@@ -55,13 +55,26 @@ def export(navigate=1, accept=3, back=2):
             name, image, _ = pack.decode(key)
             icons.append(rgba(name, image))
     labels = language_table((root / names[1]).read_bytes())
-    german = language_table((root / names[2]).read_bytes())
-    localized = {label: german[key] for key, label in labels.items() if key in german}
+    language=language_table((root / names[2]).read_bytes())
+    localized = {label: language[key] for key, label in labels.items() if key in language}
     label_keys = ['VISUAL_PART_BODY_KIT', 'OPT_AUDIO', 'VISUAL_PART_HEAD_LIGHT', None,
                   'PERF_CATEGORY_NOS', 'VISUAL_PART_RIMS', None, 'TRUNK_AUDIO_TITLE', None, None, 'THE_CRIB_TITLE']
     titles = [localized[key] if key else None for key in label_keys]
     (out / 'menu.json').write_text(json.dumps(dict(schemaVersion=1, icons=icons, titles=titles),
                                              separators=(',', ':')), encoding='utf-8')
+    art={}
+    for role,key in {'logo':0x7609b60a,'fx':0x36d935f7,'arrow':0xfe27b71b,'backing':0x649da61e}.items():
+        name,image,_=pack.decode(key);art[role]=rgba(name,image)
+    floor=TexturePack(root/names[4]);name,image,_=floor.decode(0xb064beda)
+    art['garage_floor']=rgba(name,image)
+    aliases={'h2':'HUMMER','350z':'350Z','mustanggt':'MUSTANGG','imprezawrx':'IMPREZAW','peugot106':'PEUGOT10','lancerevo8':'LANCEREV'}
+    from mod_files import CARS
+    for car in ('350z','h2',*CARS):
+        wanted='SECONDARY_LOGO_'+aliases.get(car,car.upper())
+        key=next((key for key,pos in pack.records.items() if pack.data[pos:pos+24].split(b'\0')[0].decode('ascii','replace')==wanted),None)
+        if key is not None:
+            name,image,_=pack.decode(key);art['car_'+car]=rgba(name,image)
+    (out/'frontend.json').write_text(json.dumps(art,separators=(',',':')),encoding='utf-8')
     bank = root / names[3]
     files = [prepare_clip(vgmstream_path(), bank, index, out / (role + '.wav'), False)
              for role, index in [('navigate', navigate), ('accept', accept), ('back', back)]]

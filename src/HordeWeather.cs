@@ -1,6 +1,6 @@
 using System;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Local presentation override: never advance the saved world's clock.
 public sealed class HordeWeather : IDisposable {
     public const float TransitionSeconds=8;

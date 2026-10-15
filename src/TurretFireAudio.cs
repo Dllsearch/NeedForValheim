@@ -1,6 +1,6 @@
 using System;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // PlayOneShot stacks a separate voice for every call. A three-second tail at
 // 450 rpm used over twenty voices alone. Keep full shot transients plus two tails.
 public sealed class TurretFireAudio {

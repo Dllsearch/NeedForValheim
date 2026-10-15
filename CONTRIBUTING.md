@@ -16,7 +16,15 @@ Player installation belongs in the [README](README.md).
   `curl.exe`. The .NET SDK is only a developer requirement.
 
 Copy `config.example.json` to ignored `config.local.json` and set your paths.
-Install Python dependencies with `python -m pip install -r requirements.txt`.
+Create an isolated project environment and install its Python dependencies:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Use `.\.venv\Scripts\python.exe` in place of `python` in the commands below;
+activation is optional. The environment is ignored by Git.
 Game, Unity and BepInEx references are read from your installation; no game
 libraries are checked in and the build does not need a NuGet restore.
 
@@ -27,15 +35,14 @@ and decoder:
 
 ```powershell
 python tools/extract_assets.py
-python tools/export_geometry.py
-python tools/export_rachel.py
+python tools/export_car.py 350z
 python tools/extract_audio.py
 python tools/decode_audio.py
 python tools/prepare_audio.py
 ```
 
 This supplies the required model and 19 embedded vehicle WAV resources.
-Optional HUD, menu, effects, Hummer, turbo, radio, interior and turret import
+Optional HUD, menu, effects, H2, turbo, radio, interior and turret import
 commands and source details are in [ASSET_PIPELINE](docs/ASSET_PIPELINE.md).
 The stock 350Z is the base; imported tuning pieces do not establish a complete
 reconstruction of Rachel's appearance or driving behaviour.
@@ -88,6 +95,28 @@ Valheim release. Record those checks separately in the roadmap.
 
 `src/NFVU2.csproj` supports editors; set `ValheimDir` or `NFVU2_VALHEIM` locally.
 The supported build entry point remains `tools/build.py`.
+
+## Vehicle catalog
+
+`src/CarProfile.cs` describes every vehicle: chassis numbers, feature switches,
+the acoustic gearbox and the asset layout. A `cars.json` next to the plugin DLL
+overrides the built-in 350Z/H2 by id and appends additional cars, the garage
+offers every catalog id in `Garage/SpawnModel`, and each car gets its own
+prefixed settings sections. Field meanings, defaults, validation limits and
+which capabilities are wired today are documented in
+[CARS_JSON](docs/CARS_JSON.md).
+
+Catalog loading and validation need no game assets, so they run on a compile-only
+build:
+
+```powershell
+python tools/build.py --compile-only
+python tools/test.py --skip-build --suite carprofile --suite storage --suite controls
+```
+
+A new car also needs a model export in the NFVU2 schema. The NFS Underground 2
+importers for the remaining cars do not exist yet, so `cars.json` alone cannot
+spawn one.
 
 ## Build the player installer
 
@@ -175,7 +204,14 @@ manual file replacement.
 - `tests/`: Python and C# checks; `docs/`: sources, detailed notes and roadmap.
 - `.local/`, `artifacts/`, `config.local.json`: ignored machine data and output.
 
-Keep the plugin ID `local.rachel350z.prototype` and filename `Rachel350Z.dll`.
+Keep the plugin ID `local.needforvalheim.prototype` and filename `NeedForValheim.dll`.
+Write source text, comments and documentation in English. UI strings are English
+source text; `src/InterfaceText.cs` is the English->German locale table, and
+`Interface.Language` defaults to `EN`. Name the built-in SUV by its own identity
+(`h2` id, `h2.` config prefix, `h2/` and `audio/h2/` asset folders) and name
+behaviour after the capability (`SuvTuning`, `IsSuv`, `suvEngine`, `suvTuning`);
+never reintroduce the car's name as a generic flag. NFSU2 source identifiers
+(`CARS/HUMMER/`, `HUMMER_KIT00_*`, `GIN_Hummer.gin`) are literal game data.
 Keep handling changes separate from audio/visual changes where possible; the
 0.1.4 handling is the established in-game baseline. Explain what changed, why,
 which checks passed and which in-game checks remain. Add user-facing changes

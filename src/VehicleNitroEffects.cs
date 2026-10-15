@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Original NFS texture atlases, with particle motion/timing recreated for Unity.
 // This component has no authority over boost forces, fuel or vehicle handling.
 public sealed class VehicleNitroEffects : IDisposable {
@@ -19,7 +19,7 @@ public sealed class VehicleNitroEffects : IDisposable {
     Material flameMaterial;
     Color flameColor;
     ModelExhaustVariant[] exhaustVariants;
-    int exhaustStyle=-1;
+    int exhaustStyle=-1,atlasColumns=2,atlasRows=2;
     public void SetExhaustStyle(int style) {
         if(disposed||exhaustVariants==null||style==exhaustStyle)return;
         var variant=Array.Find(exhaustVariants,v=>v.style==style);
@@ -87,29 +87,30 @@ public sealed class VehicleNitroEffects : IDisposable {
             return effects;
         } catch (Exception error) {
             effects.Dispose();
-            log("350Z nitro visuals unavailable: " + error.Message);
+            log("Vehicle nitro visuals unavailable: " + error.Message);
             return null;
         }
     }
 
     void Initialize(GameObject car, ModelData model, Action<string> log) {
         if (model.effectEmitters == null || model.effectEmitters.Length == 0) {
-            log("350Z nitro visuals: model has no effect emitters; re-export the visual model.");
+            log("Vehicle nitro visuals: model has no effect emitters; re-export the visual model.");
             return;
         }
-        root = new GameObject("350Z_NitroEffects");
+        atlasColumns=model.nitroAtlasColumns;atlasRows=model.nitroAtlasRows;
+        root = new GameObject("Vehicle_NitroEffects");
         root.transform.SetParent(car.transform, false);
         exhaustVariants=model.exhaustVariants;
         Material flame = null, purge = null, pop = null;
         if (model.nitroFlameTexture >= 0 && model.nitroFlameTexture < model.textures.Length) {
             var texture = CreateMask(model.textures[model.nitroFlameTexture], false);
-            flame = CreateMaterial(texture, "350Z_NitroFlame", new Color(.12f, 1f, .025f, 1f));
+            flame = CreateMaterial(texture, "Vehicle_NitroFlame", new Color(.12f, 1f, .025f, 1f));
             flameMaterial=flame;
-            pop = CreateMaterial(texture, "350Z_Backfire", new Color(1f, .52f, .08f, 1f));
+            pop = CreateMaterial(texture, "Vehicle_Backfire", new Color(1f, .52f, .08f, 1f));
         }
         if (model.nitroPurgeTexture >= 0 && model.nitroPurgeTexture < model.textures.Length) {
             var texture = CreateMask(model.textures[model.nitroPurgeTexture], true);
-            purge = CreateMaterial(texture, "350Z_NitrousPurge", new Color(.82f, .94f, 1f, 1f));
+            purge = CreateMaterial(texture, "Vehicle_NitrousPurge", new Color(.82f, .94f, 1f, 1f));
         }
         foreach (var emitter in model.effectEmitters) {
             if (emitter.role == "exhaust" && flame != null) {
@@ -119,7 +120,7 @@ public sealed class VehicleNitroEffects : IDisposable {
                 jets.Add(CreateEmitter(emitter, purge, true, false));
             }
         }
-        log("350Z nitro visuals: " + flames.Count + " green exhaust jets, " + jets.Count +
+        log("Vehicle nitro visuals: " + flames.Count + " green exhaust jets, " + jets.Count +
             " purge jets; original NFS effect textures, Unity particle motion.");
     }
 
@@ -191,7 +192,7 @@ public sealed class VehicleNitroEffects : IDisposable {
         var color = system.colorOverLifetime; color.enabled = true; color.color = gradient;
         // Both imported atlases contain four authored sprites arranged 2 x 2.
         var sheet = system.textureSheetAnimation;
-        sheet.enabled = true; sheet.numTilesX = 2; sheet.numTilesY = 2;
+        sheet.enabled = true; sheet.numTilesX = atlasColumns; sheet.numTilesY = atlasRows;
         sheet.animation = ParticleSystemAnimationType.WholeSheet;
         sheet.frameOverTime = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0f, 1f, 1f));
         sheet.startFrame = new ParticleSystem.MinMaxCurve(0f, 1f); sheet.cycleCount = 1;

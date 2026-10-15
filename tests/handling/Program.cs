@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 using UnityEngine;
-using Rachel350Z;
+using NeedForValheim;
 class HandlingTests {
     static int checks,failures;
     static void Check(bool ok,string name){checks++;if(!ok)failures++;Console.WriteLine((ok?"PASS ":"FAIL ")+name);}
@@ -32,6 +32,20 @@ class HandlingTests {
                 height.Apply(8);height.Apply(invalid);
                 Check(wheels.All(w=>w.transform.localPosition.y==stock),"reset or invalid lowering restores exact original anchors: "+invalid);
             }
+        }
+        foreach(float mass in new[]{850f,1450f,5000f}) {
+            var body=new Rigidbody{mass=mass};var wheels=Wheels(true);
+            for(int i=0;i<4;i++)wheels[i].transform.localPosition=new Vector3(i%2==0?-.8f:.8f,i<2?.32f:.36f,i<2?1.4f:-1.2f);
+            var controller=new VehicleHandling(body,wheels,true);var height=new VehicleRideHeight(body,wheels,true);
+            foreach(bool terrain in new[]{true,false,true,false})foreach(float cm in new[]{0f,12f,8f,0f}) {
+                controller.SetTerrainMode(terrain);MwChassisTuning.Configure(body,wheels);height.Apply(cm);
+                Check(wheels.Select((w,i)=>Math.Abs(w.transform.localPosition.y-w.suspensionDistance*(1-w.suspensionSpring.targetPosition)-(i<2?.32f:.36f)-cm*.01f)<.00001f).All(ok=>ok),"MW resting hubs retain imported height across modes and lowering, mass="+mass+", terrain="+terrain+", cm="+cm);
+                int wakes=body.wakeCalls;height.Apply(cm);
+                Check(body.wakeCalls==wakes,"unchanged MW fit lets parked body sleep");
+                Check(wheels.All(w=>w.suspensionDistance==(terrain?.4f:.24f)),"MW rest alignment preserves full suspension travel");
+            }
+            controller.SetDriftMode();height.Apply(0);
+            Check(wheels.All(w=>Math.Abs(w.transform.localPosition.y-w.suspensionDistance*.55f-(w.transform.localPosition.z>0?.32f:.36f))<.00001f),"MW drift restores road rest height");
         }
         foreach(bool terrain in new[]{false,true}) {
             var body=new Rigidbody();var wheels=Wheels(false);
@@ -123,15 +137,39 @@ class HandlingTests {
         }
         foreach(bool terrain in new[]{false,true}) {
             var body=new Rigidbody{mass=2900};var wheels=Wheels(true);
-            var controller=new VehicleHandling(body,wheels,terrain);HummerTuning.Configure(body,wheels);
+            var controller=new VehicleHandling(body,wheels,terrain);SuvTuning.Configure(body,wheels);
             Check(wheels.All(w=>w.suspensionSpring.spring==(terrain?84000:96000))&&body.centerOfMass.y==.2f,"H2 supports its heavier body without altering 350Z defaults, terrain="+terrain);
-            for(int i=0;i<100;i++){controller.Step(true,1,0,0);HummerTuning.AfterStep(wheels);}
+            for(int i=0;i<100;i++){controller.Step(true,1,0,0);SuvTuning.AfterStep(wheels);}
             float torque=wheels.Sum(w=>w.motorTorque);
             Check(Math.Abs(torque-(terrain?6200:4262.5f)*2.35f)<1,"H2 torque scaling does not accumulate between ticks, terrain="+terrain);
-            controller.Step(false,0,0,0);HummerTuning.AfterStep(wheels);
+            controller.Step(false,0,0,0);SuvTuning.AfterStep(wheels);
             Check(wheels.All(w=>w.motorTorque==0&&w.brakeTorque==6400),"parked H2 holds all wheels, terrain="+terrain);
-            controller.SetTerrainMode(terrain);HummerTuning.Configure(body,wheels);
+            controller.SetTerrainMode(terrain);SuvTuning.Configure(body,wheels);
             Check(wheels.All(w=>w.suspensionSpring.spring==(terrain?84000:96000)),"H2 mode reapplication keeps spring values stable, terrain="+terrain);
+        }
+        foreach(bool terrain in new[]{false,true}) {
+            var stockBody=new Rigidbody();var tunedBody=new Rigidbody();var stockWheels=Wheels(true);var tunedWheels=Wheels(true);
+            var stock=new VehicleHandling(stockBody,stockWheels,terrain);var tuned=new VehicleHandling(tunedBody,tunedWheels,terrain);
+            float torque=PerformanceTuning.Torque(3,3,3),speed=PerformanceTuning.Speed(3,3,3),brakes=PerformanceTuning.Brakes(3);
+            for(int i=0;i<100;i++){stock.Step(true,1,0,0);tuned.Step(true,1,0,0,false,false,torque,speed,brakes);}
+            Check(tunedWheels.Sum(w=>w.motorTorque)>stockWheels.Sum(w=>w.motorTorque)*1.7f,"engine and turbo increase actual wheel torque, terrain="+terrain);
+            stockBody.linearVelocity=tunedBody.linearVelocity=new Vector3(0,0,terrain?23:37);
+            stock.Step(true,1,0,0);tuned.Step(true,1,0,0,false,false,torque,speed,brakes);
+            Check(stockWheels.All(w=>w.motorTorque==0)&&tunedWheels.Any(w=>w.motorTorque>0),"transmission extends forward speed limiter, terrain="+terrain);
+            stock.Step(true,0,0,1);tuned.Step(true,0,0,1,false,false,torque,speed,brakes);
+            Check(Math.Abs(tunedWheels[0].brakeTorque/stockWheels[0].brakeTorque-brakes)<.001f,"brake upgrades increase service brake torque");
+            stock.Step(false,0,0,0);tuned.Step(false,0,0,0,false,false,torque,speed,brakes);
+            Check(stockWheels[0].brakeTorque==tunedWheels[0].brakeTorque,"parking brake remains unchanged by upgrades");
+            stockBody.linearVelocity=tunedBody.linearVelocity=new Vector3(0,0,-9);
+            for(int i=0;i<100;i++){stock.Step(true,-1,0,0);tuned.Step(true,-1,0,0,false,false,torque,speed,brakes);}
+            Check(tunedWheels.All(w=>w.motorTorque==0),"transmission does not raise reverse speed limit");
+        }
+        foreach(float mass in new[]{950f,1450f,2900f,5000f})foreach(bool terrain in new[]{false,true}) {
+            var body=new Rigidbody{mass=mass};var wheels=Wheels(true);var controller=new VehicleHandling(body,wheels,terrain);
+            MwChassisTuning.Configure(body,wheels);float expected=(terrain?42000:48000)*mass/1450;
+            Check(wheels.All(w=>Math.Abs(w.suspensionSpring.spring-expected)<.1f),"MW spring load follows source mass "+mass+" terrain="+terrain);
+            Check(wheels.Sum(w=>w.suspensionSpring.spring*w.suspensionDistance)>mass*9.81f*2,"MW suspension can support its original mass with travel reserve "+mass);
+            MwChassisTuning.Configure(body,wheels);Check(wheels.All(w=>Math.Abs(w.suspensionSpring.spring-expected)<.1f),"MW mode reapplication cannot compound spring scaling");
         }
         Console.WriteLine(checks+" controller checks; "+failures+" failed. These checks do not simulate Unity physics.");
         Environment.ExitCode=failures==0?0:1;

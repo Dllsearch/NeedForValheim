@@ -1,4 +1,4 @@
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Session state is independent of Unity rendering so entry, manual override,
 // braking and exit behaviour can be exercised without a running game.
 public sealed class VehicleLightingState {

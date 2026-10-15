@@ -20,8 +20,8 @@ class WizardTests(unittest.TestCase):
             root = Path(temp)
             mod = root/'mod'
             (mod/'radio').mkdir(parents=True)
-            for name in ('Rachel350Z.dll', 'body.json', 'private-plugin.dll', 'config.local.json', 'radio/song.wav'):
-                (mod/name).write_bytes(b'fixture')
+            for name in ('NeedForValheim.dll', 'body.json', 'cars.json', 'private-plugin.dll', 'config.local.json', 'radio/song.wav'):
+                (mod/name).write_bytes(b'[]' if name=='cars.json' else b'fixture')
             loader = root/'loader.zip'
             with zipfile.ZipFile(loader, 'w') as archive:
                 for name in ('winhttp.dll', 'doorstop_config.ini', 'BepInEx/core/BepInEx.dll',
@@ -43,8 +43,8 @@ class WizardTests(unittest.TestCase):
             root = Path(temp)
             mod = root/'mod'
             mod.mkdir()
-            for name in ('Rachel350Z.dll', 'body.json'):
-                (mod/name).write_bytes(b'fixture')
+            for name in ('NeedForValheim.dll', 'body.json', 'cars.json'):
+                (mod/name).write_bytes(b'[]' if name=='cars.json' else b'fixture')
             with self.assertRaisesRegex(ValueError, 'Radio music is required'):
                 build_installer.make_payload(root/'payload.zip', mod, root/'loader.zip')
             self.assertFalse((root/'payload.zip').exists())

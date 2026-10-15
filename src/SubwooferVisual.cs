@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Each slot owns its animated copy; Plugin's cached source meshes remain untouched.
 public sealed class SubwooferVisual : IDisposable {
     Mesh mesh;

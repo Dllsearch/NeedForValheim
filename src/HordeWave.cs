@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Pure encounter state; the Unity adapter supplies placement and living counts.
 public sealed class HordeWave {
     public const int WaveCount=5,MaxAlive=24,AttemptsPerEnemy=12;
@@ -9,7 +9,7 @@ public sealed class HordeWave {
     public HordePact[] Offers {get;private set;}=Array.Empty<HordePact>();
     public static readonly string[] Prefabs={"Greyling","Greydwarf","Greydwarf_Elite","Greydwarf_Shaman","Dragon","Skeleton","Draugr","Wolf","Goblin","GoblinBrute","Hatchling"};
     static readonly int[][] Counts={new[]{12,3,0,0,0,0,0,0,0,0,0},new[]{0,6,2,0,0,12,0,0,0,0,0},new[]{0,0,0,2,0,0,10,6,0,0,0},new[]{0,0,0,0,0,0,0,0,12,2,0},new[]{0,0,0,0,1,0,0,0,4,0,2}};
-    static readonly string[] Announcements={"Etwas regt sich im Unterholz …","Die Toten erheben sich!","Fäulnis und Fänge jagen dich!","Die Krieger der Ebenen greifen an!","Moders Schwingen verdunkeln den Himmel!"};
+    static readonly string[] Announcements={"Something stirs in the undergrowth \u2026","The dead rise!","Rot and fangs hunt you!","The warriors of the plains attack!","Moder's wings darken the sky!"};
     string[] roster=Array.Empty<string>();
     float delay;
     int slotAttempts;

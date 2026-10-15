@@ -1,6 +1,6 @@
 using System;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // One continuous music stream; opening the cabin changes its exterior mix
 // and moves its apparent origin towards the open door(s) or hatch.
 public readonly struct RadioAcousticMix {

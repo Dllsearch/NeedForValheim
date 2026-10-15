@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 public sealed class WavData {
     public int SampleRate,Channels;
     public float[] Samples;

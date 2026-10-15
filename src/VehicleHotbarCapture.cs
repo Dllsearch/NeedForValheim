@@ -3,7 +3,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // HotkeyBar reads input independently of PlayerController. Filter only its
 // button results so icon refresh, durability and stack counts keep updating.
 [HarmonyPatch(typeof(HotkeyBar), "Update")]

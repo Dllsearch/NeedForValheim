@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Uses Valheim's damage path for resistance, knockback, death, drops and effects.
 public sealed class VehicleImpact : MonoBehaviour {
     readonly VehicleImpactCooldown cooldown=new VehicleImpactCooldown();
@@ -90,7 +90,7 @@ public sealed class VehicleImpact : MonoBehaviour {
             hit.SetAttacker(driver);
             if(vegetation){hit.m_damage.m_chop=damage;plant.Damage(hit);}
             else {hit.m_damage.m_blunt=damage*EnemyDamageMultiplier;character.Damage(hit);}
-        }catch(Exception e){failed=true;driver=null;log?.Invoke("350Z impact damage disabled: "+e);}
+        }catch(Exception e){failed=true;driver=null;log?.Invoke("Vehicle impact damage disabled: "+e);}
     }
 }
 }

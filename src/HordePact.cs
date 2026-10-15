@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public enum HordePact {None,Odin,Thor,Iron,Frost,Storm,Valkyrie}
 public static class HordePacts {
     public const float BaseEnemyDamage=1.2f;
@@ -11,9 +11,9 @@ public static class HordePacts {
     public static float Impact(HordePact pact)=>pact==HordePact.Iron?2:1;
     public static float Turret(HordePact pact)=>pact==HordePact.Iron?.75f:pact==HordePact.Storm?.8f:1;
     public static bool Elemental(HordePact pact)=>pact==HordePact.Frost||pact==HordePact.Storm;
-    public static string Name(HordePact pact)=>pact==HordePact.Odin?"Odins Eile":pact==HordePact.Thor?"Thors Zorn":pact==HordePact.Iron?"Eiserner Wagen":pact==HordePact.Frost?"Skadis Winter":pact==HordePact.Storm?"Sturmkette":pact==HordePact.Valkyrie?"Wacht der Walküre":"Ohne Pakt";
-    public static string Benefit(HordePact pact)=>pact==HordePact.Odin?"40 % kürzere Nachladezeit":pact==HordePact.Thor?"Explosivmunition für die ganze Welle":pact==HordePact.Iron?"Doppelter Überfahrschaden":pact==HordePact.Frost?"Eismunition: friert Gegner kurz ein":pact==HordePact.Storm?"Blitzmunition: springt auf bis zu 3 Gegner":pact==HordePact.Valkyrie?"Autoturret für die ganze Welle":"Keine Veränderungen";
-    public static string Cost(HordePact pact)=>pact==HordePact.Odin?"Gegner laufen 20 % schneller":pact==HordePact.Thor?"Gegner haben 35 % mehr Leben":pact==HordePact.Iron?"25 % weniger Turret-Schaden":pact==HordePact.Frost?"20 % längere Nachladezeit; Bosse werden nur verlangsamt":pact==HordePact.Storm?"20 % weniger direkter Kugelschaden":pact==HordePact.Valkyrie?"Gegner verursachen 25 % mehr Schaden":"Kein zusätzlicher Nachteil";
+    public static string Name(HordePact pact)=>pact==HordePact.Odin?"Odin's Haste":pact==HordePact.Thor?"Thor's Wrath":pact==HordePact.Iron?"Iron Chariot":pact==HordePact.Frost?"Skadi's Winter":pact==HordePact.Storm?"Storm Chain":pact==HordePact.Valkyrie?"Valkyrie's Watch":"No pact";
+    public static string Benefit(HordePact pact)=>pact==HordePact.Odin?"40% shorter reload time":pact==HordePact.Thor?"Explosive ammunition for the entire wave":pact==HordePact.Iron?"Double run-over damage":pact==HordePact.Frost?"Ice ammunition: briefly freezes enemies":pact==HordePact.Storm?"Lightning jumps to up to 3 nearby enemies":pact==HordePact.Valkyrie?"Automatic turret for the entire wave":"No changes";
+    public static string Cost(HordePact pact)=>pact==HordePact.Odin?"Enemies move 20% faster":pact==HordePact.Thor?"Enemies have 35% more health":pact==HordePact.Iron?"25% less turret damage":pact==HordePact.Frost?"20% longer reload; bosses are only slowed":pact==HordePact.Storm?"20% less direct bullet damage":pact==HordePact.Valkyrie?"Enemies deal 25% more damage":"No additional drawback";
     public static HordePact[] Draw(Random random,IReadOnlyList<HordePact> previous,int wave) {
         var pool=wave>=5?new[]{HordePact.Odin,HordePact.Thor,HordePact.Iron,HordePact.Frost,HordePact.Storm}
             :new[]{HordePact.Odin,HordePact.Thor,HordePact.Iron,HordePact.Frost,HordePact.Storm,HordePact.Valkyrie};

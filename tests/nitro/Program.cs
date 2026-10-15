@@ -1,5 +1,5 @@
 using System;
-using Rachel350Z;
+using NeedForValheim;
 class NitroTests {
     static int checks;
     static void Check(bool ok,string message){if(!ok)throw new Exception(message);checks++;Console.WriteLine("PASS "+message);}
@@ -82,6 +82,14 @@ class NitroTests {
         Check(!pop.Step(.02f,true,4800,0,10,true),"menu or exit cancels armed lift-off effect");
         for(int i=0;i<30;i++)pop.Step(.02f,true,5000,1,0,true);
         Check(!pop.Step(.02f,true,4800,0,0,true),"stationary revving does not trigger lift-off effect");
+        var upgraded=new NitroState{CapacityMultiplier=1.75f,SpeedMultiplier=1.42f};
+        for(int i=0;i<300;i++)upgraded.Step(.02f,true,false,true,20,20,1,false,true,false);
+        Check(upgraded.Charge>.42f&&upgraded.Charge<.44f,"stage 3 tank lasts longer at the same normalized charge");
+        upgraded.Step(.02f,true,false,true,45,45,1,false,true,false);
+        Check(upgraded.Boosting&&NitroState.Acceleration(true,45,45,true,false,1.42f)>0,"NOS remains available above the stock limiter with transmission upgrades");
+        float upgradedCharge=upgraded.Charge;
+        for(int i=0;i<1000;i++)upgraded.Step(.02f,true,true,false,20,20,1,false,true,false);
+        Check(upgraded.Charge==upgradedCharge,"upgraded NOS cannot refill through the menu");
         VisualChecks.Run(Check);
         Console.WriteLine(checks+" nitro checks passed; actual acceleration, screen rendering and particles require a Unity test.");
     }

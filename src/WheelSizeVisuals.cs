@@ -3,41 +3,52 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Meshes are owned by Plugin.vehicleMeshes; retain immutable source coordinates
 // so repeated slider changes and resets never accumulate geometry errors.
 public sealed class WheelSizeVisuals {
     sealed class Entry {
         public Mesh Mesh;
+        public float Bead,Outside,Nominal;
         public Vector3[] Original,Normals,Vertices,UpdatedNormals;
     }
     readonly List<Entry> entries=new List<Entry>();
-    readonly float bead,outside;
+    readonly float[] beads=new float[2],outsides=new float[2];
     readonly float nominal,min,max;
     float applied;
     public WheelSizeVisuals(ModelData model,float nominal=20,float min=16,float max=22) {
         this.nominal=nominal;this.min=min;this.max=max;applied=nominal;
-        var tyre=model.parts.FirstOrDefault(p=>p.group=="wheel"&&model.materials[p.material].name.StartsWith("78743ca1_",StringComparison.Ordinal));
-        if(tyre==null)throw new InvalidOperationException("Wheel sizing requires the original rubber surface.");
-        var radii=tyre.indices.Select(i=>tyre.vertices[i]).Select(v=>Mathf.Sqrt(v.y*v.y+v.z*v.z)).ToArray();
-        bead=radii.Min();outside=radii.Max();
-        if(bead<=0||outside<=bead*1.1f)throw new InvalidOperationException("Unsupported wheel/tyre proportions.");
+        for(int axle=0;axle<2;axle++) {
+            foreach(var tyre in model.parts.Where(p=>p.group=="wheel"&&ModelFile.ForAxle(p,axle*2)&&(model.materials[p.material].wheelRubber||model.materials[p.material].name.StartsWith("78743ca1_",StringComparison.Ordinal)))) {
+                var radii=tyre.indices.Select(i=>tyre.vertices[i]).Select(v=>Mathf.Sqrt(v.y*v.y+v.z*v.z)).ToArray();
+                float inner=radii.Min(),outer=radii.Max();
+                if(inner<=0||outer<=inner*1.1f)continue;
+                beads[axle]=inner;outsides[axle]=outer;break;
+            }
+            if(outsides[axle]==0) {
+                var rubber=model.parts.Where(p=>p.group=="wheel"&&ModelFile.ForAxle(p,axle*2)&&model.materials[p.material].wheelRubber).SelectMany(p=>p.vertices).ToArray();
+                if(rubber.Length==0)throw new InvalidOperationException("Wheel sizing requires a supported tyre surface.");
+                outsides[axle]=rubber.Max(v=>Mathf.Sqrt(v.y*v.y+v.z*v.z));beads[axle]=Math.Min(nominal*.0254f/2,outsides[axle]*.8f);
+            }
+        }
     }
-    public void Track(Mesh mesh) {
+    public void Track(Mesh mesh,ModelPart part=null) {
         var vertices=mesh.vertices;
-        entries.Add(new Entry{Mesh=mesh,Original=vertices,Normals=mesh.normals,
+        int axle=part?.axle=="rear"?1:0;
+        entries.Add(new Entry{Mesh=mesh,Bead=part!=null&&part.wheelBead>0?part.wheelBead:beads[axle],Outside=part!=null&&part.wheelOutside>0?part.wheelOutside:outsides[axle],Nominal=part!=null&&part.rimInches>0?part.rimInches:nominal,Original=vertices,Normals=mesh.normals,
             Vertices=new Vector3[vertices.Length],UpdatedNormals=new Vector3[vertices.Length]});
+        applied=float.NaN; // A newly selected rim must receive the saved size too.
     }
     public void Apply(float inches) {
         inches=WheelFitMath.Sanitize(inches,min,max,nominal);
         if(inches==applied)return;
-        float scale=inches/nominal;
         foreach(var entry in entries) {
+            float scale=inches/entry.Nominal;
             for(int i=0;i<entry.Original.Length;i++) {
                 var v=entry.Original[i];var n=entry.Normals[i];
                 float radius=Mathf.Sqrt(v.y*v.y+v.z*v.z);
-                if(radius<.000001f||inches==nominal){entry.Vertices[i]=v;entry.UpdatedNormals[i]=n;continue;}
-                WheelFitMath.RadialShape(radius,bead,outside,scale,out var mapped,out var slope);
+                if(radius<.000001f||inches==entry.Nominal){entry.Vertices[i]=v;entry.UpdatedNormals[i]=n;continue;}
+                WheelFitMath.RadialShape(radius,entry.Bead,entry.Outside,scale,out var mapped,out var slope);
                 float ratio=mapped/radius,uy=v.y/radius,uz=v.z/radius;
                 entry.Vertices[i]=new Vector3(v.x,v.y*ratio,v.z*ratio);
                 // Inverse-transpose of the radial deformation preserves the

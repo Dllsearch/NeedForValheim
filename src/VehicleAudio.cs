@@ -5,18 +5,31 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.Audio;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 public sealed class VehicleAudio : IDisposable {
     readonly EngineSoundModel model;
-    readonly bool suv;
+    readonly string vehicleName;
+    readonly bool suvEngine;
+    readonly bool turbo;
+    readonly string engineFolder;
+    readonly string[] engineStages;
+    readonly bool originalCoast;
+    readonly List<AudioSource[]> stagePower=new List<AudioSource[]>(),stageCoast=new List<AudioSource[]>();
+    readonly HashSet<AudioSource> inactiveEngine=new HashSet<AudioSource>();
+    int activeStage;
     readonly int[] bands;
-    public VehicleAudio(bool hummer=false){suv=hummer;model=new EngineSoundModel(hummer);bands=hummer?EngineSoundModel.HummerBands:EngineSoundModel.Bands;}
+    public VehicleAudio(bool suv=false):this(suv?CarCatalog.BuiltInH2():CarCatalog.Nissan350Z()) {}
+    public VehicleAudio(CarProfile profile) {
+        vehicleName=profile.displayName;suvEngine=profile.capabilities.suvEngine;turbo=profile.capabilities.turbo;
+        engineFolder=profile.assets.engineFolder;engineStages=profile.assets.engineStageFolders;originalCoast=profile.assets.engineCoast;bands=profile.sound.rpmBands;
+        model=new EngineSoundModel(profile.sound,profile.rig.wheelRadius);
+    }
     readonly TurboSoundModel turboModel=new TurboSoundModel();
     public float Rpm => model.Rpm;
     public float Load => model.Load;
     public bool IsShifting => model.IsShifting;
     public int Gear => model.Gear;
-    public float TurboPressure => suv?0:turboModel.Pressure;
+    public float TurboPressure => turbo?turboModel.Pressure:0;
     readonly List<AudioClip> clips=new List<AudioClip>();
     readonly List<AudioSource> sources=new List<AudioSource>();
     AudioSource[] power,coast;
@@ -35,14 +48,15 @@ public sealed class VehicleAudio : IDisposable {
     public IEnumerable<int> LoadSteps(GameObject car,Rigidbody carBody,WheelCollider[] carWheels,Action<string> log,SpawnAudio audio) {
         prepared=audio;
         body=carBody;wheels=carWheels;
-        root=new GameObject("350Z_Sound");root.transform.SetParent(car.transform,false);root.transform.localPosition=new Vector3(0,.65f,0);
+        root=new GameObject("Vehicle_Sound");root.transform.SetParent(car.transform,false);root.transform.localPosition=new Vector3(0,.65f,0);
         mixer=Resources.FindObjectsOfTypeAll<AudioMixerGroup>().FirstOrDefault(g=>g.name.Equals("SFX",StringComparison.OrdinalIgnoreCase));
         power=new AudioSource[bands.Length];coast=new AudioSource[power.Length];
         for(int i=0;i<power.Length;i++) {
-            if(suv) {
-                var path=Path.Combine(Path.GetDirectoryName(typeof(VehicleAudio).Assembly.Location),"audio","hummer","engine_"+bands[i]+".wav");
+            if(engineFolder!=null) {
+                var path=Path.Combine(Path.GetDirectoryName(typeof(VehicleAudio).Assembly.Location),engineFolder,"engine_"+bands[i]+".wav");
                 var data=prepared.FileData(path);
-                power[i]=CreateSource("h2_power_"+bands[i],80,data);coast[i]=CreateSource("h2_coast_"+bands[i],80,data);
+                var coastData=originalCoast?prepared.FileData(Path.Combine(Path.GetDirectoryName(typeof(VehicleAudio).Assembly.Location),engineFolder,"coast_"+bands[i]+".wav")):data;
+                power[i]=CreateSource("engine_power_"+bands[i],80,data);coast[i]=CreateSource("engine_coast_"+bands[i],80,coastData);
             } else {
                 power[i]=CreateSource("engine_on_"+bands[i]+".wav",80);
                 yield return 0;
@@ -50,17 +64,33 @@ public sealed class VehicleAudio : IDisposable {
             }
             yield return 0;
         }
+        stagePower.Add(power);stageCoast.Add(coast);
+        if(engineStages!=null)for(int stage=1;stage<engineStages.Length;stage++) {
+            var on=new AudioSource[bands.Length];var off=new AudioSource[bands.Length];
+            for(int i=0;i<bands.Length;i++) {
+                var folder=Path.Combine(Path.GetDirectoryName(typeof(VehicleAudio).Assembly.Location),engineStages[stage]);
+                on[i]=CreateSource("stage"+stage+"_power_"+bands[i],80,prepared.FileData(Path.Combine(folder,"engine_"+bands[i]+".wav")));
+                off[i]=CreateSource("stage"+stage+"_coast_"+bands[i],80,prepared.FileData(Path.Combine(folder,(originalCoast?"coast_":"engine_")+bands[i]+".wav")));
+                inactiveEngine.Add(on[i]);inactiveEngine.Add(off[i]);yield return 0;
+            }stagePower.Add(on);stageCoast.Add(off);
+        }
         road=CreateSource("road.wav",160);yield return 0;skid=CreateSource("skid.wav",120);yield return 0;horn=CreateSource("horn.wav",60);yield return 0;
         reverseWhine=CreateSource("reverse_whine_synth",110,prepared.Reverse);reverseWhine.dopplerLevel=0;
-        if(!suv)LoadTurbo(log);
+        if(turbo)LoadTurbo(log);
         prepared=null;
-        log((suv?"H2 original GIN_Hummer engine; ":"350Z original engine; ")+"audio ready: "+clips.Count+" clips; original engine and tyre recordings; synthesized horn and reverse-gear whine. Mixer: "+(mixer!=null?mixer.name:"AudioListener master"));
+        log((vehicleName+": "+(engineStages!=null?"original VLT engine banks; ":"original engine; "))+"audio ready: "+clips.Count+" clips; original engine and tyre recordings; synthesized horn and reverse-gear whine. Mixer: "+(mixer!=null?mixer.name:"AudioListener master"));
+    }
+    public void SetEngineStage(int stage) {
+        if(stagePower.Count==0)return;stage=Math.Max(0,Math.Min(stage,stagePower.Count-1));if(stage==activeStage)return;
+        foreach(var source in power.Concat(coast)){source.volume=0;source.Stop();inactiveEngine.Add(source);}
+        activeStage=stage;power=stagePower[stage];coast=stageCoast[stage];
+        foreach(var source in power.Concat(coast)){inactiveEngine.Remove(source);if(playing&&!paused)source.Play();}
     }
     void LoadTurbo(Action<string> log) {
         var folder=Path.Combine(Path.GetDirectoryName(typeof(VehicleAudio).Assembly.Location),"audio","turbo");
         var names=new[]{"charge.wav","blowoff_low.wav","blowoff_high.wav"};
         if(!names.All(name=>File.Exists(Path.Combine(folder,name)))) {
-            log("350Z turbo unavailable: optional audio/turbo clips missing. Engine audio remains available.");return;
+            log("Vehicle turbo unavailable: optional audio/turbo clips missing. Engine audio remains available.");return;
         }
         // Validate the complete optional set before creating any sources.
         int firstSource=sources.Count,firstClip=clips.Count;
@@ -69,17 +99,17 @@ public sealed class VehicleAudio : IDisposable {
             turboCharge=CreateSource(names[0],95,data[0]);
             turboLow=CreateSource(names[1],90,data[1]);turboLow.loop=false;
             turboHigh=CreateSource(names[2],90,data[2]);turboHigh.loop=false;
-            log("350Z turbo: local samples loaded; acoustic boost/event approximation enabled.");
+            log("Vehicle turbo: local samples loaded; acoustic boost/event approximation enabled.");
         }catch(Exception e){
             for(int i=sources.Count-1;i>=firstSource;i--){UnityEngine.Object.Destroy(sources[i]);sources.RemoveAt(i);}
             for(int i=clips.Count-1;i>=firstClip;i--){UnityEngine.Object.Destroy(clips[i]);clips.RemoveAt(i);}
             turboCharge=turboLow=turboHigh=null;
-            log("350Z optional turbo clips rejected: "+e.Message);
+            log("Vehicle optional turbo clips rejected: "+e.Message);
         }
     }
     AudioSource CreateSource(string name,int priority,WavData data=null) {
         if(data==null)data=prepared.Embedded(name);
-        var clip=AudioClip.Create("350Z_"+name,data.Samples.Length/data.Channels,data.Channels,data.SampleRate,false);
+        var clip=AudioClip.Create("Vehicle_"+name,data.Samples.Length/data.Channels,data.Channels,data.SampleRate,false);
         clips.Add(clip);
         if(!clip.SetData(data.Samples,0))throw new InvalidOperationException("Could not load audio: "+name);
         var source=root.AddComponent<AudioSource>();sources.Add(source);
@@ -96,15 +126,15 @@ public sealed class VehicleAudio : IDisposable {
             if(turboLow!=null)turboLow.Stop();if(turboHigh!=null)turboHigh.Stop();
             return;
         }
-        if(paused){if(playing)foreach(var source in sources)source.UnPause();paused=false;}
+        if(paused){if(playing)foreach(var source in sources)if(!inactiveEngine.Contains(source))source.UnPause();paused=false;}
         float dt=Mathf.Min(Time.unscaledDeltaTime,.1f);
         float forward=Vector3.Dot(body.linearVelocity,body.transform.forward),speed=body.linearVelocity.magnitude;
         float wheelRpm=flying?0:(Mathf.Abs(wheels[2].rpm)+Mathf.Abs(wheels[3].rpm))*.5f;
         if(flying){forward=speed=throttle=0;braking=burnout=false;}
         if(!driving){forward=speed=wheelRpm=throttle=0;braking=honking=burnout=false;}
         model.Step(dt,driving||parkedRunning,forward,wheelRpm,burnout?1:throttle,braking,terrain,burnout);
-        turboModel.Step(dt,driving&&!flying&&!suv&&turboInputAllowed,model.Rpm,braking?0:Mathf.Max(0,throttle),model.IsShifting,model.Gear<0,model.Load);
-        if(model.Level>.001f && !playing){foreach(var source in sources)if(source.loop)source.Play();playing=true;}
+        turboModel.Step(dt,driving&&!flying&&turbo&&turboInputAllowed,model.Rpm,braking?0:Mathf.Max(0,throttle),model.IsShifting,model.Gear<0,model.Load);
+        if(model.Level>.001f && !playing){foreach(var source in sources)if(source.loop&&!inactiveEngine.Contains(source))source.Play();playing=true;}
         else if(model.Level<=.001f && playing){foreach(var source in sources)source.Stop();playing=false;}
         if(!playing)return;
         volume=Mathf.Clamp01(volume);
@@ -119,7 +149,7 @@ public sealed class VehicleAudio : IDisposable {
             float pitch=Mathf.Clamp(model.Rpm/bands[i]*exhaustPitch,.4f,2.2f);
             power[i].pitch=pitch;coast[i].pitch=pitch;
             power[i].volume=gain*engineGain*Mathf.Sqrt(powerMix);
-            coast[i].volume=gain*engineGain*Mathf.Sqrt(1-powerMix)*(suv?.65f:1);
+            coast[i].volume=gain*engineGain*Mathf.Sqrt(1-powerMix)*(suvEngine?.65f:1);
         }
         int grounded=0;float slip=0;
         foreach(var wheel in wheels)if(wheel.enabled&&wheel.GetGroundHit(out var hit)) {

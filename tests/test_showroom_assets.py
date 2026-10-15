@@ -8,7 +8,7 @@ class ShowroomAssets(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.model=json.loads((LOCAL/'model/body.json').read_text())
-        cls.tracks={a['name']:a for a in animations(LOCAL/'nfs-assets/CARS/350Z/PARTS_ANIMATIONS.bin',.04)}
+        cls.tracks={a['name']:a for a in animations(LOCAL/'nfs-assets/CARS/350Z/PARTS_ANIMATIONS.bin',.04,'350Z')}
 
     def test_all_original_tracks_close_at_identity(self):
         self.assertEqual(len(self.tracks),8)

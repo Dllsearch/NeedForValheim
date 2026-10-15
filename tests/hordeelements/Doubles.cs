@@ -61,7 +61,7 @@ public class Character:UnityEngine.MonoBehaviour {
 public class HitData {public UnityEngine.Vector3 m_point,m_dir;public Damage m_damage;public struct Damage {public float m_lightning;}public void SetAttacker(Character c){}}
 public class BaseAI:UnityEngine.MonoBehaviour {public static bool IsEnemy(Character a,Character b)=>a.enemy;}
 public class MonsterAI:BaseAI {public int stopped;public bool UpdateAI(float dt)=>true;public void StopMoving()=>stopped++;}
-namespace Rachel350Z {
+namespace NeedForValheim {
  public class HordeEnemyMarker:UnityEngine.MonoBehaviour {}
  public static class VehicleMaterials {public static UnityEngine.Material CreateGlowMaterial(UnityEngine.Texture2D texture)=>new UnityEngine.Material();}
 }

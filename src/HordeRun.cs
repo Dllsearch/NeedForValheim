@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public enum HordePowerup {Explosive,Automatic,Shield,Repair}
 // Arcade balance and scoring; no Unity or persistent vehicle settings.
 public sealed class HordeRun {
@@ -59,7 +59,7 @@ public sealed class HordeRun {
         if(victory&&!Dead)Score+=2000+(int)Health*2+(int)Shield+(int)Math.Max(0,1800-Seconds*3);
         Active=false;EndWave();ComboLeft=0;return Score;
     }
-    public string Medal(bool victory)=>!victory?"Versuch beendet":Health>=750&&Seconds<=300?"Gold":Health>=400?"Silber":"Bronze";
+    public string Medal(bool victory)=>!victory?"Run finished":Health>=750&&Seconds<=300?"Gold":Health>=400?"Silver":"Bronze";
     public static float CrashDamage(float closingSpeed)=>Positive(closingSpeed)?Math.Min(200,Math.Max(0,closingSpeed-8)*10):0;
 }
 // Encounter-only incoming damage; ordinary enemy tuning stays separate from boss spikes.

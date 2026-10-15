@@ -1,10 +1,11 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Rachel350Z;
+using NeedForValheim;
 class Program {
     static int checks,advanced,disposed,stepThread;
     static void Check(bool condition,string label){if(!condition)throw new Exception(label);Console.WriteLine("PASS "+label);checks++;}
@@ -56,15 +57,20 @@ class Program {
         var warm=Task.Run(()=>SpawnAssets.Load(args[0],false,cache,CancellationToken.None)).GetAwaiter().GetResult();
         double cached=timer.Elapsed.TotalMilliseconds;
         Check(worker!=caller,"real payload is parsed on a background thread without Unity");
-        Check(assets.Model.parts.Length>0&&assets.Interior.parts.Length>0&&assets.Turret.parts.Length>0&&assets.Hud.designs.Length==11,"body, cabin, turret and HUD load together");
-        Check(assets.Warnings.Count==0,"installed optional model assets validate");
+        Check(assets.Model.parts.Length>0&&assets.Hud.designs.Length==11,"body and installed HUD load together");
+        bool cabin=File.Exists(Path.Combine(args[0],"interior/interior.json")),turret=File.Exists(Path.Combine(args[0],"turret/turret.json"));
+        Check(cabin?assets.Interior?.parts.Length>0:assets.Interior==null&&assets.Warnings.Any(w=>w.StartsWith("Cabin unavailable:")),"optional cabin is either validated or reported unavailable");
+        Check(turret?assets.Turret?.parts.Length>0:assets.Turret==null&&assets.Warnings.Any(w=>w.StartsWith("Turret unavailable:")),"optional turret is either validated or reported unavailable");
+        Check(assets.Warnings.All(w=>!cabin&&w.StartsWith("Cabin unavailable:")||!turret&&w.StartsWith("Turret unavailable:")),"installed optional assets have no unexpected failures");
+        Check(assets.Styling!=null&&assets.Styling.styleOptions.Length>100,"original styling library loads with the base car");
+        Check(!ReferenceEquals(assets.Styling,warm.Styling),"large styling libraries are runtime-owned instead of retained in the cache");
         Check(ReferenceEquals(assets.Model,warm.Model)&&ReferenceEquals(assets.Interior,warm.Interior)&&ReferenceEquals(assets.Hud,warm.Hud),"repeat spawn reuses parsed model data");
         Check(ReferenceEquals(assets.Audio.Embedded("road.wav"),warm.Audio.Embedded("road.wav")),"repeat spawn reuses decoded audio");
         Check(assets.Audio.FileData(Path.Combine(args[0],"audio","effects","nitro.wav")).Samples.Length>0,"native path separators resolve prefetched audio");
         Check(ReferenceEquals(assets.Audio.FileData(Path.Combine(args[0],"audio/effects/nitro.wav")),assets.Audio.FileData(Path.Combine(args[0],"audio","effects","nitro.wav"))),"mixed path separators share one audio key");
         var h2=SpawnAssets.Load(args[0],true,cache,CancellationToken.None);
         Check(h2.Model.parts.Length>0&&h2.Interior==null&&h2.Turret==null&&ReferenceEquals(h2.Flames,assets.Model),"H2 shares the flight atlas without re-reading 350Z data");
-        Check(h2.Audio.FileData(Path.Combine(args[0],"audio/hummer/engine_1000.wav")).Samples.Length>0,"H2 engine audio decoded in preparation");
+        Check(h2.Audio.FileData(Path.Combine(args[0],"audio/h2/engine_1000.wav")).Samples.Length>0,"H2 engine audio decoded in preparation");
         string optional=Path.Combine(AppContext.BaseDirectory,"optional");Directory.CreateDirectory(optional);
         File.WriteAllText(Path.Combine(optional,"body.json"),"{\"parts\":[{\"name\":\"test\",\"vertices\":[{}, {}, {}],\"indices\":[0,1,2]}]}");
         var missing=SpawnAssets.Load(optional,false,new SpawnAssetCache(),CancellationToken.None);

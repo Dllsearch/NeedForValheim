@@ -88,7 +88,10 @@ def big_entries(path):
         if len(header) != 16 or header[:4] != b'BIG4':
             raise ValueError('Not a BIG4 archive')
         total, count, end = struct.unpack('>III', header[4:])
-        if total != size or not 16 <= end <= size or count > 100000:
+        # An installed game appends streams after the header was written, so the
+        # declared total can be smaller than the file; every entry is still
+        # range-checked against the real size below.
+        if total > size or not 16 <= end <= size or count > 100000:
             raise ValueError('Invalid BIG4 header')
         directory = stream.read(end - 16)
     offset = 0
@@ -136,26 +139,20 @@ def extract_archive(path, output):
 
 
 def extract_discs():
-    from inspect_discs import Disc
-    from extract_assets import DiscFile
+    from asset_source import source_file
     target = LOCAL / 'nfs-assets/SDATA/SDAT.VIV'
     if target.is_file():
         return target
-    for image in sorted(disc_root().glob('CD*/*.bin')):
-        disc = Disc(image)
-        try:
-            for rec in disc.walk():
-                if rec['path'].upper() != 'SDATA/SDAT.VIV':
-                    continue
-                target.parent.mkdir(parents=True, exist_ok=True)
-                with target.open('wb') as dest:
-                    shutil.copyfileobj(DiscFile(disc, rec), dest, 1024 * 1024)
-                if target.stat().st_size != rec['size']:
-                    raise ValueError('Incomplete soundtrack archive')
-                return target
-        finally:
-            disc.f.close()
-    raise FileNotFoundError('No SDATA/SDAT.VIV on configured CD images; pass --source for an extracted archive or MPF/MUS folder')
+    with source_file('SDATA/SDAT.VIV') as source:
+        if source is None:
+            raise FileNotFoundError('No SDATA/SDAT.VIV on the configured CD images or in the installed NFSU2 folder; pass --source for an extracted archive or MPF/MUS folder')
+        record = getattr(source, 'rec', None)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open('wb') as dest:
+            shutil.copyfileobj(source, dest, 1024 * 1024)
+        if record is not None and target.stat().st_size != record['size']:
+            raise ValueError('Incomplete soundtrack archive')
+        return target
 
 
 def music_stream(info, min_seconds=60):

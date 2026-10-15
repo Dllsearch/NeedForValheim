@@ -4,7 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     KeyHints vehicleHintOwner;
     GameObject[] originalHintGroups;
@@ -64,7 +64,7 @@ public partial class Plugin {
     }
     void UpdateVehicleHints() {
         var owner=KeyHints.instance;
-        if(!driving||audioBlocked||owner==null||Hud.instance==null||Hud.IsUserHidden()){RestoreVehicleHints();return;}
+        if(!driving||menuOpen||audioBlocked||owner==null||Hud.instance==null||Hud.IsUserHidden()){RestoreVehicleHints();return;}
         try {
             if(vehicleHintOwner!=owner) {
                 DisposeVehicleHints();vehicleHintOwner=owner;
@@ -79,10 +79,10 @@ public partial class Plugin {
             vehicleHintPanel.gameObject.SetActive(true);
             float scale=Mathf.Min(hintScale.Value,Mathf.Min((Screen.width-36)/550f,Screen.height/850f));
             float units=scale/Mathf.Max(.01f,vehicleHintCanvas.scaleFactor);
-            string title=menuOpen?Tr("Modmenü"):Tr(DriveModeName);
-            string key=padActive+"|"+Playstation+"|"+Flying+"|"+menuOpen+"|"+IsHummer+"|"+uiLanguage.Value+"|"+menuKey.Value+"|"+title+"|"+units;
+            string title=menuOpen?Tr("Mod menu"):Tr(DriveModeName);
+            string key=padActive+"|"+Playstation+"|"+Flying+"|"+menuOpen+"|"+current.Profile.capabilities.nitro+"|"+uiLanguage.Value+"|"+menuKey.Value+"|"+title+"|"+units;
             if(key!=vehicleHintKey) {
-                var rows=VehicleHintContent.Build(padActive,Playstation,Flying,menuOpen,IsHummer,menuKey.Value.ToString(),Tr);
+                var rows=VehicleHintContent.Build(padActive,Playstation,Flying,menuOpen,current.Profile.capabilities.nitro,menuKey.Value.ToString(),Tr);
                 vehicleHintRows=(rows.Length+1)/2;
                 vehicleHintTitle.text=title;
                 vehicleHintLeft.text=string.Join("\n",rows.Take(vehicleHintRows));
@@ -94,7 +94,7 @@ public partial class Plugin {
             }
             vehicleHintHeight=(52+vehicleHintRows*29)*scale;
             vehicleHintPanel.sizeDelta=new Vector2(550*units,(52+vehicleHintRows*29)*units);
-            vehicleHintPanel.anchoredPosition=new Vector2(-18,-16)/Mathf.Max(.01f,vehicleHintCanvas.scaleFactor);
+            vehicleHintPanel.anchoredPosition=new Vector2(-18,90)/Mathf.Max(.01f,vehicleHintCanvas.scaleFactor);
         }catch(Exception error) {
             vehicleHintFailed=true;DisposeVehicleHints();Logger.LogWarning("Vehicle icon hints unavailable; using text hints: "+error);
         }

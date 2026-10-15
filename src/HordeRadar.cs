@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // A local UI overlay, not saved/shared map pins. Reuses at most 100 dot images.
 public sealed class HordeRadar : IDisposable {
     readonly List<RectTransform> dots=new List<RectTransform>();

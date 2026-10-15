@@ -1,6 +1,6 @@
 using System;
 using System.Reflection;
-using Rachel350Z;
+using NeedForValheim;
 using UnityEngine;
 // Native callback adapters compiled unchanged against controlled engine doubles.
 namespace UnityEngine {
@@ -27,7 +27,7 @@ public interface IDestructible {void Damage(HitData hit);DestructibleType GetDes
 public class HitData {}
 public class Character {public void Damage(HitData hit){}}
 public class Destructible {public string name;}
-namespace Rachel350Z {
+namespace NeedForValheim {
     public class Plugin {
         public static Plugin ControlsOwner;public Character Driver;public bool Active;
         public bool RouteHordeDriverDamage(Character target,HitData hit)=>Active&&target==Driver;

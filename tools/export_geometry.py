@@ -3,6 +3,24 @@ import json, math, re, struct
 from pathlib import Path
 from nfs_formats import bin_hash
 
+UNASSIGNED = 0xffffffff
+
+def restore_mesh_name(prefix, key):
+    if bin_hash(prefix)==key:return prefix
+    # Retail headers have multiple string limits (including 24 and 27). Only
+    # accept a completion when it matches the original complete-name hash.
+    endings=[suffix+lod for suffix in ('','_') for lod in 'ABCD']
+    endings += [f'{part}_{lod}' for part in ('LEFT','RIGHT','HEADLIGHT_LEFT','HEADLIGHT_RIGHT',
+                'BRAKELIGHT_LEFT','BRAKELIGHT_RIGHT','DOOR_PANEL_LEFT','DOOR_PANEL_RIGHT',
+                'DOOR_SILL_LEFT','DOOR_SILL_RIGHT','LEFT_SIDE_MIRROR','RIGHT_SIDE_MIRROR') for lod in 'ABCD']
+    endings += [f'{part}_{lod}' for part in ('R','T','HT','FT') for lod in 'ABCD']
+    for ending in endings:
+        for cut in range(len(ending)):
+            if cut and not prefix.endswith(ending[:cut]):continue
+            candidate=prefix+ending[cut:]
+            if bin_hash(candidate)==key:return candidate
+    return prefix
+
 def chunks(data, start=0, end=None, depth=0):
     end = len(data) if end is None else end
     if depth > 20: raise ValueError('excessive nesting')
@@ -34,6 +52,22 @@ def unpad(data, pair=False):
     while data[offset:offset+step] == filler: offset += step
     return data[offset:]
 
+def face_normals(vertices, indices):
+    """Normals for vertex records that store none, accumulated from the faces."""
+    accumulated = [[0., 0., 0.] for _ in vertices]
+    for i in range(0, len(indices) - 2, 3):
+        a, b, c = (vertices[indices[i + j]] for j in range(3))
+        u = tuple(b[k] - a[k] for k in range(3)); v = tuple(c[k] - a[k] for k in range(3))
+        face = (u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0])
+        for index in indices[i:i + 3]:
+            for k in range(3): accumulated[index][k] += face[k]
+    normals = []
+    for x, y, z in accumulated:
+        length = math.sqrt(x * x + y * y + z * z)
+        normals.append((x / length, y / length, z / length) if length > 1e-9 else (0., 1., 0.))
+    return normals
+
+
 def parse(path):
     data = Path(path).read_bytes()
     result = []
@@ -44,21 +78,20 @@ def parse(path):
         names = [n for n in names if b'_' in n]
         if not names: continue
         name = max(names,key=len).decode()
-        if len(name)==24:
-            key=struct.unpack_from('<I',header,16)[0]
-            for suffix in ('A','B','C','D','_A','_B','_C','_D','R_A','R_B','R_C','R_D','T_A','T_B','T_C','T_D','HT_A','HT_B','HT_C','HT_D','FT_A','FT_B','FT_C','FT_D','LEFT_A','RIGHT_A','RIGHT_B','RIGHT_C','R_A'):
-                candidate=name+suffix
-                h=0xffffffff
-                for c in candidate.encode():h=(h*33+c)&0xffffffff
-                if h==key:name=candidate;break
+        name=restore_mesh_name(name,struct.unpack_from('<I',header,16)[0])
         vb = unpad(table.get(0x134b01,b''))
         ib = unpad(table.get(0x134b03,b''),True)
-        if not vb or len(vb)%36 or len(ib)%2: continue
-        vertices = [struct.unpack_from('<3f',vb,i) for i in range(0,len(vb),36)]
-        uv = [struct.unpack_from('<2f',vb,i+28) for i in range(0,len(vb),36)]
-        normals = [struct.unpack_from('<3f',vb,i+12) for i in range(0,len(vb),36)]
+        if not vb or len(ib)%2: continue
         indices = list(struct.unpack('<'+'H'*(len(ib)//2),ib))
         indices = indices[:len(indices)//3*3]
+        # Vertex records are 36 bytes (position, normal, reserved, uv); a mesh
+        # without normals stores 24 (position, reserved, uv), which the index
+        # buffer only addresses at that stride.
+        stride = next((s for s in (36, 24) if len(vb) % s == 0 and len(vb) // s > max(indices, default=-1)), None)
+        if stride is None: continue
+        vertices = [struct.unpack_from('<3f',vb,i) for i in range(0,len(vb),stride)]
+        uv = [struct.unpack_from('<2f',vb,i+(28 if stride==36 else 16)) for i in range(0,len(vb),stride)]
+        normals = [struct.unpack_from('<3f',vb,i+12) for i in range(0,len(vb),36)] if stride==36 else face_normals(vertices,indices)
         if any(i>=len(vertices) for i in indices): raise ValueError('invalid index '+name)
         if any(not math.isfinite(v) or abs(v)>100 for xyz in vertices for v in xyz): raise ValueError('invalid position '+name)
         slots = lambda ident: [struct.unpack_from('<I',table[ident],i)[0] for i in range(0,len(table.get(ident,b'')),8)]
@@ -67,35 +100,16 @@ def parse(path):
         if len(sm)%60: raise ValueError('Invalid material records '+name)
         for i in range(0,len(sm),60):
             count,tex,mat,start=[struct.unpack_from('<I',sm,i+j)[0] for j in (12,28,32,52)]
-            if start!=position or count%3 or start+count>len(indices) or tex>=len(textures) or mat>=len(materials):
+            # Index 255 marks an unassigned slot; meshes without normals (the
+            # 24-byte format) carry no 0x134013 leaf at all.
+            if start!=position or count%3 or start+count>len(indices) \
+               or (tex>=len(textures) and tex!=255) or (mat>=len(materials) and mat!=255):
                 raise ValueError('Invalid material partition '+name)
-            slices.append({'indices':indices[start:start+count],'textureKey':textures[tex],'materialKey':materials[mat]});position+=count
+            slices.append({'indices':indices[start:start+count],'textureKey':textures[tex] if tex<len(textures) else UNASSIGNED,
+                           'materialKey':materials[mat] if mat<len(materials) else UNASSIGNED});position+=count
         if position!=len(indices): raise ValueError('Incomplete material partition '+name)
         sockets={}; socket_data=unpad(table.get(0x13401a,b''))
         for i in range(0,len(socket_data),80):
             sockets[struct.unpack_from('<I',socket_data,i)[0]]=struct.unpack_from('<16f',socket_data,i+16)
         result.append({'name':name,'key':struct.unpack_from('<I',header,16)[0], 'vertices':vertices,'normals':normals,'uv':uv,'indices':indices,'slices':slices,'sockets':sockets})
     return result
-
-if __name__ == '__main__':
-    parts = parse(LOCAL/'nfs-assets/CARS/350Z/GEOMETRY.BIN')
-    (LOCAL/'350z_parts.json').write_text(json.dumps(parts), encoding='utf-8')
-    print('Parsed meshes:',len(parts))
-    for p in parts[:8]:print(p['name'],len(p['vertices']),len(p['indices']))
-    selected = [p for p in parts if p['name']=='350Z_BASE_A' or (p['name'].startswith('350Z_KIT00_') and p['name'].endswith('_A') and not any(x in p['name'] for x in ('AUDIO','UNLIT','UNDER','ENGINE','WHEEL','BRAKE_A','DOOR_PANEL','DOOR_SILL')))]
-    for prefix in ('350Z_KIT00_HEADLIGHT_RIGHT_', '350Z_KIT00_LEFT_SIDE_MIRROR', '350Z_KIT00_RIGHT_SIDE_MIRRO'):
-        candidates=[p for p in parts if p['name']==prefix]
-        if candidates:selected.append(max(candidates,key=lambda p:len(p['indices'])))
-    out = (LOCAL/'model');out.mkdir(parents=True,exist_ok=True)
-    with (out/'350z.obj').open('w',encoding='utf-8') as f:
-        offset=1
-        for p in selected:
-            f.write('o '+p['name']+'\n')
-            for x,y,z in p['vertices']:f.write(f'v {x} {y} {z}\n')
-            for u,v in p['uv']:f.write(f'vt {u} {1-v}\n')
-            for i in range(0,len(p['indices']),3):
-                ids=[v+offset for v in p['indices'][i:i+3]]
-                f.write('f '+' '.join(f'{v}/{v}' for v in ids)+'\n')
-            offset+=len(p['vertices'])
-    print('Exported preliminary stock body:',len(selected),'parts')
-    (out/'body.json').write_text(json.dumps({'parts':[{'name':p['name'],'vertices':[{'x':y,'y':z,'z':x} for x,y,z in p['vertices']],'indices':p['indices']} for p in selected]}),encoding='utf-8')

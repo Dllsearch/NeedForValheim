@@ -1,12 +1,15 @@
 import argparse,shutil,subprocess,sys
-from project import BASE,LOCAL,OUTPUT,valheim_dir
+from pathlib import Path
+from project import BASE,LOCAL,OUTPUT,valheim_dir,bepinex_dir
 from build import build
 from build_support import compile_cs,test_refs,runtime_config
 
 def main():
-    suites=['model','mesh','handling','audio','radio','nitro','impact','showroom','driving','turret','targeting','terrain','blast','hummer','menu','cabin','flight','loading','lighting','controls','hotbar','rumble','nitroview','horde','hordehull','hordecorpses','turretfireaudio','hordeweather','horderadar','hordeelements','storage']
+    suites=['model','mesh','handling','audio','radio','nitro','impact','showroom','driving','turret','targeting','terrain','blast','fleet','vehicle_assets','menu','cabin','flight','loading','lighting','controls','hotbar','rumble','nitroview','horde','hordehull','hordecorpses','turretfireaudio','hordeweather','horderadar','hordeelements','storage','carprofile','streaming']
     parser=argparse.ArgumentParser();parser.add_argument('--skip-build',action='store_true');parser.add_argument('--handling-only',action='store_true')
+    suites.extend(('wheelsize','mw','garageprogression','surface','mapmarkers','vehicle_safety'))
     parser.add_argument('--suite',action='append',choices=suites,help='Run only these C# suites; repeat to combine.')
+    parser.add_argument('--vehicle-assets-root',type=Path,default=LOCAL,help='generated vehicle profiles/models for the vehicle_assets suite')
     args=parser.parse_args()
     if not args.handling_only and not args.skip_build:build()
     if not args.handling_only and not args.suite:
@@ -15,13 +18,22 @@ def main():
     for suite in (['handling'] if args.handling_only else args.suite or suites):
         out=OUTPUT/'tests'/suite;out.mkdir(parents=True,exist_ok=True)
         sources=list((BASE/'tests'/suite).glob('*.cs'));refs=list(references);arguments=[]
-        if suite=='handling':sources.extend(BASE/'src'/name for name in ('DrivingMath.cs','VehicleHandling.cs','VehicleDriftTuning.cs','HummerTuning.cs','VehicleRideHeight.cs'))
+        if suite=='handling':sources.extend(BASE/'src'/name for name in ('DrivingMath.cs','VehicleHandling.cs','VehicleDriftTuning.cs','SuvTuning.cs','MwChassisTuning.cs','VehicleRideHeight.cs','PerformanceTuning.cs'))
         elif suite=='mesh':sources.append(BASE/'src/VehicleMesh.cs')
+        elif suite=='streaming':sources.extend(BASE/'src'/name for name in ('VehicleWorldStreaming.cs','VehicleParkingRules.cs'))
+        elif suite=='garageprogression':sources.append(BASE/'src/GarageProgression.cs')
+        elif suite=='surface':sources.append(BASE/'src/VehicleSurfaceRules.cs')
+        elif suite=='mapmarkers':sources.append(BASE/'src/VehicleMapMarkers.cs')
+        elif suite=='vehicle_safety':sources.extend(BASE/'src'/name for name in ('VehiclePlacement.cs','VehicleParking.cs','VehicleParkingRules.cs','VehicleExitRules.cs'))
         elif suite=='lighting':sources.extend(BASE/'src'/name for name in ('VehicleLightingState.cs','DrivingMath.cs'))
         elif suite=='flight':sources.extend(BASE/'src'/name for name in ('FlightState.cs','VehicleFlight.cs','NitroState.cs','DrivingMath.cs'))
         elif suite=='impact':sources.extend(BASE/'src'/name for name in ('VehicleImpactRules.cs','VehicleImpact.cs'))
         elif suite=='nitroview':sources.append(BASE/'src/NitroCameraView.cs')
-        elif suite=='storage':sources.extend(BASE/'src'/name for name in ('VehicleStorageRules.cs','VehicleStorage.cs'))
+        elif suite=='storage':sources.extend(BASE/'src'/name for name in ('CarProfile.cs','VehicleStorageRules.cs','VehicleStorage.cs'))
+        elif suite=='carprofile':sources.extend(BASE/'src'/name for name in ('CarProfile.cs','ModelFile.cs','TurretState.cs','VehicleStorageRules.cs','ControlRules.cs','DrivingMath.cs'))
+        elif suite=='mw':
+            sources.extend(BASE/'src'/name for name in ('CarProfile.cs','ModelFile.cs','TurretState.cs','VehicleVinylData.cs','VehicleDecalData.cs','WheelFitMath.cs','WheelSizeVisuals.cs'));sources.append(BASE/'tests/wheelsize/Doubles.cs')
+        elif suite=='wheelsize':sources.extend(BASE/'src'/name for name in ('CarProfile.cs','ModelFile.cs','TurretState.cs','WheelFitMath.cs','WheelSizeVisuals.cs'))
         elif suite=='horde':sources.extend(BASE/'src'/name for name in ('HordeWave.cs','HordeRun.cs','HordePact.cs','HordeBonus.cs','HordeElementRules.cs'))
         elif suite=='hordeweather':sources.append(BASE/'src/HordeWeather.cs')
         elif suite=='horderadar':sources.append(BASE/'src/HordeMapProjection.cs')
@@ -34,12 +46,15 @@ def main():
             elif suite=='hordehull':sources.extend(BASE/'src'/name for name in ('VehicleHordeHull.cs','VehicleImpactRules.cs'))
             elif suite=='hordecorpses':sources.extend(BASE/'src'/name for name in ('HordeCorpses.cs','HordeProjectiles.cs'))
             else:sources.append(BASE/'src'/('VehicleHotbarCapture.cs' if suite=='hotbar' else 'VehicleCameraShake.cs'))
-            harmony=out/'0Harmony.dll';shutil.copy2(valheim_dir()/'BepInEx/core/0Harmony.dll',harmony);refs.append(harmony)
+            harmony=out/'0Harmony.dll';shutil.copy2(bepinex_dir()/'core/0Harmony.dll',harmony);refs.append(harmony)
         else:
-            plugin=out/'Rachel350Z.dll';shutil.copy2(OUTPUT/'mod/Rachel350Z.dll',plugin);refs.append(plugin)
-        if suite=='model':
+            plugin=out/'NeedForValheim.dll';shutil.copy2(OUTPUT/'mod/NeedForValheim.dll',plugin);refs.append(plugin)
+        if suite in ('model','storage','carprofile','wheelsize','mw'):
             jsondll=out/'Newtonsoft.Json.dll';shutil.copy2(valheim_dir()/'valheim_Data/Managed/Newtonsoft.Json.dll',jsondll);refs.append(jsondll)
-            arguments=[str(LOCAL/'model/body.json')]
+        if suite=='mw':arguments=[str(LOCAL/'mw-export')]
+        if suite=='model':arguments=[str(LOCAL/'model/body.json')]
+        if suite=='carprofile':arguments=[str(OUTPUT/'mod')]
+        if suite=='wheelsize':arguments=[str(OUTPUT/'mod')]
         if suite=='loading':
             jsondll=out/'Newtonsoft.Json.dll';shutil.copy2(valheim_dir()/'valheim_Data/Managed/Newtonsoft.Json.dll',jsondll);refs.append(jsondll)
             arguments=[str(OUTPUT/'mod')]
@@ -55,9 +70,9 @@ def main():
         if suite=='cabin':
             jsondll=out/'Newtonsoft.Json.dll';shutil.copy2(valheim_dir()/'valheim_Data/Managed/Newtonsoft.Json.dll',jsondll);refs.append(jsondll)
             arguments=[str(LOCAL/'interior/interior.json')]
-        if suite=='hummer':
+        if suite=='vehicle_assets':
             jsondll=out/'Newtonsoft.Json.dll';shutil.copy2(valheim_dir()/'valheim_Data/Managed/Newtonsoft.Json.dll',jsondll);refs.append(jsondll)
-            arguments=[str(LOCAL/'hummer/h2.json'),str(LOCAL/'audio-hummer')]
+            arguments=[str(args.vehicle_assets_root),str(LOCAL)]
         if suite=='turret':
             jsondll=out/'Newtonsoft.Json.dll';shutil.copy2(valheim_dir()/'valheim_Data/Managed/Newtonsoft.Json.dll',jsondll);refs.append(jsondll)
             arguments=[str(LOCAL/'turret')]

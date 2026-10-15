@@ -9,6 +9,19 @@ import install
 from mod_files import sync_optional_assets
 
 class InstallTests(unittest.TestCase):
+    def test_process_guard_refuses_running_game_and_fails_closed_on_query_error(self):
+        with patch.object(install,'process_names',return_value=['other.exe','Valheim.exe']):
+            with self.assertRaises(SystemExit):install.require_closed()
+        with patch.object(install,'process_names',return_value=['other.exe']):install.require_closed()
+        with patch.object(install,'process_names',side_effect=PermissionError('unavailable')):
+            with self.assertRaises(PermissionError):install.require_closed()
+
+    def test_generated_mw_manifest_paths_are_valid_without_allowing_source_files(self):
+        for name in ('mw-a3/mw-a3.json','audio/mwbank-0123456789abcdef/engine_1200.wav','audio/mwbank-0123456789abcdef/coast_1200.wav','audio/mwbank-0123456789abcdef/manifest.json'):
+            self.assertTrue(install.allowed_name(name),name)
+        for name in ('mw-a3/TEXTURES.BIN','mw-a3/profile.json','audio/mwbank-0123456789abcdef/private.txt','../mw-a3/mw-a3.json'):
+            self.assertFalse(install.allowed_name(name),name)
+
     def test_successful_install_retains_two_newest_backups_and_named_backup(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);source,dest,_=self.fixture(root)
@@ -19,7 +32,7 @@ class InstallTests(unittest.TestCase):
             install.install_payload(source,dest,newest,lambda:None)
             self.assertEqual({p.name for p in backups.iterdir()},
                              {'20261008-000000-000001',newest.name,'flatgrass-20261007'})
-            self.assertEqual((newest/'Rachel350Z.dll').read_bytes(),b'old')
+            self.assertEqual((newest/'NeedForValheim.dll').read_bytes(),b'old')
 
     def test_failed_install_does_not_prune_backups(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -47,7 +60,7 @@ class InstallTests(unittest.TestCase):
         source=root/'build';dest=root/'installed'
         source.mkdir();dest.mkdir()
         for name in install.REQUIRED:
-            (source/name).write_bytes(b'new');(dest/name).write_bytes(b'old')
+            (source/name).write_bytes(b'[]' if name=='cars.json' else b'new');(dest/name).write_bytes(b'old')
         (source/'radio').mkdir();(source/'radio/song.wav').write_bytes(b'song')
         return source,dest,root/'backup'
     def test_payload_checksums_backup_and_stale_owned_only(self):
@@ -57,7 +70,7 @@ class InstallTests(unittest.TestCase):
             (dest/'radio/old.wav').write_bytes(b'old song')
             (dest/'radio/personal.ogg').write_bytes(b'keep')
             (dest/install.MANIFEST).write_text(json.dumps(['radio/old.wav']))
-            self.assertEqual(install.install_payload(source,dest,backup,lambda:None),3)
+            self.assertEqual(install.install_payload(source,dest,backup,lambda:None),len(install.REQUIRED)+1)
             self.assertEqual((backup/'radio/old.wav').read_bytes(),b'old song')
             self.assertFalse((dest/'radio/old.wav').exists())
             self.assertEqual((dest/'radio/personal.ogg').read_bytes(),b'keep')
@@ -72,7 +85,7 @@ class InstallTests(unittest.TestCase):
                 return original(path)
             with patch.object(install,'checksum',corrupt):
                 with self.assertRaises(RuntimeError):install.install_payload(source,dest,backup,lambda:None)
-            self.assertEqual((dest/'Rachel350Z.dll').read_bytes(),b'old')
+            self.assertEqual((dest/'NeedForValheim.dll').read_bytes(),b'old')
             self.assertFalse((dest/'radio/song.wav').exists())
     def test_effects_are_synced_installed_and_backed_up(self):
         with tempfile.TemporaryDirectory() as temp:

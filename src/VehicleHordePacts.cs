@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     int hordePactSelection;
     HordePact PactOption(int index)=>index==3?HordePact.None:hordeWave.Offers[index];
@@ -33,8 +33,8 @@ public partial class Plugin {
         float width=760*scale,left=(Screen.width-width)/2,top=(Screen.height-610*scale)/2;
         HordeFill(new Rect(left-16*scale,top-12*scale,width+32*scale,630*scale),new Color(.025f,.04f,.065f,.94f));
         HordeFill(new Rect(left,top,width,3*scale),HordeGold);
-        HordeLabel(new Rect(left,top+12*scale,width,42*scale),Tr("Pakte der Götter"),Mathf.RoundToInt(32*scale),HordeGold);
-        HordeLabel(new Rect(left,top+57*scale,width,30*scale),Tr("Welle")+" "+hordeWave.Number+" / 5 · "+Tr("Gilt nur für die nächste Welle"),Mathf.RoundToInt(20*scale),HordeWhite);
+        HordeLabel(new Rect(left,top+12*scale,width,42*scale),Tr("Pacts of the gods"),Mathf.RoundToInt(32*scale),HordeGold);
+        HordeLabel(new Rect(left,top+57*scale,width,30*scale),Tr("Wave")+" "+hordeWave.Number+" / 5 · "+Tr("Applies to the next wave only"),Mathf.RoundToInt(20*scale),HordeWhite);
         for(int i=0;i<4;i++) {
             var pact=PactOption(i);float y=top+(103+i*111)*scale;
             var rect=new Rect(left,y,width,101*scale);
@@ -47,9 +47,9 @@ public partial class Plugin {
             HordeLabel(new Rect(x,y+38*scale,w,26*scale),Tr(HordePacts.Benefit(pact)),Mathf.RoundToInt(21*scale),new Color(.5f,.95f,.78f),TextAnchor.MiddleLeft);
             HordeLabel(new Rect(x,y+68*scale,w,26*scale),Tr(HordePacts.Cost(pact)),Mathf.RoundToInt(20*scale),pact==HordePact.None?HordeWhite:new Color(1,.65f,.5f),TextAnchor.MiddleLeft);
         }
-        string hint=padActive?Tr("Steuerkreuz: wählen")+" · "+ButtonName("A","Kreuz")+": "+Tr("Bestätigen"):Tr("1–4 oder klicken: Pakt wählen");
+        string hint=padActive?Tr("D-pad: select")+" · "+ButtonName("A","Cross")+": "+Tr("Confirm"):Tr("1\u20134 or click: choose a pact");
         HordeLabel(new Rect(left,top+560*scale,width,28*scale),hint,Mathf.RoundToInt(20*scale),HordeWhite);
-        HordeLabel(new Rect(left,top+589*scale,width,24*scale),Tr("Numpad 0: Hordenmodus beenden"),Mathf.RoundToInt(17*scale),new Color(.7f,.78f,.85f));
+        HordeLabel(new Rect(left,top+589*scale,width,24*scale),Tr("Numpad 0: end horde mode"),Mathf.RoundToInt(17*scale),new Color(.7f,.78f,.85f));
     }
 }
 }

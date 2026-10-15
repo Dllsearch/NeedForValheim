@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Short world-space ribbons with depth testing; positions come from rear lamps.
 public sealed class VehicleNitroTrails : IDisposable {
     readonly List<TrailRenderer> trails=new List<TrailRenderer>();

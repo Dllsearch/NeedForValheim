@@ -1,6 +1,6 @@
 using System;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Read-only DSP analysis; independent channels avoid cancelling opposite-phase stereo bass.
 public sealed class BassSignal {
     readonly double[] low=new double[8],high=new double[8];

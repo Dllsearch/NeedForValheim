@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     Func<int,bool> nativeMouseHeld;
     void InitializeBoostInput() {
@@ -26,8 +26,8 @@ public partial class Plugin {
             "Flight nitro: nativeMouse={0}, legacyMouse={1}, ctrl={2}, gated={3}, enabled={4}, phase={5}, input={6:F1}, fuel={7:F2}, boost={8}, speed={9:F1}m/s",
             current.nativeBoostMouse,current.legacyBoostMouse,current.keyboardBoost,nitroHeld,nitroEnabled.Value,current.flight.State.Phase,throttle,ActiveNitro.Charge,ActiveNitro.Boosting,body.linearVelocity.magnitude));
     }
-    string FlightBoostLabel=>!nitroEnabled.Value?"NOS AUS":ActiveNitro==null?"NOS nicht verfügbar":
-        ActiveNitro.Boosting?"NITRO AKTIV":ActiveNitro.Charge<=0?"NOS leer – loslassen und weiterfliegen":
-        nitroInput.NeedsRelease?"Nitro: Taste kurz loslassen":"Nitro: W + LMB / linke Strg";
+    string FlightBoostLabel=>!nitroEnabled.Value?"NOS OFF":ActiveNitro==null?"NOS unavailable":
+        ActiveNitro.Boosting?"NITRO ACTIVE":ActiveNitro.Charge<=0?"NOS empty \u00b7 release and keep flying":
+        nitroInput.NeedsRelease?"Nitro: release the button first":"Nitro: W + LMB / left Ctrl";
 }
 }

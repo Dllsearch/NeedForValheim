@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Managed data only: safe on a worker. Cache lifetime is one local world.
 public sealed class SpawnAssetCache {
     sealed class Entry {public long Size,Ticks;public object Data;}
@@ -20,21 +20,35 @@ public sealed class SpawnAssetCache {
     }
 }
 public sealed class SpawnAssets {
-    public ModelData Model,Interior,Turret,Flames;
+    public ModelData Model,Interior,Turret,Flames,Styling,Decals;
+    public DecalArtworkCatalog DecalArtwork;
     public HudData Hud;
     public SpawnAudio Audio;
     public readonly List<string> Warnings=new List<string>();
-    public static SpawnAssets Load(string folder,bool hummer,SpawnAssetCache cache,CancellationToken token) {
+    public static SpawnAssets Load(string folder,bool suv,SpawnAssetCache cache,CancellationToken token)=>Load(folder,suv?CarCatalog.BuiltInH2():CarCatalog.Nissan350Z(),cache,token);
+    public static SpawnAssets Load(string folder,CarProfile profile,SpawnAssetCache cache,CancellationToken token) {
         var result=new SpawnAssets();
-        result.Model=cache.Load(Path.Combine(folder,hummer?"hummer/h2.json":"body.json"),ModelFile.Load,token);
+        var assets=profile.assets;
+        result.Model=cache.Load(Path.Combine(folder,assets.modelFile),ModelFile.Load,token);
+        string styling=Path.Combine(folder,"styling",profile.id+".json");
+        // Libraries are large and runtime-owned; do not retain every browsed car
+        // in the world's small base-model/audio cache after removing the car.
+        if(File.Exists(styling))result.Optional(()=>{
+            var library=ModelFile.Load(styling);
+            if(library.styleOptions==null)throw new InvalidDataException("File is not a styling library");
+            result.Styling=library;
+        },"Styling",token);
+        if(!string.IsNullOrEmpty(assets.decalFile))result.Optional(()=>{
+            var geometry=cache.Load(Path.Combine(folder,assets.decalFile),ModelFile.Load,token);
+            var artwork=cache.Load(Path.Combine(folder,"decals","mw-logos.json"),DecalArtworkCatalog.Load,token);
+            result.Decals=geometry;result.DecalArtwork=artwork;
+        },"Native decals",token);
         result.Flames=result.Model;
-        if(hummer)result.Optional(()=>result.Flames=cache.Load(Path.Combine(folder,"body.json"),ModelFile.Load,token),"Flight atlas",token);
-        else {
-            result.Optional(()=>result.Interior=cache.Load(Path.Combine(folder,"interior/interior.json"),ModelFile.Load,token),"Cabin",token);
-            result.Optional(()=>result.Turret=cache.Load(Path.Combine(folder,"turret/turret.json"),ModelFile.Load,token),"Turret",token);
-        }
-        result.Optional(()=>result.Hud=cache.Load(Path.Combine(folder,"hud/hud.json"),HudFile.Load,token),"HUD",token);
-        result.Audio=new SpawnAudio(folder,hummer,cache,token);
+        if(assets.flameModelFile!=null)result.Optional(()=>result.Flames=cache.Load(Path.Combine(folder,assets.flameModelFile),ModelFile.Load,token),"Flight atlas",token);
+        if(profile.capabilities.interior)result.Optional(()=>result.Interior=cache.Load(Path.Combine(folder,assets.interiorFile),ModelFile.Load,token),"Cabin",token);
+        if(profile.capabilities.turret)result.Optional(()=>result.Turret=cache.Load(Path.Combine(folder,assets.turretFile),ModelFile.Load,token),"Turret",token);
+        result.Optional(()=>result.Hud=cache.Load(Path.Combine(folder,assets.hudFile),HudFile.Load,token),"HUD",token);
+        result.Audio=new SpawnAudio(folder,assets.audioFolders,cache,token);
         return result;
     }
     void Optional(Action load,string label,CancellationToken token) {
@@ -46,11 +60,12 @@ public sealed class SpawnAudio {
     readonly Dictionary<string,WavData> clips=new Dictionary<string,WavData>();
     readonly Dictionary<string,Exception> errors=new Dictionary<string,Exception>();
     public readonly WavData Reverse;
-    public SpawnAudio(string folder,bool hummer,SpawnAssetCache cache,CancellationToken token) {
+    public SpawnAudio(string folder,bool suv,SpawnAssetCache cache,CancellationToken token):this(folder,(suv?CarCatalog.BuiltInH2():CarCatalog.Nissan350Z()).assets.audioFolders,cache,token) {}
+    public SpawnAudio(string folder,string[] subfolders,SpawnAssetCache cache,CancellationToken token) {
         var assembly=typeof(SpawnAudio).Assembly;
-        foreach(var name in assembly.GetManifestResourceNames())if(name.StartsWith("Rachel350Z.Audio.",StringComparison.Ordinal)&&name.EndsWith(".wav",StringComparison.Ordinal))
+        foreach(var name in assembly.GetManifestResourceNames())if(name.StartsWith("NeedForValheim.Audio.",StringComparison.Ordinal)&&name.EndsWith(".wav",StringComparison.Ordinal))
             Read(name,()=>cache.Load(assembly.Location,_=>WavPcm16.Read(assembly.GetManifestResourceStream(name)),token,name),token);
-        foreach(var subfolder in hummer?new[]{"audio/effects","audio/hummer"}:new[]{"audio/effects","audio/turbo","turret"}) {
+        foreach(var subfolder in subfolders) {
             string path=Path.Combine(folder,subfolder);
             if(!Directory.Exists(path))continue;
             foreach(var file in Directory.GetFiles(path,"*.wav"))
@@ -64,13 +79,13 @@ public sealed class SpawnAudio {
         token.ThrowIfCancellationRequested();
         try {clips[key]=load();}catch(OperationCanceledException){throw;}catch(Exception error){errors[key]=error;}
     }
-    public WavData Embedded(string name)=>FileData("Rachel350Z.Audio."+name);
+    public WavData Embedded(string name)=>FileData("NeedForValheim.Audio."+name);
     public WavData FileData(string path) {
         path=Key(path);
         if(clips.TryGetValue(path,out var clip))return clip;
         errors.TryGetValue(path,out var error);
         throw new InvalidDataException("Audio unavailable: "+path,error);
     }
-    static string Key(string value)=>value.StartsWith("Rachel350Z.Audio.",StringComparison.Ordinal)?value:Path.GetFullPath(value).ToUpperInvariant();
+    static string Key(string value)=>value.StartsWith("NeedForValheim.Audio.",StringComparison.Ordinal)?value:Path.GetFullPath(value).ToUpperInvariant();
 }
 }

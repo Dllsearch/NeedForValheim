@@ -1,6 +1,6 @@
 using System;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // NFVU2 firing rules, independent of Unity and of Rust's original combat logic.
 public sealed class TurretState {
     public const int Capacity=30;

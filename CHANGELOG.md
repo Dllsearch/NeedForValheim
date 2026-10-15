@@ -1,5 +1,218 @@
 # Changelog
 
+## Local development � Unified vehicle pipeline
+
+- U2 badge overlays preserve source alpha and correct mirrored surface UVs,
+  including rotated atlas islands and replacement body parts. Missing shared
+  centre brake-lamp textures retain a red lens material and brake-light role.
+
+- One U2 export command and one U2/MW preview command; removed per-model export/render entry points.
+- Shared-pack wheels/spinners, source panel animation formats and pivots, engine
+  variants, trunk audio and original exhaust styles now work through the shared U2 exporter.
+- Preserved built-in chassis settings and the explicit DDAY visual preset.
+- Generic fleet and vehicle-asset checks replace the H2 test bucket.
+- Schema-3 exhaust supports one to four mouths; engine idle follows each profile.
+
+## Local development — Built-in SUV renamed to h2, English source language
+
+- The built-in SUV is addressed by its own identity now: car id `h2`, settings
+  prefix `h2.`, asset folders `h2/` and `audio/h2/`, prefab `H2_Local_Prototype`
+  and styling preset `NFVU2_H2_YELLOW_SPINNER26`. Behaviour keeps the capability
+  name: `SuvTuning` (was `HummerTuning`), `IsSuv`, `SuvBands`,
+  `VehicleOrbitCamera.Begin(target, isSuv)`. Renamed files:
+  `src/HummerTuning.cs` → `src/SuvTuning.cs`, `tools/export_hummer.py` →
+  `tools/export_h2.py`, `tools/render_hummer.py` → `tools/render_h2.py`,
+  `tools/prepare_hummer_audio.py` → `tools/prepare_engine_audio.py`,
+  `tests/hummer/` → `tests/h2/`. The display name "Hummer H2" and the short name
+  "H2" are unchanged, and NFSU2 source identifiers (`CARS/HUMMER/`,
+  `HUMMER_KIT00_*`, `GIN_Hummer.gin`, `CarTypeMapping/HUMMER`) are literal game
+  data and stay as written.
+- `tools/install.py` migrates a live install: `[Hummer.*]` sections in
+  `local.needforvalheim.prototype.cfg` are rewritten to `[h2.*]` after a
+  `config-before-sections.cfg` backup; a section that already exists wins. The
+  legacy asset folders are removed only when provably empty, and `allowed_name`
+  still accepts the old manifest names so the previous installed-file manifest
+  can be backed up and deleted.
+- UI source text is English. `src/InterfaceText.cs` is inverted into a
+  418-pair English→German locale table with exact-match lookup first and
+  word-boundary fragment replacement after it, so German remains a working
+  locale; `Tr(text)` selects it from `Interface.Language`, which now defaults to
+  `EN` and offers `English`/`German` in the controls menu. 187 literals were
+  converted mechanically from the existing table and 58 composed strings by hand.
+- 188 tracked files changed. `AGENTS.md` and `CONTRIBUTING.md` state the naming
+  rule (identity `h2`, capability `suv`, never the car's name as a generic flag)
+  and the English-source convention.
+- Documentation translation is deliberately out of this change: the remaining
+  German docs and translation constraints were recorded in the local
+  `handoffs/TRANSLATION_HANDOFF.md` file.
+- Automated: build green; full suite 82 tests with the one pre-existing
+  `test_cabin_fit` error (optional third-party interior source) and 1 skip —
+  identical before and after the language pass. Installed and SHA-256 verified
+  2040 files; the installed plugin folder contains `h2` (2 files) and
+  `audio/h2` (9), the installed cfg has 15 `[h2.` sections and no `[Hummer.`
+  section. In-game load, garage spawn and the `English`/`German` toggle are not
+  verified.
+
+## Local development — Plugin renamed to NeedForValheim
+
+- Rename `Rachel350Z.dll` to `NeedForValheim.dll`, the namespace `Rachel350Z` to
+  `NeedForValheim`, the embedded audio resource prefix to `NeedForValheim.Audio.*`,
+  the plugin id to `local.needforvalheim.prototype` and the install folder to
+  `BepInEx/plugins/NeedForValheim/` — 224 files across `src`, `tests`, `tools`,
+  `installer` and the docs.
+- `tools/install.py` migrates the rename: saved settings are copied from
+  `local.rachel350z.prototype.cfg` to `local.needforvalheim.prototype.cfg`
+  (config categories do not contain the plugin id, so values carry over
+  unchanged), the old cfg is kept, and the legacy `BepInEx/plugins/Rachel350Z`
+  folder is moved into the dated backup and removed — BepInEx loads every dll
+  under `plugins`, so leaving it would run the old plugin next to the new one.
+- `AGENTS.md` and `CONTRIBUTING.md` state the new id and filename.
+- `tests/test_menu_import.py` fixture fixed: `payload_files` reads `cars.json`
+  to derive MW asset folders, so the fixture writes a valid catalog instead of
+  opaque bytes. That failure predates the rename.
+- Automated: 1021 catalog checks; full suite 82 tests with the one pre-existing
+  `test_cabin_fit` error (optional third-party interior source) and 1 skip.
+  Installed and SHA-256 verified 2040 files. In-game load of the renamed plugin
+  is not verified.
+
+## Local development — Underground garage
+
+- Replace the floating settings window with a fullscreen Underground 2 frontend,
+  original logo/vehicle badges, cut-corner controls and an independent 3D garage.
+  Preview/tune cars before spawning; navigate with keyboard, controller or mouse.
+- Add an NFVU2 GARAGE inventory button; move vehicle hints above the bottom strip
+  to avoid overlapping the network diagnostics controls.
+- Enable NOS kits on the full roster, export their original effect artwork and
+  fit exhaust/purge emitters. Return to the car lot after removal, reuse the freed
+  parking position and display/log rejected spawn reasons.
+
+- Replace the crowded 30-car toolbar with a paginated car lot and parked fleet;
+  add showroom orbit/zoom, saved garage recall and three named builds per model.
+- Add real Stage 1–3 engine, turbo, gearbox, tyre, service-brake and NOS upgrades,
+  while preserving stock handling, reverse limits and refill/input gates.
+- Import up to 203 original body/rim options per car from the local game files;
+  add live paint, finishes, rim colour and reversible procedural vinyls.
+- Fix schema-3 wheel/material loading, saved rim sizing on newly selected meshes,
+  per-model showroom settings and cargo guards when switching saved builds.
+- Batch startup configuration binding; stage mesh swaps and release styling data
+  with the car. Restore frontend artwork/sounds from the installed language data.
+- Keep native zone streaming centred on the seated player while Player is disabled;
+  publish the exit position immediately. Use neutral imported materials, discard
+  SUV widebody window placeholders and oversized rim atlas backing quads.
+
+## Unreleased — The whole NFSU2 roster through the same importer
+
+- Import all **28 drivable cars** the game ships with usable data (Skyline,
+  RX-7, RX-8, Supra, Miata, 240SX, Eclipse, 3000GT, Mustang GT, GTO, A3, Golf,
+  Celica, Civic, Corolla, Corsa, Focus, RSX, Lancer Evo 8, Impreza WRX, IS300,
+  G35, Tiburon, Sentra, Peugeot 206, Peugeot 106, Escalade, Navigator) with the
+  importer unchanged in shape: one `SPECS` entry per car, 67–92 sections, 9–12
+  textures and eight original engine loops each. The remaining 18 roster entries
+  are traffic vehicles without their own wheel mesh or without wheel locators
+  (BUS, FIRETRUCK, SUV, TT), so the importer cannot resolve them.
+- Fix the geometry parser for the meshes that broke it: vertex records come in
+  two strides, 36 bytes (position, normal, reserved, uv) and **24 bytes with no
+  normals**; the index buffer decides which one a mesh uses. Material and
+  texture slots use `255` for "unassigned", which normal-less meshes carry.
+  Both were hard failures before (`3000GT_KIT00_ENGINE_B` did not parse).
+- Fix wheel and brake classification for the whole roster: geometry headers
+  truncate mesh names at 24 characters, so `_FRONT_WHEEL` arrives as
+  `_FRONT_WHEE` and `_FRONT_BRAKE` as `_FRONT_BRAK`. Families are matched on the
+  suffix, which keeps `_BRAKELIGHT` (a tail-lamp panel) in the body. Truncated
+  brake discs had been silently dropped from ESCALADE, MUSTANGGT and PEUGOT106.
+- Derive the spawn lift from the **chassis floor**, exhaust meshes excluded:
+  NFSU2 hangs tailpipes under the floor and on COROLLA and NAVIGATOR they sit
+  20 cm below it, which lifted those cars until their tyres floated above the
+  ground plane. Tyre clearance across the fleet is now −0.255..−0.020 m
+  (median −0.165), previously −0.255..+0.041.
+- `tools/mod_files.py` ships all 28 model folders and their `audio/<car>/`
+  loops; `tools/build_catalog.py` merges 28 profiles into `cars.json`, which
+  stays under the runtime cap of 32 profiles.
+- Automated: `--suite carprofile` now runs 215 checks over the shipped
+  `cars.json`. Full suite: 62 tests, 1 pre-existing error (`test_cabin_fit`
+  needs the optional third-party interior source) and 2 skips. In-game garage
+  selection and spawning of the new cars remain to be checked.
+
+## Unreleased — Six more cars through the same importer (no new code per car)
+
+- Import **RX-7, Supra, Miata, 240SX, Eclipse GSX and Mustang GT** with
+  `tools/export_car.py` unchanged: each car is one `SPECS` entry (paint tint,
+  mass, gear ratios, RPM bands, rim range). Geometry, chassis numbers and engine
+  sound all come from the game — 69–92 sections, 9–11 textures and eight
+  original engine loops per car.
+- Resolve each car's stock engine bank and RPM range from the game's own
+  mapping chain (`CarTypeMapping/<CAR>.ini → CarDataMapping → EngineData`,
+  community mirror `nlgxzef/NFSU2CarSoundTuner`). Banks are shared between
+  cars, so `tools/extract_audio.py --gin <BANK>.gin` extracts by bank filename:
+  SUPRA and IS300 both use the 350Z bank, 240SX and COROLLA share one. The
+  Hummer check reproduces the shipped H2 profile exactly (engine 38,
+  `GIN_Hummer.gin`, 1000–4782 RPM), which is what validates the chain.
+- `tools/prepare_hummer_audio.py --engine <N>` records the `EngineData` index a
+  bank came from in each loop manifest, so provenance is per car instead of a
+  hard-coded Hummer reference.
+- `tools/mod_files.py` lists imported cars in one tuple and ships each car's
+  model folder plus its own `audio/<car>/` loops.
+- Automated: `--suite carprofile` now runs 110 checks over the shipped
+  `cars.json` (seven imported cars), validating every model against the runtime
+  loader and every chassis against its own mesh bounds. In-game garage
+  selection and spawning of the new cars remain to be checked.
+
+## Unreleased — Second car through a generic NFSU2 importer (Skyline)
+
+- Add `tools/export_car.py <CAR>`: a data-driven importer that builds a car
+  from its own `CARS/<CAR>/GEOMETRY.BIN` families — body from `<CAR>_BASE` and
+  `<CAR>_KIT00_*`, wheel and brakes from the same families (NFSU2 stores them
+  per car, not in `CARS/WHEELS`), tyre radius measured on the rubber triangles,
+  brake disc scaled to the wheel. Mesh families are matched by name prefix and
+  the densest LOD, because geometry headers truncate long mesh names.
+- Read the car's four wheel locators from the decompressed `GlobalB.lzc` at
+  `NAME\0 + 0x120` with stride `0x30`; that table exists for all 44 cars and
+  reproduces the values the H2 importer already used. Track width, front and
+  rear axles, wheel radius and box sizes are derived from it plus the body
+  bounds, so a new car's chassis numbers come from the game, not from guesses.
+- Export as schema 3 (showroom, trunk and exhaust catalogs optional) and wrap
+  UVs that tile past the loader's limit (the Skyline front bumper reaches
+  u=203) into the unit square, which Unity's repeat addressing renders the same.
+- Import the Skyline: 71 sections, 9 textures, its own wheel and brake meshes,
+  plus eight original engine loops from `GIN_Nissan_Skyline.gin` (1524–8293
+  RPM). `tools/extract_audio.py --car` and `tools/prepare_hummer_audio.py
+  --car/--gin/--bands` generalize the audio chain; defaults keep the H2 run
+  identical.
+- Ship the catalog: each importer writes `.local/<car>/profile.json`,
+  `tools/build_catalog.py` merges them into `cars.json`, and the build places
+  that file next to the DLL, where the game reads it. `skyline/` and
+  `audio/skyline/` join the payload allowlist.
+- Fix the built-in H2 model path: the build ships `hummer/h2.json`, so the
+  profile now points at `hummer/h2.json` instead of a root-level `h2.json`.
+- Automated: the `carprofile` suite now loads the shipped `cars.json` and, for
+  every listed car, requires a model file that the runtime loader accepts, a
+  wheel-mesh radius equal to the chassis radius, axles inside the body and
+  tyres within the body width (80 checks). `tools/render_imported_car.py`
+  renders previews at the profile's wheel positions. In-game garage selection
+  and spawning of the Skyline remain to be checked.
+
+## Unreleased — Vehicle catalog (`cars.json`)
+
+- Describe every vehicle as data in `src/CarProfile.cs`: chassis numbers,
+  feature switches, acoustic gearbox and asset layout. The 350Z and Hummer H2
+  are built-in profiles with their previous numbers, so existing behaviour and
+  settings names are unchanged.
+- Read `cars.json` from the plugin folder: entries override a built-in car by
+  `id` and new ids are appended, up to 32 cars. An invalid, empty or oversized
+  file is refused with one log line and the built-in cars are kept.
+- Replace the hard-coded 350Z/H2 branching with profile data: drive-mode
+  cycling, menu entries, nitro, turret and horde availability, cargo layout,
+  rear access distance and rim size ranges now follow the selected car.
+- Bind per-vehicle settings once per catalog car, so a new car gets its own
+  prefixed sections (`silvia.Driving`) while the 350Z keeps the plain section
+  names and the H2 keeps `Hummer.`.
+- Automated: 64 new catalog checks (defaults, merge, per-car cargo and mode
+  cycling parity with the old car switch, and rejection of invalid rigs, gear
+  tables, ids and catalog files) plus the existing controls, storage, handling
+  and horde suites. In-game spawning of a second car, garage selection, the
+  unenforced `flight`/`neon`/`radio`/`exhaust` flags and the NFSU2 importers for
+  other cars remain open; see [CARS_JSON](docs/CARS_JSON.md).
+
 ## Unreleased — Vehicle inner surfaces
 
 - Remove black-backed ring decals that made the closed brake caliper bosses
@@ -287,757 +500,757 @@ format. The installer is approximately 148 MB.
 
 Earlier entries below retain their original German wording.
 
-## 0.22.0 — Turbolast, originale Druckanzeige und kleine Bäume
-
-- Kleine Bäume/Büsche ab 0,25 m/s statt 2,5 m/s; native Kontakte können die
-  Pflanze auch nach dem Abbremsen durch die Physik treffen. Gerichtetes Gas
-  bei echtem Kontakt befreit ein bereits hängendes Fahrzeug. Gegner behalten
-  ihre bisherige Schadensschwelle, Wände und große Bäume bleiben geschützt.
-- Turbo und Blow-off folgen einem gemeinsamen Lastzustand. Ereignislautstärke
-  wird vor Druckabbau gespeichert; keine starren Low-/High-Pegel mehr. Der
-  Import erhält relative Samplepegel mit gemeinsamem Gain statt RMS-Normalisierung.
-- Analoge Gasrücknahme über mehrere Frames erzeugt ebenfalls einen Blow-off;
-  kleine Trigger-Schwankungen nicht. Menü, Pause, Ausstieg und Flug setzen
-  den Turbo zurück, ohne eine künstliche Entladung auszulösen.
-- Originale Turbo-Zifferblätter aller elf NFS-Stile ersetzen die zusätzliche
-  Geschwindigkeitsanzeige. Digitale Geschwindigkeit bleibt erhalten; H2 ohne
-  Turbo blendet das kleine Instrument aus. Ältere HUD-Dateien bleiben lesbar.
-- Unterdruck und 0,42 s abklingendes Flattern ergänzen die Nadelbewegung.
-  Die Druck-/Gain-Kurve ist eigene NFVU2-Abstimmung, keine vollständige
-  Rekonstruktion der NFS-Auslöselogik. Belege/Abgrenzung siehe REFERENCES.
-- Offline-Soundvergleich: Teil-/Volllast unterscheiden sich um ca. 8,3 dB,
-  ohne Motorlast bleibt der Turbo still; keine übersteuerten Samples.
-  Unity-Physik, tatsächliche Mischlautstärke und HUD im Spiel noch prüfen.
-- Build, 54 Python-Tests sowie 87 Audio-, 24 HUD-/Fahranzeige-, 59 Kollisions-
-  und 31 Ladeprüfungen bestanden. Dies sind keine Unity-Laufzeittests.
-
-## 0.21.0 — Menüführung, Antrieb, Turret und Auspuff
-
-- Kategorien und Inhalt haben getrennten Controller-Fokus; Stick/Steuerkreuz
-  navigieren beide Bereiche. LB/RB springen zwischen ihnen; Regler und
-  Auswahlfelder haben einen mit A/B bedienbaren Bearbeitungsmodus.
-- Ohne erreichbares Auto bleiben Garage/Einstellungen sichtbar. Autorenzeile
-  „by BCKWDZ“ und optionales originales Rust-Logo am Turret-Eintrag ergänzt.
-- Normale Munition von 35 auf 14 Stichschaden reduziert; Explosivmunition
-  erhält native Holz-/Steinschäden für große Bäume und abbaubare Felsen.
-- Mehr Motormoment und gezielter Anfahrschub vorwärts/rückwärts; Federung und
-  Fahrwerksgeometrie bleiben von Audio- und Auspuffänderungen getrennt.
-- Neues Auspuff-Menü für Klangvarianten der vorhandenen Originalsamples und
-  Nitroflammenfarbe. Klangabstimmungen und Fahrphysik sind NFVU2-eigene Regeln.
-- Zehn originale 350Z-Auspuffblenden STYLE01–10 aus lokalen NFS-Dateien;
-  Flammenpositionen folgen den tatsächlichen Öffnungen. Bisherige STYLE08
-  bleibt Standard, ältere Modellimporte behalten ihre vorhandenen Endrohre.
-- Build, 53 Python-Tests und alle 20 C#-Testsuiten bestanden. Blender-Prüfung
-  von STYLE01/STYLE08 zeigt korrekt montierte Einzel-/Doppelrohre ohne
-  überlagerte Varianten. Plugin-ID und Rachel350Z.dll bleiben erhalten;
-  Controller, Fahrgefühl, Klang und Partikeleffekte benötigen Unity-Spieltests.
-
-## 0.20.5 — Fahrzeughinweise mit Valheim-Controller-Symbolen
-
-- Native Kampf-/Bau-/Angelhinweise im Fahrzeug durch ein zweispaltiges Feld
-  unten rechts ersetzt; nutzt Valheims Schrift und vorhandene Xbox-/PS5-Sprites.
-- Passende Belegung für Straße, Flug und offenes Modmenü; LB/L1 im Flug ist
-  Sinken, das Geschütz wird als automatisch angezeigt. H2-Nitro nur im Flug.
-- Gerätewechsel, erzwungener Controller-Typ, DE/EN und Hinweisgröße berücksichtigt.
-  Tacho oberhalb der Hinweise, bisherige Textleiste im Fahrzeug entfällt.
-- Aussteigen stellt die nativen Hinweise wieder her; Inventar/Pause behalten
-  ihre nativen Hinweise. Ausgeblendetes HUD blendet auch Fahrzeughinweise aus.
-- Glyphnamen in installierten Spielassets geprüft; Zuordnungs- und bestehende
-  Logiktests bestanden. Layout-/Controller-Prüfung im Spiel steht noch aus.
-
-## 0.20.4 — Kamera im offenen Modmenü
-
-- Rechter Stick dreht die Kamera auch im Menü. Mit der Maus rechte Taste halten
-  und ziehen; im Fahrzeug zoomt währenddessen das Mausrad.
-- Zu Fuß bleibt die native Kamerapositionierung mit Hindernisprüfung erhalten.
-  Menüklicks, Songlisten-Scrollen und Verschieben lösen keine Kameradrehung aus.
-- Fahr-, Nitro- und Waffenaktionen bleiben gesperrt. Pause/Fokusverlust beendet
-  die Kamerabedienung. Hinweise zur Bedienung stehen im Menü (DE/EN).
-- Build und Logikprüfungen ersetzen keinen Kamera-/Cursor-Test im Spiel.
-
-## 0.20.3 — Fahrzeugspawn als Spielmeldung
-
-- Nach erfolgreichem Laden und Platzieren erscheint „Gespawnt: Nissan 350Z“
-  bzw. „Gespawnt: Hummer H2“ in der nativen gelben Mitte-Anzeige (DE/EN).
-- Abgebrochene oder fehlgeschlagene Ladevorgänge zeigen keine Erfolgsmeldung.
-
-## 0.20.2 — Fahrmodus als Spielmeldung
-
-- Erfolgreiche Fahrmoduswechsel per Tastatur, Controller und Menü zeigen eine
-  native gelbe Meldung in der Mitte: „Fahrmodus: 'Gelände/Straße/Drift/Fliegen'“.
-- DE/EN folgt der Spracheinstellung. Unveränderte Auswahl und abgelehnte
-  Flugstarts erzeugen keine Wechselmeldung; beim Landen erscheint der gewählte
-  Bodenmodus. Kein zusätzlicher Eintrag im Nachrichtenlog.
-
-## 0.20.1 — Schnellleiste während der Fahrzeugsteuerung sperren
-
-- Native Hotbar-Navigation und Gegenstandsbenutzung während Fahrt, Flug und
-  geöffnetem Modmenü gesperrt; zu Fuß bei geschlossenem Menü wieder verfügbar.
-- Die Anzeige von Inventar, Haltbarkeit und Stapelgrößen aktualisiert sich weiter.
-- Regressionstests für die Eingabefilterung; Prüfung im Spiel steht noch aus.
-
-## 0.20.0 — Controller, direkte Aktionen und Sprache
-
-- Analoge Xbox-/PS5-Steuerung, L3-Menü und B/Kreis Ein-/Aussteigen. Xbox:
-  X Nitro, A Handbremse, LB Geschütz; PS5 Quadrat, Kreuz, L1. Flug: RB/R1
-  steigen, LB/L1 sinken. Fluggeschütz nutzt automatisch vorhandene Zielerkennung.
-- Fahrmodi direkt per 1–4 oder Steuerkreuz hoch/runter, H2 überspringt Drift.
-  F7/B/Kreis im Flug landet vor dem Ausstiegsversuch. Songs per Pfeil-/Steuerkreuz
-  links/rechts, Titel-Einblendung nach tatsächlichem Wiedergabestart.
-- Controller-Menüfokus für Buttons, Toggles, Regler, Auswahlfelder und Songliste;
-  Kategorien per Schultertasten, zurück per B/Kreis; Mausbedienung erhalten.
-- DE/EN unter globalen Einstellungen, Gerätehinweise mit größerer einstellbarer
-  Schrift; Controller-Typ automatisch oder manuell Xbox/PlayStation.
-- Separate Eingabepolitik, Freigabe erst nach Loslassen nach Unterbrechungen,
-  gezielte Sperre nativer Spielersteuerung. Bestehende Fahrwerksabstimmung bleibt.
-- Automatische Logiktests; Controller-, UI- und Unity-Spieltests stehen noch aus.
-
-## 0.19.0 — Scheinwerfer-Show nach dem Aussteigen
-
-- F9 → Lichter: „Show-off beim Aussteigen“, standardmäßig aus, für 350Z und H2
-  separat gespeichert. Nach dem Aussteigen zweimal links, zweimal rechts,
-  dann Pause; 2,4-s-Zyklus mit vier 160-ms-Blitzen. Links/rechts aus Fahrersicht.
-- Lichtkegel und leuchtende Lampenflächen folgen derselben Phase. Seiten aus
-  Fahrzeugkoordinaten statt spiegelverkehrter NFS-Teilenamen bestimmt.
-- Einsteigen beendet die Show und aktiviert normales Fahrlicht. Abschalten
-  stellt den normalen Lichtzustand wieder her; erneutes Aktivieren startet links.
-  Pause/Fokusverlust friert die Phase ein. Eigenständiger Zustand pro Fahrzeug.
-- Farbe und Stärke gelten auch für die Show; Motor-/Radio-Weiterlaufen ist
-  unabhängig. Brems-/Rückfahr-/Rücklicht unverändert. Reset schaltet Show-off aus.
-- Automatische Ablaufprüfungen; sichtbare Lichtkegel, Emission und Menü im Spiel prüfen.
-
-## 0.18.4 — Metallic-Lack
-
-- Lackflächen werden beim Import ausdrücklich markiert. 350Z-Lack/Vinyl und
-  gelbe H2-Karosserie erhalten ein frisches Material mit Metallic 0,72 und
-  Smoothness 0,88; geladener Standard-Shader mit geprüftem nativem Fallback.
-  Keine geerbten Gebäude-Normal-/Glanzmasken. Farbe und Vinyl bleiben erhalten.
-  Carbonhaube, Scheiben, Innenraum und Felgen behalten ihre eigenen Einstellungen.
-- Importzuordnung automatisch geprüft; Glanz und Reflexionen müssen bei
-  Sonne/Schatten/Nacht im Spiel geprüft werden.
-
-## 0.17.0 — Nitro-Tunnelblick und Rücklichtspuren
-
-- Sechs radial versetzte Bildlagen verwischen beim tatsächlichen Nitro-Boost
-  den Bildrand. Ein weicher Schutzbereich hält die Fahrzeugprojektion und
-  die Bildmitte scharf; HUD/Overlay werden danach gezeichnet. GPU-Kopie in
-  halber Auflösung, keine CPU-Bildrücklesung. Filter nur während Boost/Fade aktiv.
-- Zwei kurze rote Lichtbänder folgen den Rücklichtpositionen. Weicher Querschnitt,
-  verjüngtes Ende und ungefähr drei Meter Maximallänge. Tiefentest bleibt aktiv.
-  Nur bei eingeschalteten Rückleuchten und tatsächlichem Boost, auch im Flug.
-- F9 → Nitro: Tunnelblick und Rücklichtspuren separat abschaltbar; gemeinsame
-  Stärke 0–100 %, Standard 70 %. Gemeinsame Einstellungen für beide Fahrzeuge.
-  Menü, Pause, Fokusverlust, Ausstieg, Welt-/Kamerawechsel räumen Effekte auf.
-- Eigene UVs, Gewichtung, Maske und Spurzeiten; keine unveränderte Übernahme
-  der NFS-Shader. Die ergänzend geprüfte yugecin-Quelle liefert Grafikschalter
-  und Parameternamen, keine vollständige Nitro-/Spur-Implementierung.
-- Keine Änderung von Fahrzeugsteuerung, Nitro-Schub, Tank oder Auspuffeffekten.
-  Automatische Prüfungen ersetzen keine Unity-Darstellungs-/GPU-Messung.
-
-## 0.16.1 — Auspuff-Nitro auch im Flug
-
-- Die gemeinsame Effektsperre enthielt bisher den gesamten Flugmodus und
-  unterdrückte dadurch die vorhandenen 350Z-Auspuffflammen und Nitro-Sounds.
-  Beide folgen jetzt dem aktiven Nitro-Zustand auf Boden und im Flug.
-  Ohne tatsächlichen Boost bleiben sie aus; die vier Schwebe-Düsen sind unabhängig.
-- Reifenrauch, Purge und Schubknallen bleiben im Flug gesperrt. Menü,
-  Fokusverlust, Ausstieg und noch nicht abgeschlossener Einstieg sperren
-  weiterhin die Auspuffeffekte. Keine Änderung von Schub, Tank oder Fahrwerk.
-- 41 Nitro- und 37 Flugprüfungen bestanden; Partikel und Sound benötigen
-  weiterhin den Unity-Spieltest.
-- NFSU2-Bildfilter und Lichtspuren untersucht: getrennte Grafikoptionen,
-  eingebettete D3D9-Filter und lokale Flare-Textur nachgewiesen. Die genaue
-  Nitro-Kopplung, Filtergewichte und Trail-Historie bleiben unbestätigt.
-  Quellen und Grenzen in REFERENCES; noch kein neuer Bildschirmfilter eingebaut.
-
-## 0.16.0 — Fahrzeuge im Hintergrund vorbereiten und schrittweise spawnen
-
-- Bisher liefen Dateilesen, JSON-Auswertung, Textur-Uploads, Mesh-Aufbau und
-  Audioerstellung zusammen im Spawnaufruf. Der optionale Innenraum ergänzt
-  rund 24 MB JSON. Modelldaten und PCM-Sounds werden nun auf einem Worker
-  vorbereitet; der JSON-Reader liest aus dem Stream statt einer zusätzlichen
-  vollständigen Dateikopie als String.
-- Ladeanzeige mit aktuellem Abschnitt und animiertem Balken beim Einlesen.
-  Aufbau von Karosserie, Rädern, Innenraum, Turret, Tacho und Motorclips in
-  kleinen Arbeitsschritten mit etwa 3 ms Budget je Update. Einzelne Unity-
-  Aufrufe können das Budget überschreiten; keine harte Framerate-Garantie.
-- Unveränderte verwaltete Modell-/Sounddaten werden innerhalb derselben Welt
-  wiederverwendet. Keine geteilten veränderbaren Unity-Materialien oder Meshes.
-  Dateigröße/Änderungszeit invalidieren den Cache; Weltwechsel gibt ihn frei.
-- Das Auto bleibt bis zum Abschluss inaktiv und außerhalb der Fahrzeugliste.
-  Spawnplatz wird vor Freigabe erneut geprüft. F8/Abbrechen, Tod, Teleport,
-  Weltwechsel und Ladefehler entsorgen Teilressourcen. Bereits vorhandene
-  Fahrzeuge bleiben unabhängig; parallele Spawns und Einstieg während Laden
-  werden gesperrt. Fehlende optionale Module behalten ihren bisherigen Fallback.
-- Automatische Prüfungen für Hintergrundladen echter Assets, Cache/Invalidierung,
-  Abbruch, Fehler und Ressourcen-Finalisierung. Im .NET-Test etwa 1,4 Sekunden
-  beim ersten Einlesen gegenüber etwa 4 ms aus dem Cache; das sind keine Unity-
-  Frametimes. Log ergänzt Gesamtdauer und längsten Hauptthread-Arbeitsschritt.
-- Plugin-ID, DLL-Name und VehicleHandling bleiben erhalten. Spieltest offen.
-
-## 0.15.2 — Nitro-Eingabe, Flammenanschluss und Reifenmaterial
-
-- Flammenansatz von 48 auf 26 cm Abstand zum Radmittelpunkt korrigiert;
-  die nicht gestreckten Partikel bleiben erhalten.
-- Nutzer meldet weiterhin fehlendes Flug-Nitro. Installierte 0.15.1 und aktive
-  Nitro-Konfiguration bestätigt; im bisherigen Log fehlen Eingabedaten.
-  Zusätzlich zu Unity-Legacy-Mouse wird nun Valheims vorhandenes
-  `ZInput.GetMouseButton` gelesen. W + linke Strg als Flug-Alternative,
-  sichtbarer Boost-/Tank-/Loslassstatus und begrenzte Diagnoseausgaben.
-  Der konkrete Laufzeitfehler ist damit noch nicht als reproduziert behauptet.
-- Originaler 128×128-Racing-Hart-Atlas enthält Reifenprofil und Seitenwand;
-  Textur und UV-Zuordnung waren vorhanden. Die 350Z-Gummifarbe multiplizierte
-  diese auf 16 % herunter. Jetzt 80 %, nicht metallisch und rau, mit frischem
-  Material statt geerbter Prop-Einstellungen. Keine neuen Reifenassets.
-- Tests prüfen native Eingabe bei ausgefallenem Legacy-Mauswert, Tastaturalternative,
-  Loslass-Sperre, Flugschub sowie bestehende Bodensteuerung; Reifen gerendert.
-  Tatsächliche Eingabe und Effektposition benötigen den Spieltest.
-
-## 0.15.1 — Flugtempo, Schubrichtung, Luft-Nitro und Tachonadel
-
-- Nutzer bestätigt den Flugmodus. Steigen jetzt bis 12 m/s, manuelles Sinken
-  bis 16 m/s, automatische Landung bis 10 m/s mit Abbremsen vor dem Boden.
-  Die frühere Zwei-Meter-Zielbegrenzung drosselte die vertikale Geschwindigkeit.
-- Felgen-Sichtseite beim Klappen nach oben gedreht. Räder, Bremsen und Spinner
-  neigen sich mit dem Schub. Vorwärts zeigt die Flamme nach hinten, rückwärts
-  nach vorne, beim Lenken zur Gegenseite; beim Loslassen gleitet die Neigung zurück.
-- Düsen unter die Räder versetzt; normale statt gestreckter Partikel vermeiden
-  die rückwärts über den Austritt hinausragenden Flammensprites. Emission startet
-  erst gegen Ende des Umklappens, damit keine Flammen durch den Aufbau laufen.
-- W + linke Maustaste aktiviert Nitro im Flug: höheres Vorwärtstempo und mehr
-  Schub, Tankverbrauch und Nachladung. Gemeinsamer Boden-/Flugtank beim 350Z;
-  H2 mit eigenem Flug-Nitro. Keine zusätzliche Boden-Nitrofreigabe bei Sprüngen.
-- Deutlicher Drehzahlzeiger über den übrigen HUD-Ebenen und zusätzliche analoge
-  Geschwindigkeitsanzeige mit passender KM/H-/MPH-Skala, neben dem NFS-Instrument.
-- Build und gezielte Flug-, Nitro-, HUD-, Fahrwerks-, H2- und Audioprüfungen;
-  HUD-Vorschau gerendert. Neue Fahr- und Effektwirkung noch in Unity prüfen.
-
-## 0.15.0 — Flugmodus mit umklappenden Rädern
-
-- F9 → Fahrzeug → Fliegen für 350Z/H2: animierte 90°-Radklappung, sanftes
-  Abheben, Schweben mit Positionshaltung. W/S vor/zurück, A/D drehen,
-  Shift steigen, Leertaste sinken. Vorwärts maximal etwa 65 km/h.
-- Vier blaue Rad-Düsen aus dem vorhandenen NFS-FIREB-Atlas; tiefer abgestimmter
-  lokaler Nitroloop mit Schubmodulation und Purge-Sound als optionalem Fallback.
-  Keine neuen Originalassets, eigene Flugregelung und Animationsabläufe.
-- Separater Flugcontroller übernimmt Kräfte und deaktiviert temporär die
-  WheelCollider. Der bewährte VehicleHandling-Controller bleibt unverändert;
-  Gravitation, Dämpfung und Radcollider werden bei Landung/Abbau zurückgesetzt.
-- Auswahl eines Bodenmodus startet eine kontrollierte Landung mit anschließendem
-  Ausklappen. F7 und Menü-Ausstieg warten darauf; letzterer nutzt wieder den
-  regulären Ausstiegsablauf. F8/Tod/Weltwechsel haben weiterhin einen Abbaupfad.
-- Nitro/Burnout und Reifengeräusche sind im Flug gesperrt. Menü/Fokusverlust
-  neutralisieren Eingaben; Schwebestabilisierung bleibt aktiv. Jeder Wagen
-  besitzt seinen eigenen Flugzustand; neue Fahrzeuge starten am Boden.
-- Neue Zustands-/Controllerprüfungen mit kontrollierten Physikantworten.
-  Tatsächliches Flugverhalten, Kollisionen, Partikel und Audio benötigen Unity.
-
-Build, vollständiger Testsatz (49 Python-Tests und 546 C#-Prüfungen einschließlich
-32 Flugprüfungen) sowie Radgeometrie-Vorschau geprüft. Keine Unity-Laufzeittests.
-
-## 0.14.3 — Polierte Chrom-/Goldfelgen
-
-Der Felgenrand war nur 28 % metallisch, der Stern 22 %. Eine zusätzliche
-orange-goldene Farbe multiplizierte die bereits goldene Originaltextur.
-Beide Flächen verwenden nun vollständig metallische Materialien mit hoher
-Glätte; der Stern erhält nur eine leichte kühlere Korrektur der Originalfarbe.
-
-Die Felgen verwenden ein frisches Standard-Material, sofern dessen Shader
-verfügbar ist, sonst eine frische Instanz des vorhandenen Fahrzeugshaders.
-Keine geerbten Prop-Texturen oder Eigenleuchtung; Reflexionen und Glanzlichter
-sind aktiviert. Die Rad-Renderer nutzen Valheims vorhandene Reflection Probes.
-Die Shaderauswahl steht im Log. Geometrie, Reifen und Fahrphysik bleiben gleich.
-Build sowie 142 Modell-, Innenraum- und H2-/Garagenprüfungen bestanden;
-Felgendetail zusätzlich in Blender gerendert. Die genaue Wirkung unter
-Valheim-Beleuchtung benötigt einen Spieltest.
-
-## 0.14.2 — Rotstich der Scheibentönung
-
-Die bisherige Materialauswahl konnte `lavalanternglass_mat` bzw. dessen
-Bruchvariante kopieren. Beide enthalten in den lokalen Spielassets eine rote
-Eigenleuchtfarbe und das aktive Shader-Schlüsselwort `_EMISSION`. Die Tönung
-änderte nur die Grundfarbe und ließ diese Eigenleuchtung erhalten.
-
-Das Fenstermaterial verwendet jetzt ein frisches Material mit der geladenen
-Shaderreferenz; fremde Texturen, Farben und Schlüsselwörter werden nicht mehr
-kopiert. Eigenleuchtung wird zusätzlich explizit abgeschaltet. Tönungsfarben
-sind neutral grau. Die gewählte Shaderreferenz wird zur Diagnose protokolliert.
-Build und Innenraumprüfungen bestanden; Darstellung im Spiel noch prüfen.
-
-## 0.14.1 — Fahrerhaltung, offenes Fenster und Scheibentönung
-
-- Nutzer bestätigt Innenraum und Ein-/Ausstieg von 0.14.0; Kopf ragte durch
-  das Dach, Hände saßen zu weit vorne und die Lenkanimation war umgekehrt.
-- Sitzposition abgesenkt und etwas zurückversetzt; zusätzliche Begrenzung
-  anhand des Kopfknochens mit Reserve für Kopf/Haar unter dem Dach.
-- Rechte Hand mit zurückversetztem Handgelenk am Lenkrad, korrigierte
-  Drehrichtung und Handorientierung. Linker Arm ruht am offenen Fenster;
-  beim Öffnen der Tür bzw. Aussteigen wird er nach innen geführt.
-- F9 → Türen: gespeicherte Scheibentönung 0–100 %. Die physisch linke
-  Seitenscheibe wird beim Sitzen ausgeblendet und beim Aussteigen wieder sichtbar.
-- Linke Tür nach dem Einstieg wieder manuell bedienbar: Menüknopf entsperrt,
-  Sitzanimation überschreibt den Türzustand nicht mehr. Türbewegung ist im
-  Menü möglich, sobald der Fahrer sitzt; Ein-/Ausstiege behalten ihre Sperre.
-- Build und gezielte Fahrer-, Tür- und Fahrwerksprüfungen bestanden.
-  Neue Pose, Scheibenwirkung und Ausrüstung benötigen erneuten Spieltest.
-
-## 0.14.0 — Lokaler Innenraum und sichtbarer Fahrer
-
-- Optionaler lokaler BeamNG-350Z-Innenraumimport: Cockpit, zwei Sitze, Pedale,
-  Schalthebel und an den NFS-Türen befestigte Innenverkleidungen. Separate
-  Lenkraddrehung, transparente Fenster mit verfügbarem Spielshader.
-- F7 im Stand: Weg zur Fahrertür, Öffnen, Übergang in Valheims Sitzanimation,
-  Hände am Lenkrad und Füße an den Pedalen, Schließen und Fahrfreigabe.
-  Rückweg beim Aussteigen; freie Bodenfläche und Platz für den Spieler nötig.
-- Eingaben/Nitro/Turret während des Übergangs gesperrt. Menü/Fokusverlust
-  pausiert den Ablauf; Entfernen, Fehler und Weltwechsel stellen den Spieler wieder her.
-- Native Sitzanimation plus eigene Übergänge/Gliedmaßenausrichtung, keine
-  übernommene BeamNG-Charakteranimation. Visuelle Sitzskalierung auf 85 %.
-  H2 und bestehende Fahrwerksabstimmung bleiben unverändert.
-- Import, Modelldaten und Zustandsabläufe automatisiert geprüft; externe
-  Modellvorschau geprüft. Unity-Spieltest einschließlich Kleidungsüberschneidungen offen.
-- Originalautor des bereitgestellten Modland-Archivs unbekannt. Assets bleiben
-  lokal in ignorierten Ordnern; keine Weiterveröffentlichungsfreigabe behauptet.
-
-## 0.13.1 — Verschiebbares Fahrzeugmenü
-
-F9-Menü per linker Maustaste an der Titelleiste verschieben. Die Position wird
-gespeichert und bei Auflösungswechsel auf den sichtbaren Bildschirm begrenzt.
-Schließen/Fokusverlust beendet das Ziehen. Schließen-Button und Inhaltsregler
-bleiben unabhängig bedienbar. Die bestehende Fahrzeugbindung der Kategorien
-bleibt erhalten: Ohne Fahrzeug ist nur die Garage aktiv.
-Build und Menütests geprüft; tatsächliches Unity-Ziehen noch im Spiel prüfen.
-
-## 0.13.0 — Tieferlegung, NFS-Menü und Parkautomatik
-
-- F9 → Räder: zusätzlicher Tieferlegungsregler 0–12 cm mit 0,5-cm-Schritten,
-  für H2/350Z getrennt gespeichert; physischer Versatz der Aufhängungspunkte.
-  Serienhöhe beim Zurücksetzen, Feder-/Dämpfer- und Fahrmodusabstimmung erhalten.
-- Vorderräder behalten beim Aussteigen ihren tatsächlichen Lenkwinkel.
-  Wiedereinstieg setzt die geglättete Lenkung fort; Parkbremse bleibt aktiv.
-- Neues F9-Layout mit Kategorienleiste, Original-NFSU2-Icons, ausgewählten
-  deutschen Originaltiteln, Tastaturnavigation und drei Frontend-Sounds.
-  Lokaler Import mit `tools/export_menu.py`, optionaler Medienordner `menu/`.
-  Layout/Aktionen und Soundrollen sind angepasst; keine NFS-Menüemulation.
-- Aktivierter 350Z-Turret bewacht nach dem Aussteigen automatisch: sichtbare
-  Lasersuche, vorderer 180°-Sektor, 30 m Reichweite, feindliche Kreaturen,
-  Laufnachführung, kontrollierte Schusslinie und automatisches Nachladen.
-  Schalter unter Turret; unabhängig vom Motor-/Radioweiterlauf. Laserfarbe,
-  Stärke und Munition werden übernommen. Spieler/zahme Tiere sind keine Ziele.
-- Menüs, Fokusverlust und Spielertod sperren Automatik; nach manueller Übernahme
-  bleibt gehaltenes RMB bis zum Loslassen gesperrt. Jeder Turret hat eigene
-  Suche, Munition und Bewegung. H2-Turret weiterhin nicht eingerichtet.
-- Geprüft mit Build, Import-/Payloadtests, Fahrwerks- und Turret-Zustandstests
-  sowie kontrollierten Sichtlinien-API-Antworten. Kein Unity-Spieltest.
-
-## 0.12.0 — Hummer H2, Spinner und Garage
-
-Originaler H2 aus den eigenen NFSU2-Dateien: Serienkarosserie in Gelb,
-26-Zoll-SPINNER_STYLE01 mit separatem Originaleinsatz, 34 cm breite Reifen
-und für den schwereren SUV angepasste Federung, Bremsen und Anfahrkraft.
-Die Einsätze beschleunigen verzögert und laufen nach dem Anhalten aus.
-Felgengröße 22–28 Zoll; Reifenaußendurchmesser bleibt erhalten.
-Originale Radpositionen aus dem HUMMER-Global-Datensatz, NFVU2-Fahrphysik.
-Rückleuchten mit passender Serien-Textur und getrennten roten/weißen Flächen;
-die zwei Atlasbereiche des hinteren HUMMER-Schriftzugs werden gemeinsam gespiegelt.
-
-Eigener Serien-Sound aus GIN_Hummer.gin: acht Drehzahlbereiche, 1000–4782 U/min
-und vier akustische Vorwärtsgänge. Der originale Stock-Datensatz verwendet
-keinen zweiten Ginsu-Schubkanal; die Mod nimmt denselben Hummer-Sound leiser
-beim Gaswegnehmen. Keine umbenannten oder tiefer gepitchten 350Z-Aufnahmen.
-
-F9 → Garage ist auch ohne Auto erreichbar. Modellauswahl und Spawnknopf;
-F6 spawnt die gespeicherte Auswahl. Bis zu vier unabhängige temporäre Autos,
-Freiplatzsuche nebeneinander, kein Ersetzen des vorherigen Autos.
-F7/F9 wählen zu Fuß das nächste Auto, F8 löscht nur dieses. Während der Fahrt
-bleibt die Auswahl beim Fahrerauto. Spawnen erst nach dem Aussteigen.
-Modell-/Ladefehler beim Spawnen erhalten die bereits vorhandenen Autos.
-
-Pro Auto getrennte Physik, Meshes, Materialien, Audio, Radio, Nitro- und
-Turret-Zustände; zentrale Kamera-/Spielersteuerung und Musikdämpfung.
-Licht, Radio, Räder und Fahrmodus haben separate H2-Konfigurationseinträge,
-vorhandene 350Z-Einträge bleiben gültig. Autos desselben Modells teilen
-Einstellungen. Kamera/Tacho bleiben gemeinsam. H2-Kamera höher und weiter weg.
-
-Beim H2 zunächst kein Motorraum-/Kofferraumausbau, keine Türanimationen,
-kein Nitro/Turret. Radio, Licht, Neon, Burnout und Aufprallsystem werden
-wiederverwendet. Kein Speichern der Fahrzeuge, weiterhin lokaler Einzelspieler.
-Automatische Prüfungen und Blender-Vorschauen ersetzen keinen Unity-Spieltest.
-
-## 0.11.0 — Kräftiger, einstellbarer Laser und bewegte Subwoofer
-
-Breiterer Laser mit hellem Kern und größerem Treffpunkt. Unter F9 → Turret →
-Laser einstellen: 25–400 Prozent Stärke (Standard 200), sieben Farbvorlagen
-und RGB-Regler. Farbe und Stärke werden gespeichert und gelten für Strahl
-und Punkt; Hindernisse stoppen den Laser weiterhin.
-
-Das Radio analysiert den Bassanteil der tatsächlich wiedergegebenen Samples
-ohne sie zu verändern. Getrennte Kanalanalyse vermeidet Auslöschung bei
-gegenphasigem Stereo. Die Basshüllkurve steuert eine sichtbare Membranschwingung
-bis 14 mm Hub in beide Richtungen. Gehäuse und Außenrand bleiben fest.
-Jeder Lautsprecherplatz besitzt eigene animierte Meshkopien; Verstärker und
-LCDs bewegen sich nicht. Gilt auch für das Radio nach dem Aussteigen.
-Pause, ausgeschaltetes Radio, Lautstärke null und ausbleibende Audiodaten
-lassen die Bewegung ausklingen; Titelwechsel setzt die Auslenkung zurück.
-Die Bewegung ist eine Bassvisualisierung, keine samplegenaue Lautsprechersimulation.
-
-## 0.10.0 — Freie Zielsicht, Rust-Laser und Explosivmunition
-
-Im Turret-Modus höherer Kameradrehpunkt, bei steilem Blick nach unten zusätzlich
-angehoben. Visier bei 62 Prozent der Bildhöhe über der unteren Bildschirmkante;
-der Lauf richtet sich auf den Weltpunkt dahinter aus. Orange zeigt Nachlauf,
-Neigegrenze oder blockierenden Fahrzeugrumpf. Normale Fahrkamera bei abgeschaltetem
-Turret unverändert. Munitionsart und Vorrat links unten.
-
-Originales Rust-Lasersight-Entity-Modell samt beiden Materialbereichen und
-Emitterpunkt lokal importiert und unter der AK montiert. Roter Strahl und
-Treffpunkt folgen dem Lauf und enden an Hindernissen; im Menü abschaltbar.
-F9 → Turret: Normal/Explosiv. Explosiv ergänzt den direkten Treffer um kleinen
-Flächenschaden gegen Gegner mit Entfernungsabfall und Deckungsprüfung sowie
-einen gepoolten Partikel-/Lichtblitz und Rusts `explosive-ammo-close`-Sound.
-
-Jeder direkte Bodentreffer mit Explosivmunition senkt eine runde Fläche von
-1,4 m Radius im Zentrum um bis zu 18 cm ab, entfernt Gras und speichert über
-Valheims Terrain-Compiler. Wiederholte Treffer graben weiter bis zum normalen
-Grablimit. Treffer auf Felsen, Gebäude oder Kreaturen graben nicht darunter.
-Krater bleiben in der Welt, auch nachdem das temporäre Auto entfernt wurde.
-Modelle/Samples original; Laserstrahl, Partikel, Wirkung und Krater sind NFVU2.
-Zusätzliche Tests für Terrain-Treffer, Kachelgrenzen, Besitzer und Wiederholung.
-
-## 0.9.1 — Zielmarkierung und Dachmontage korrigiert
-
-Das Geschütz folgt der Kamerablickrichtung vom Lauf aus. Der bisherige
-Bildschirmmittelpunkt zielte bei der Orbitkamera auf den Bereich des Autos.
-Ein einziges, kontrastreiches Fadenkreuz zeigt nun den projizierten tatsächlichen
-Auftreffpunkt; Nachlauf und Neigegrenzen bleiben sichtbar. Munition links unten.
-Valheims eigenes Mittelkreuz und Bogenvisier werden während der Turret-Steuerung
-ausgeblendet; beim Ausstieg, Abschalten und Entfernen wiederhergestellt.
-Turret um 20 cm nach hinten und 7,5 cm tiefer versetzt, damit die Stützen in
-der gekrümmten Dachfläche sitzen. Geometrievorschau aktualisiert.
-
-## 0.9.0 — Rust-AutoTurret mit AK auf dem Dach
-
-Neuer F9-Reiter „Turret“, standardmäßig ausgeschaltet, mit gespeichertem
-Ein-/Ausschalter und separater Lautstärke. Lokaler Import der originalen
-AutoTurret-/AK-Weltmodelle, fünf Diffustexturen und sieben Rust-Sounds.
-Originale Dreh-/Neigepunkte, AK aufrecht mit nach vorne gerichtetem Lauf;
-auf die Dachfläche skaliert. Das Abdeckblech der leeren Waffenaufnahme entfällt.
-
-Mausblick steuert Drehung und Neigung mit begrenztem Nachlauf. Zielmarkierung
-zeigt den tatsächlichen Auftreffpunkt. Rechte Maustaste hält Dauerfeuer:
-30 Schuss, 2,5 Sekunden Nachladen, unbegrenzte Reservemunition. Raycast bis
-150 m, 35 Stichschaden vor Valheims Widerständen an gegnerischen Kreaturen.
-Felsen, Gebäude und eigene Karosserie blockieren. Kein Beschuss von Spielern,
-gezähmten Tieren oder Bauwerken. Schussvarianten, Außennachhall, Servoloop,
-Aktivierungs- und Nachladegeräusche werden räumlich abgespielt.
-
-Eigene Rückstoßanimation, Mündungsfeuer, Lichtblitz und kurze Leuchtspur.
-Keine Übernahme von Rust-Skripten oder Charakteranimationen. Schießen nur
-am Fahrersitz; nach Fokusverlust, Menü oder Ausstieg ist Loslassen erforderlich.
-Fehlende/fehlerhafte optionale Assets deaktivieren nur den Turret. Fahrwerk,
-Nitro und bestehende Bedienung bleiben erhalten. Build und automatisierte
-Prüfungen sowie Blender-Geometrievorschau; Unity-Spieltest noch offen.
-
-## 0.8.0 — NFS-Tachos, dynamische Kamera und Driftsetup
-
-Elf Original-Designs aus HUD_CustomTextures_00 bis 10 mit 7500-RPM-Skala und
-Zeigern sowie NOS-Grafiken aus InGameRace.bun. Der lokale Import erhält Alpha
-und entfernt ungenutzte Texturränder. Anzeige rechts unten: Geschwindigkeit,
-akustische Drehzahl/Gang, Nitrotank und Boostfarbe. Menü → Anzeige: Design,
-Größe, Farbe, KM/H/MPH und Sichtbarkeit; ohne Assets einfacher Text-Fallback.
-Layout, Zeigersweep und NOS-Füllanimation sind eigene Valheim-Anpassungen.
-
-Kamera folgt einem geglätteten Weltwinkel statt starr dem Fahrzeugwinkel.
-Begrenzter Anteil der Bewegungsrichtung und vorausschauender Zielpunkt für
-Kurven/Drifts; Rückwärtsfahrt dreht die Kamera nicht um. Mausblick pausiert
-das automatische Nachziehen für 2,2 Sekunden; im Stand keine Rückzentrierung.
-Im Anzeigemenü abschaltbar und in der Stärke einstellbar. Hindernisprüfung bleibt.
-
-Optionaler Driftmodus zusätzlich zu Gelände/Straße: Heckantrieb, weniger
-Seitengrip hinten, erweiterter Lenkwinkel, schnelleres Gegenlenken, 20 Prozent
-mehr Drehmoment gegenüber Straße und weniger Traktionsregelung bei Schlupf.
-Leertaste als Hinterrad-Handbremse; Menü/Exit/Fokusverlust bremsen alle Räder.
-Originaler Reifensound und Rauch bei Schlupf, W+S-Burnout weiterhin möglich.
-Driftparameter liegen separat; Umschalten stellt die bisherigen Grundwerte her.
-Prüfungen und externe HUD-Vorschau ersetzen keinen Fahr-/Kameratest in Unity.
-
-## 0.7.2 — Außenmusik bei offenen Türen und Heckklappe
-
-Die tatsächlichen Animationsstände steuern Lautstärke, Tiefpass und Position
-der räumlichen Radioquelle. Geschlossen bleibt die bisherige Dämpfung erhalten
-(30 Prozent, 1400 Hz); eine offene Tür lässt mehr Musik heraus, die vollständig
-offene Heckklappe erreicht 85 Prozent und 12 kHz. Werte sind Mod-Abstimmungen.
-Die Quelle wandert zur geöffneten Fahrzeugseite oder zum Kofferraum; mehrere
-Öffnungen ergeben eine gewichtete Position mit begrenztem Gesamtpegel.
-Der bestehende Stream läuft durch, ohne neue Wiedergabe oder doppelte Songs.
-Innenwiedergabe, Benutzerlautstärke, Pause, Fokus-/Menüsperren und der
-Weiterlaufen-Schalter bleiben erhalten. Die Motorhaube ist ausgenommen.
-Automatisierte Mischungsprüfungen ersetzen keinen Hörtest in Valheim.
-
-## 0.7.1 — Fehlende obere Rückleuchten-Einsätze
-
-Der Import hat vom geteilten STYLE04-Leuchtenmaterial nur die unteren
-orangefarbenen Streifen übernommen. Die sechs oberen Dreiecke je Seite
-fehlten; dadurch war Kofferraum-Neon durch die Rückleuchten sichtbar.
-Beide oberen Einsätze werden jetzt mit Originalgeometrie und Originaltextur
-übernommen. Die separat modellierten klaren Außenabdeckungen bleiben offen.
-Neonposition, Lichtsteuerung und Fahrverhalten bleiben unverändert.
-Regression prüft den vollständigen, duplikatfreien Erhalt der Dreiecke.
-Blender-Vorschau geprüft; die Darstellung in Valheim noch bestätigen.
-
-## 0.7.0 — Kofferraumausbauten, Türanimationen und Motorraum
-
-F9 → Ausbau: Serie und drei originale 350Z-Gehäuse mit 2/4/6 Plätzen.
-Je Platz Abdeckung, vier Subwooferdesigns, vier Verstärker und vier LCDs.
-Originale AUDIO-Geometrie, AUDIO_SKIN-Textur und MARKER_AUDIO_COMP-Matrizen;
-Komponentengröße nach Geometriepassform gewählt. Standard: KIT02 mit vier
-SPEAKER1-Subwoofern. Dies ist eine Mod-Voreinstellung, kein nachgewiesener
-Bestandteil von Rachels Preset. Separates Kofferraum-Neon mit sieben Farben,
-Ein-/Ausschalter, statischer oder pulsierender Darstellung und Zurücksetzen.
-Leuchtstreifen und Pulsverlauf sind eigene Mod-Effekte; LCDs bleiben statisch.
-
-F9 → Türen: linke/rechte Tür, Haube und Heckklappe öffnen im Stand animiert.
-Normale/Suicide-/Scherentüren verwenden Original-Quaternionen, Scharnierpunkte
-und bei Scherentüren auch die originale seitliche Translation. Wiedergabe auf
-eine Sekunde normiert; Türmechanik wechselt erst nach dem Schließen.
-Spiegel, Türverkleidungen, Haubenunterseiten und Spoiler folgen den Gruppen.
-Anfahren/Einsteigen schließt die Teile automatisch. Keine neuen Türcollider;
-Antrieb und WheelCollider bleiben unverändert.
-
-Drei Original-Motormodelle samt UNLIT-Innenflächen sind unter der Haube
-wählbar. Das Basismodell enthält nur einfache Innenraumgeometrie; ein
-detailliertes Cockpit wurde nicht gefunden. Scheiben bleiben undurchsichtig.
-Neue Metadaten sind optional für ältere Modelle; importierte Audiomeshes
-werden beim Teilewechsel wiederverwendet. Build und 322 automatisierte Prüfungen
-sowie Blender-Sichtprüfungen; Unity-Darstellung/Bedienung noch im Spiel prüfen.
-
-## 0.6.0 — Überfahren und laufendes Fahrzeug nach dem Aussteigen
-
-Ab 2,5 m/s Kontaktgeschwindigkeit verursachen Fahrzeugtreffer nativen Valheim-
-Schaden und Rückstoß an feindlichen, lebenden Kreaturen. Spieler und gezähmte
-Tiere bleiben ausgenommen. Kleine Buchen/Tannen und vier Buschvarianten nutzen
-nativen Hackschaden mit normalen Zerstörungseffekten und Beute. Große Bäume,
-Felsen, Bauwerke und gepflanzte Setzlinge sind ausgenommen. Kurze Vorschau des
-Fahrzeugvolumens plus Kollisionskontakte; pro Ziel 0,8 Sekunden Trefferschutz.
-Schaden und Rückstoß sind begrenzt; hohe Gesundheit/Rüstung schützt weiterhin.
-Fahrwerk und Antrieb bleiben unverändert. Der Build referenziert nun zusätzlich
-die lokal installierte assembly_valheim.dll, ohne sie mitzuliefern.
-
-F9 → Fahrzeug: „Beim Aussteigen weiterlaufen lassen“ ist standardmäßig an
-und wird gespeichert. Nach mindestens einem Einstieg bleiben Motor im Leerlauf,
-eingeschaltetes Neon und Radio aktiv. Der Schalter wirkt auch neben dem Auto;
-Radio-Pause und eigener Neon-/Radioschalter bleiben wirksam. Draußen wird das
-Radio räumlich, auf 30 Prozent gedämpft und auf 1,4 kHz tiefpassgefiltert;
-es blendet bis 28 Meter aus. Valheim-Musik wird nur beim Fahren unterdrückt.
-Motor draußen auf 55 Prozent und 30 Meter Reichweite begrenzt.
-Fokus-/UI-Pause und Entfernen räumen weiterhin alle Quellen auf.
-
-Build und 297 automatisierte Prüfungen einschließlich 41 neuer Treffer-Adaptertests
-bestanden. Unity-Physik, Spiel-Schadensverarbeitung und Hörwirkung sind noch
-im Spiel zu bestätigen.
-
-## 0.5.0 — Kräftigeres Anfahren, Rückwärts-Sound und Burnout
-
-Vorwärts-Anfahrmoment um 20 Prozent bis 3 m/s erhöht, linear bis 6 m/s auf
-das bisherige Niveau reduziert. Die erste akustische Übersetzung steigt
-von 3,79 auf 4,15; übrige Gänge und Höchstgeschwindigkeiten bleiben erhalten.
-Das Rückwärts-Getriebeheulen ist eine neue synthetische Schleife mit
-geschwindigkeitsabhängiger Tonhöhe/Lautstärke. Kein eindeutig zugeordneter
-Original-Rückwärts-Sample wurde in der Dateiinventur und Ereignissuche gefunden.
-Rückfahrlicht: Intensität 1,6 → 0,45, Reichweite 6 → 4 m, Emission 2 → 0,7.
-
-W+S startet unter 0,65 m/s mit beiden Hinterrädern und mindestens einem
-Vorderrad am Boden einen Burnout. Die Frontachse bremst, die Hinterachse
-erhält Drehmoment und vorübergehend reduzierten Längsgrip. Über 2 m/s,
-bei Kontaktverlust, Loslassen, Leertaste, Menü oder Ausstieg wird beendet.
-Normale Reibungswerte werden wiederhergestellt; Nitro ist während W+S gesperrt.
-Motor hält im Burnout den ersten Gang mit hoher Last. Originaler SKID_PAV-Sound
-und SFX_SMOKE_B_CS-Rauchatlas reagieren auf tatsächlich drehende Hinterräder.
-Rauchposition folgt auch dem visuellen Radversatz. Partikel werden begrenzt
-und bei Sperre/Entfernen gelöscht. Effekte, Audio und Steuerung bleiben getrennt.
-
-256 automatisierte Prüfungen bestanden; tatsächliche WheelCollider-Physik,
-Rauchdarstellung und Hörwirkung benötigen den Spieltest.
-
-## 0.4.1 — Menü links oben und einstellbare Frontscheinwerfer
-
-Das Menü sitzt mit 16 Pixel Abstand links oben und skaliert bei kleinen
-Fenstern so, dass unten Platz für die Fahrhinweise bleibt.
-F9 → Licht bietet 14 Farbvorlagen, einen Stärke-Regler von 0 bis 300 Prozent
-und Zurücksetzen auf Serie/100 Prozent. Auswahl und Stärke werden gespeichert.
-Lichtkegel und emissive Frontleuchten erhalten gemeinsam Farbe und Stärke;
-Rück-, Brems-, Rückfahr- und Kennzeichenlicht behalten ihr bisheriges Verhalten.
-
-Die Vorlagennamen stammen aus den lokalen Originaldateien
-LANGUAGES/English.bin, German.bin und Labels.bin. RGB-Werte und der Faktor
-1,45 der extrahellen Vorlagen sind NFVU2-Anpassungen für Unity.
-Build und 232 bestehende automatisierte Prüfungen bestanden.
-Menüdarstellung und tatsächliche Lichtwirkung sind noch im Spiel zu bestätigen.
-
-## 0.4.0 — Sturz, Radversatz und Felgengröße im Menü
-
-F9 → Räder bietet getrennten Sturz (−15 bis +10 Grad) und seitlichen Versatz
-(−10 bis +20 cm je Rad) für Vorder-/Hinterachse. Ein gemeinsamer Regler ändert
-die nominale Felgengröße von 16 bis 22 Zoll relativ zum NFS-20-Zoll-Ausgangsmodell.
-Die Reifenflanke wird angepasst, der 70-cm-Außendurchmesser bleibt erhalten.
-Änderungen erscheinen sofort und bleiben in der Konfiguration gespeichert;
-ein Zurücksetzen-Knopf stellt alle fünf Ausgangswerte wieder her.
-
-Sturz liegt vor der Radrotation, damit geneigte Räder beim Rollen nicht taumeln.
-Die Bremsen folgen Sturz/Versatz; Sättel bleiben von der Raddrehung getrennt.
-Felgenänderungen verwenden unveränderte Ausgangsvertices statt kumulativer
-Skalierung und passen die Normalen an. Der Versatz wird je Seite gespiegelt.
-Die Funktion ist optisch: Radstand, Kontaktgeometrie und VehicleHandling bleiben
-unverändert. Spieltest von Bedienung, Extremwerten und Beleuchtung noch offen.
-232 automatisierte Prüfungen bestanden; externe 16-/22-Zoll-Vorschauen geprüft.
-
-## 0.3.1 — Heckschriftzug richtig ausgerichtet
-
-Die UV-Zuordnung des hinteren 350Z-Schriftzugs ist horizontal korrigiert,
-damit er von hinten lesbar ist. Nur seine beiden Dreiecke sind betroffen;
-der gemeinsame Originalatlas und die übrigen Embleme bleiben erhalten.
-Nahaufnahme vor/nach dem Export geprüft; Spieltest noch offen.
-
-## 0.3.0 — Nitro, Purge und zweifarbige Felgen
-
-Linke Maustaste halten: Vorwärtsfahrt mit Gas und Bodenkontakt gibt Zusatzschub
-und grüne Flammen aus den vier vermessenen Endrohren; im Stand entstehen helle
-Purge-Strahlen an Stoßstange und Haube. Originale SFX_FIREB-/SFX_SMOKE_B_CS-Atlanten
-und zwei Schleifen aus Nitrous_00_MB.abk werden verwendet. Die Loop-Rollenzuordnung,
-Purge-Düsenpositionen und Unity-Partikelanimation sind dokumentierte Annäherungen.
-Sechs Sekunden Tank, zwei Sekunden Nachladeverzögerung, zehn Sekunden Ladung
-während der Fahrt. Zusatzschub liegt getrennt vom bestätigten VehicleHandling.
-Menü, Fokusverlust und Ausstieg stoppen Effekte; Menüklicks lösen keinen Boost aus.
-
-F9 enthält Nitro-Einstellungen und optionale, zunächst ausgeschaltete Flammen
-bei Gaswegnahme nach hoher Last. NFS kennt Sputter-/Blow-off-Effekte; genaue
-Tuningbedingungen und der richtige Knall-Substream bleiben offen. Deshalb wird
-kein unbestätigter Backfire-Sound als Original ausgegeben oder installiert.
-
-Die Originalfelge wird ohne Geometrieverlust in Chromring und Goldstern getrennt.
-Angepasste Materialwerte verhindern die bisher fast schwarze Metallfläche.
-Der Texturparser überspringt keine echten führenden 0x11-Pixelbytes mehr.
-Externe Felgenvorschau und 222 automatisierte Prüfungen bestanden;
-Unity-Fahr-, Partikel- und Hörtest noch offen.
-
-## 0.2.1 — Heckleuchten, breitere Reifen, Sportbremsen und Songtitel
-
-Der Nutzer bestätigt die grundsätzliche Funktion von 0.2.0 in Valheim.
-Fehlende orange Streifen unter den STYLE04-Rückleuchten und die Einsätze der
-Heckstoßstange werden wieder importiert. Die inneren Stoßstangenflächen leuchten
-bei eingelegter Rückwärtsrichtung weiß und beleuchten den Boden dahinter.
-S beim Vorwärtsfahren bleibt zunächst Bremsen; Aussteigen beendet Rückfahrlicht.
-Die Aufteilung der Stoßstangenflächen ist eine dokumentierte Annäherung.
-Orange Streifen sind passiv; eine Blinkersteuerung ist noch nicht implementiert.
-
-Reifenbreite von etwa 19,5 auf 28 cm erhöht; 70-cm-Durchmesser, äußere Position
-und Fahrwerk beibehalten. Originale STYLE03-Sportbremse mit roten Sätteln und
-38-cm-Scheibe. Die Rotorfläche wurde wegen der ursprünglich quadratischen
-Alpha-Maske rund nachgebildet; ihr Originalatlas bleibt erhalten.
-Scheiben drehen mit dem Rad, Bremssättel folgen nur der Lenkung.
-
-Das Radio zeigt 27 echte Künstler-/Songnamen aus der EA-Trax-Tabelle.
-MPF-Ereignisse, originale EXE-Strings und WAV-Prüfsummen sichern die Zuordnung.
-16 weitere Containerstreams bleiben lokal, erscheinen aber nicht mehr als Songs
-im Radio. Build/Paket/Installer übernehmen nur die aktive Playlist.
-Die Änderungen wurden extern gerendert und mit 176 automatisierten Prüfungen
-getestet. Der Nutzer bestätigt anschließend auch die Funktion in Valheim.
-
-## 0.2.0 — Fahrzeugmenü, Radio und Beleuchtung
-
-F9 öffnet ein skalierbares Fahrzeugmenü für Fahrmodus, Radio, Licht und Neon.
-Eingabe-/Kamerasperre und Audio-Pause sind getrennt; das Radio bleibt beim
-Bedienen hörbar. Türen/Kofferraum sind ausdrücklich noch deaktivierte Vorbereitung.
-Lokale Stereo-Musik wird bedarfsgerecht geladen, mit Titelauswahl, Vor/Zurück,
-Pause und Lautstärke. Originalmusik kommt aus SDAT.VIV; die 43 importierten
-Musikstreams haben bis zur gesicherten Zuordnung neutrale Titelnummern.
-
-Front-, Rück- und Kennzeichenlicht schalten beim Einstieg ein und beim Ausstieg
-aus. Bremslicht reagiert zusätzlich auf Bremsen. Die originale LICENSE_PLATE-
-Textur liegt auf eigener Rechteckgeometrie; ihre Platzierung ist angenähert.
-Originale 350Z_NEON-Maske mit bodenangepasster Projektion, Farbwahl und eigener
-Pulsanimation. Shaderwirkung und Lichtstärken sind noch in Valheim zu prüfen.
-
-Die akustischen Übersetzungen schalten im Gelände früher; Schaltunterbrechungen
-betragen 140/120 ms. Radschlupf erhöht den Ton, ohne die Gangauswahl hochzuzählen.
-Originale TURBO_MED_2-Aufnahmen ergänzen Aufladung und Blow-off; Zuordnung und
-Auslösung sind eine dokumentierte Annäherung. VehicleHandling bleibt getrennt.
-Installer/Paket unterstützen die externen Medien, Dateisicherungen, SHA-256 und
-Rücksicherung bei Kopierfehlern. Der Nutzer hat die grundsätzliche Funktion
-anschließend in Valheim bestätigt; Nachbesserungen sind in 0.2.1 beschrieben.
-
-## 0.1.9 — Textur-Upload beim Spawnen
-
-Der Spieltest von 0.1.8 scheiterte mit `LoadRawTextureData: not enough data provided`.
-Die Texturen besitzen eine Mipmap-Kette, die Modelldatei enthält jedoch nur Stufe 0.
-`SetPixelData<byte>(pixels, 0)` lädt jetzt gezielt diese Stufe; `Apply(true, true)`
-erzeugt anschließend die kleineren Stufen. Der Nutzer hat die Darstellung
-anschließend in Valheim bestätigt.
-
-## 0.1.8 — Tatsächlichen Reifendurchmesser korrigiert
-
-Der Import verwendete bisher die Diagonale einer quadratischen Felgen-Rückfläche
-als Radius. Damit waren die sichtbaren Reifen von 0.1.7 nur etwa 52 cm groß,
-obwohl 72 cm angegeben wurden. Gemessen wird jetzt ausschließlich die originale
-Reifenoberfläche: vorne und hinten tatsächlich 70 cm Durchmesser, etwa 35 %
-größer als zuvor. Die überstehenden Rückflächen-Dreiecke werden ausgelassen.
-Zwei Regressionstests prüfen den Quellradius und den exportierten Reifen.
-Die Vorschau enthält zusätzlich eine Seitenansicht und eine tiefe perspektivische
-Ansicht für den Vergleich mit dem Referenzbild. Der Unity-Spieltest steht aus.
-
-## 0.1.7 — Radproportionen und Einbauposition
-
-Radskalierung erhöht (Durchmesserangabe später in 0.1.8 korrigiert), Räder weiter nach außen
-gesetzt und längs in den Widebody-Radhäusern zentriert. Rad- und Bremsdarstellung
-folgen gemeinsam dem Fahrwerk; ihre Versätze rotieren nicht mit den Rädern.
-Die Karosseriedarstellung sitzt 4 cm höher, um den größeren Rädern Platz zu geben.
-Collider, Antrieb und Federungsparameter bleiben auf dem bisherigen Stand.
-Die externe Vorschau zeigt eine angenäherte eingefederte Stellung anstelle der
-Collider-Aufhängungspunkte. Freigang bei Lenkeinschlag und Einfedern muss noch
-in Valheim geprüft werden.
-
-## 0.1.6 — Rachels Originalteile und Vinyl
-
-Die ursprüngliche Voreinstellung `DDAY_PLAYER_CAR` aus `GlobalB.lzc` bestimmt
-Widebody 02, Carbonhaube 07, Spoiler 02, Leuchten, Racing-Hart-Räder und
-Endrohre. Originale UVs, Normalen, Materialbereiche, Texturen und das
-`350Z_ART_F_6`-Vinyl einschließlich Maskenpalette werden lokal aufbereitet.
-Räder folgen den bisherigen WheelCollidern; Bremssättel drehen nicht mit.
-Fahrphysik und Sound bleiben unverändert. Modell und Texturen sind weiterhin
-ignorierte lokale Daten. Build, 83 Mod-Prüfungen und drei Asset-Prüfungen bestanden; externe Vorschau
-gerendert. Der Unity-Spieltest steht aus. Lack/Felgentönung sind angenähert;
-Scheibentransparenz, Leuchtenabdeckungen und Kennzeichen bleiben offen.
-
-## 0.1.5 — Fahrzeug-Sound
-
-Originale NFSU2-Aufnahmen für Beschleunigen und Gaswegnehmen, jeweils acht
-Drehzahlbereiche, eigene Drehzahl-/Schaltlogik, Roll- und Rutschgeräusche und
-synthetisierte Hupe. Geräusche sind räumlich am Fahrzeug angebunden.
-Der Nutzer bestätigt die grundsätzliche Funktion; Klang-Feinschliff ist offen.
-
-## 0.1.4 — Anfahren wiederhergestellt
-
-Motorleistung unabhängig von Radkontaktmeldungen, Physik bei Eingaben aktivieren
-und Bremse beim Gasgeben vollständig lösen. Vom Nutzer bestätigt: Auto fährt
-wieder, Geländemodus funktioniert sehr gut.
-
-## 0.1.3 — Kamera und Gelände
-
-Mauskamera mit Zoom und Hindernisabstand; umschaltbarer Gelände-/Straßenmodus.
-Kamera und Moduswechsel bestätigt; Anfahrproblem anschließend in 0.1.4 korrigiert.
-
-## 0.1.2 — Darstellung im Spiel
-
-Vorhandenes Valheim-Material mit geladenem Shader verwenden. Spawnen, Fahren
-und Ein-/Aussteigen erstmals vom Nutzer bestätigt.
-
-## 0.1.1 — Modell laden
-
-Newtonsoft.Json für die Modelldaten statt des ungeeigneten Unity-JSON-Laders.
-
-## 0.1.0 — Erster Prototyp
-
-Serienkarosserie aus NFSU2 extrahiert: 16 Teile, 3.867 Vertices, 3.449 Dreiecke.
-
-Die Git-Historie beginnt mit dem Projektimport auf Basis von 0.1.5. Die früheren
-Versionen sind hier dokumentiert; frühere lokale Sicherungen sind keine Git-Tags.
+## 0.22.0 — Turbo load, original boost gauge and small trees
+
+- Small trees/bushes are hit at 0.25 m/s instead of 2.5 m/s; native
+  contacts can
+  still hit the plant through physics after braking. Directed
+  throttle on actual
+  contact frees a vehicle that is already stuck. Enemies keep their previous
+  damage threshold; walls and large trees remain protected.
+- Turbo and blow-off share a common load state. Event volume is
+  captured before
+  boost pressure decays; fixed low/high levels are removed. Import preserves
+  relative sample levels with shared gain instead of RMS normalization.
+- Analog throttle release over several frames also triggers blow-off; small
+  trigger fluctuations do not. Menus, pause, exit and flight reset the turbo
+  without triggering an artificial discharge.
+- Original turbo gauges for all eleven NFS styles replace the additional
+  speed display. Digital speed remains; H2 without a turbo hides the small
+  instrument. Older HUD files remain readable.
+- Vacuum and 0.42 s of decaying flutter augment needle movement. The
+  boost/gain
+  curve is NFVU2's own tuning, not a complete reconstruction of NFS trigger
+  logic. See REFERENCES for evidence and scope.
+- Offline audio comparison: partial and full load differ by about 8.3 dB;
+  the turbo stays silent without engine load, with no clipped samples.
+  Unity physics, actual mix volume and the in-game HUD still need checking.
+- Build, 54 Python tests, 87 audio checks, 24 HUD/speed-display checks,
+  59 collision checks and 31 loading checks passed. These are not
+  Unity runtime tests.
+
+## 0.21.0 — Menu navigation, drivetrain, turret and exhaust
+
+- Categories and content have separate controller focus; the stick/D-pad
+  navigate both areas. LB/RB jump between them; sliders and selection fields
+  have an edit mode operated with A/B.
+- Garage/settings remain visible when no car is available. Added the
+  “by BCKWDZ”
+  author line and an optional original Rust logo on the turret entry.
+- Reduced normal ammunition from 35 to 14 piercing damage; explosive
+  ammunition
+  retains native wood/stone damage for large trees and mineable rocks.
+- Increased engine torque and targeted launch assist forward/reverse;
+  suspension
+  and chassis geometry remain separate from audio and exhaust changes.
+- Added an exhaust menu for sound variants of existing original samples and
+  nitro flame color. Sound tuning and vehicle physics are NFVU2 rules.
+- Ten original 350Z exhaust tips, STYLE01–10, from local NFS files; flame
+  positions follow the actual openings. STYLE08 remains the default, and older
+  model imports keep their existing tailpipes.
+- Build, 53 Python tests and all 20 C# test suites passed. Blender checks of
+  STYLE01/STYLE08 show correctly mounted single/dual pipes without overlap.
+  Plugin ID and Rachel350Z.dll remain; controller, handling, sound
+  and particle
+  effects still need Unity gameplay tests.
+
+## 0.20.5 — Vehicle prompts with Valheim controller glyphs
+
+- Replaced native combat/build/fishing prompts in the vehicle with a
+  two-column
+  panel at the bottom right, using Valheim's font and existing
+  Xbox/PS5 sprites.
+- Added bindings for road, flight and the open mod menu; LB/L1
+  descends in flight,
+  and the turret is shown as automatic. H2 nitro is flight-only.
+- Handles device changes, forced controller type, DE/EN and prompt size.
+  Speedometer sits above the prompts; the previous in-vehicle text
+  bar is removed.
+- Exiting restores native prompts; inventory/pause retain theirs.
+  Hiding the HUD
+  also hides vehicle prompts.
+- Glyph names checked in installed game assets; mapping and existing
+  logic tests
+  passed. In-game layout/controller check remains.
+
+## 0.20.4 — Camera while the mod menu is open
+
+- The right stick rotates the camera while the menu is open. With a
+  mouse, hold
+  and drag the right button; the wheel zooms while in the vehicle.
+- On foot, native camera positioning with obstacle checks remains.
+  Menu clicks,
+  song-list scrolling and dragging do not rotate the camera.
+- Driving, nitro and weapon actions remain blocked. Pause/focus loss
+  ends camera
+  control. Usage instructions appear in the menu (DE/EN).
+- Build and logic checks do not replace an in-game camera/cursor test.
+
+## 0.20.3 — Vehicle spawn as an in-game message
+
+- After loading and placement succeed, “Spawned: Nissan 350Z” or
+  “Spawned: Hummer
+  H2” appears in the native yellow center display (DE/EN).
+- Cancelled or failed loads show no success message.
+
+## 0.20.2 — Drive mode as an in-game message
+
+- Successful drive-mode changes by keyboard, controller and menu show a native
+  yellow center message: “Drive mode: 'Off-road/Road/Drift/Fly'”.
+- DE/EN follows the language setting. Unchanged selections and rejected flight
+  starts show no change message; landing displays the selected ground mode.
+  No extra entry is added to the message log.
+
+## 0.20.1 — Lock the hotbar while controlling a vehicle
+
+- Native hotbar navigation and item use are blocked while driving, flying or
+  with the mod menu open; they are available on foot when the menu is closed.
+- Inventory, durability and stack-size displays continue to update.
+- Input-filter regression tests; in-game verification remains.
+
+## 0.20.0 — Controller, direct actions and language
+
+- Analog Xbox/PS5 control, L3 menu and B/Circle to enter/exit. Xbox: X nitro,
+  A handbrake, LB turret; PS5 Square, Cross, L1. In flight: RB/R1 ascend,
+  LB/L1 descend. The flight turret uses the existing target detection
+  automatically.
+- Select drive modes directly with 1–4 or D-pad up/down; H2 skips Drift.
+  F7/B/Circle lands before attempting to exit in flight. Change songs with
+  arrow keys/D-pad left/right; show the title after playback actually starts.
+- Controller menu focus for buttons, toggles, sliders, selection fields and the
+  song list; shoulder buttons switch categories, B/Circle goes back; mouse control retained.
+- DE/EN in global settings, device prompts with a larger adjustable font;
+  controller type can be automatic or manually set to Xbox/PlayStation.
+- Separate input policy, release required after interruptions, targeted blocking
+  of native player controls. Existing handling tuning remains.
+- Automated logic tests; controller, UI and Unity gameplay tests remain.
+
+## 0.19.0 — Headlight show after exiting
+
+- F9 → Lights: “Show-off when exiting”, off by default and saved separately for
+  the 350Z and H2. After exiting, flash left twice, right twice, then pause;
+  2.4-s cycle with four 160-ms flashes. Left/right are from the driver's view.
+- Light beams and emissive lamp surfaces follow the same phase. Sides are
+  determined from vehicle coordinates rather than mirrored NFS part names.
+- Entering the vehicle ends the show and enables normal headlights. Disabling it
+  restores normal lighting; re-enabling starts on the left. Pause/focus loss
+  freezes the phase. Each vehicle has an independent state.
+- Color and intensity also apply to the show; engine/radio persistence is
+  independent. Brake/reverse/taillights are unchanged. Reset turns show-off off.
+- Automated sequence checks; verify visible beams, emission and menu in-game.
+
+## 0.18.4 — Metallic paint
+
+- Paint surfaces are explicitly marked during import. 350Z paint/vinyl and the
+  yellow H2 body receive a fresh material with Metallic 0.72 and Smoothness 0.88;
+  use the loaded standard shader with a verified native fallback. No inherited
+  building normal/specular masks. Color and vinyl are retained. The carbon hood,
+  windows, interior and rims keep their own settings.
+- Import mapping checked automatically; verify gloss and reflections in-game
+  in sunlight, shade and at night.
+
+## 0.17.0 — Nitro tunnel vision and taillight trails
+
+- Six radially offset image layers blur the screen edges during an actual nitro
+  boost. A soft protected area keeps the vehicle projection and image center
+  sharp; HUD/overlays are drawn afterward. GPU copy at half resolution, no CPU
+  readback. The filter is active only during boost/fade.
+- Two short red light bands follow the taillight positions. Soft cross-section,
+  tapered end and about three meters maximum length. Depth test remains enabled.
+  Active only with taillights on and an actual boost, including in flight.
+- F9 → Nitro: tunnel vision and taillight trails can be disabled separately;
+  shared strength 0–100%, default 70%. Settings are shared by both vehicles.
+  Menus, pause, focus loss, exit, world/camera changes clean up the effects.
+- Custom UVs, weighting, mask and trail timing; NFS shaders are not reused
+  unchanged. The additionally reviewed yugecin source provides graphics toggles
+  and parameter names, not a complete nitro/trail implementation.
+- No change to vehicle controls, nitro thrust, tank or exhaust effects.
+  Automated checks do not replace Unity rendering/GPU measurements.
+
+## 0.16.1 — Exhaust nitro also works in flight
+
+- The shared effects lock previously included all of flight mode, suppressing
+  the existing 350Z exhaust flames and nitro sounds. Both now follow active
+  nitro on the ground and in flight. They remain off without an actual boost;
+  the four hover jets are independent.
+- Tire smoke, purge and overrun pops remain blocked in flight. Menus, focus loss,
+  exit and an incomplete entry still block exhaust effects. No change to thrust,
+  tank or suspension.
+- 41 nitro and 37 flight checks passed; particles and sound still need a Unity
+  gameplay test.
+- Investigated NFSU2 screen filters and light trails: separate graphics options,
+  embedded D3D9 filters and a local flare texture were confirmed. Exact nitro
+  coupling, filter weights and trail history remain unverified. Sources and
+  limitations are in REFERENCES; no new screen filter has been added yet.
+
+## 0.16.0 — Prepare vehicles in the background and spawn them incrementally
+
+- File reading, JSON parsing, texture uploads, mesh construction and audio
+  creation previously ran together in the spawn call. The optional interior adds
+  about 24 MB of JSON. Model data and PCM sounds are now prepared on a worker;
+  the JSON reader reads from the stream instead of making another full string copy.
+- Loading display shows the current section and an animated bar while reading.
+  Body, wheels, interior, turret, speedometer and engine clips are built in small
+  steps with about a 3 ms budget per update. Individual Unity calls can exceed
+  this budget; there is no hard frame-rate guarantee.
+- Unchanged managed model/sound data is reused within the same world. Mutable
+  Unity materials or meshes are not shared. File size/modification time
+  invalidates the cache; changing worlds releases it.
+- The car remains inactive and outside the vehicle list until completion. The
+  spawn location is checked again before release. F8/cancel, death, teleport,
+  world changes and load errors dispose partial resources. Existing vehicles
+  remain independent; concurrent spawns and entry during loading are blocked.
+  Missing optional modules keep their previous fallback.
+- Automated checks cover background loading of real assets, cache/invalidation,
+  cancellation, errors and resource finalization. In the .NET test, the first
+  load took about 1.4 seconds versus about 4 ms from cache; these are not Unity
+  frame times. The log now includes total duration and the longest main-thread step.
+- Plugin ID, DLL name and VehicleHandling are retained. In-game test remains.
+
+## 0.15.2 — Nitro input, flame origin and tire material
+
+- Corrected flame origin from 48 to 26 cm from the wheel center; non-stretched
+  particles are retained.
+- User still reports missing flight nitro. Installed 0.15.1 and active nitro
+  configuration were confirmed, but the existing log has no input data. In
+  addition to Unity Legacy Mouse, the code now reads Valheim's existing
+  `ZInput.GetMouseButton`. W + left Ctrl is an alternative in flight, with
+  visible boost/tank/release status and limited diagnostics. This does not claim
+  that the specific runtime failure has been reproduced.
+- The original 128×128 Racing Hart atlas contains the tire tread and sidewall;
+  texture and UV mapping were already present. The 350Z rubber color reduced
+  their visibility to 16%. It is now 80%, non-metallic and rough, using a fresh
+  material instead of inherited prop settings. No new tire assets.
+- Tests cover native input when the legacy mouse value fails, keyboard
+  alternative, release lockout, flight thrust and existing ground controls;
+  tires were rendered. Actual input and effect position need an in-game test.
+
+## 0.15.1 — Flight speed, thrust direction, air nitro and speedometer needle
+
+- User confirms flight mode. Ascend speed is now up to 12 m/s, manual descent up
+  to 16 m/s, and automatic landing up to 10 m/s with braking before touchdown.
+  The previous two-meter target limit reduced vertical speed.
+- The visible side of the rims now faces up when folding. Wheels, brakes and
+  spinner tilt with thrust. Flames point backward in forward flight, forward in
+  reverse and toward the opposite side while steering; the tilt eases back on release.
+- Moved jets below the wheels; regular rather than stretched particles prevent
+  flame sprites from extending backward past the outlet. Emission starts near
+  the end of folding so flames do not pass through the body.
+- W + left mouse button activates nitro in flight: higher forward speed and
+  thrust, with tank use and recharge. The 350Z shares its ground/flight tank;
+  H2 has separate flight nitro. No extra ground nitro activation during jumps.
+- More visible RPM needle above other HUD layers and an additional analog speed
+  display with matching KM/H/MPH scale, alongside the NFS instrument.
+- Build and targeted flight, nitro, HUD, handling, H2 and audio checks; HUD
+  preview rendered. New driving and effects still need Unity verification.
+
+## 0.15.0 — Flight mode with folding wheels
+
+- F9 → Vehicle → Fly for 350Z/H2: animated 90° wheel folding, gentle takeoff and
+  position-holding hover. W/S forward/back, A/D turn, Shift ascend, Space descend.
+  Maximum forward speed is about 65 km/h.
+- Four blue wheel jets from the existing NFS-FIREB atlas; a locally sourced,
+  lower-pitched nitro loop with thrust modulation and purge sound as an optional
+  fallback. No new original assets; custom flight control and animation.
+- A separate flight controller handles forces and temporarily disables the
+  WheelCollider. The proven VehicleHandling controller is unchanged; gravity,
+  damping and wheel colliders are restored on landing/teardown.
+- Selecting a ground mode starts a controlled landing followed by wheel
+  unfolding. F7 and menu exit wait for it; menu exit then resumes the regular
+  exit sequence. F8/death/world change retain a teardown path.
+- Nitro/burnout and tire sounds are blocked in flight. Menus/focus loss neutralize
+  input; hover stabilization remains active. Each vehicle has its own flight
+  state; new vehicles start on the ground.
+- New state/controller checks use controlled physics responses. Actual flight
+  behavior, collisions, particles and audio require Unity testing.
+
+Build, full test suite (49 Python tests and 546 C# checks including 32 flight
+checks) and wheel geometry preview verified. No Unity runtime tests.
+
+## 0.14.3 — Polished chrome/gold rims
+
+The rim lip was only 28% metallic and the star 22%. An extra orange-gold color
+was multiplied with the already-gold original texture. Both surfaces now use
+fully metallic materials with high smoothness; the star gets only a slight,
+cooler correction to its original color.
+
+Rims use a fresh standard material when its shader is available, otherwise a
+fresh instance of the existing vehicle shader. No inherited prop textures or
+emission; reflections and highlights are enabled. Wheel renderers use Valheim's
+existing Reflection Probes. The shader choice is logged. Geometry, tires and
+vehicle physics are unchanged. Build and 142 model, interior and H2/garage checks
+passed; rim detail was also rendered in Blender. The exact appearance under
+Valheim lighting needs an in-game test.
+
+## 0.14.2 — Red tint in window tinting
+
+The previous material selection could copy `lavalanternglass_mat` or its broken
+variant. Both contain a red emission color and the active shader keyword
+`_EMISSION` in the local game assets. Tinting changed only the base color and
+left that emission intact.
+
+The window material now uses a fresh material with the loaded shader reference;
+foreign textures, colors and keywords are no longer copied. Emission is also
+explicitly disabled. Tint colors are neutral gray. The selected shader reference
+is logged for diagnostics. Build and interior checks passed; in-game appearance
+still needs checking.
+
+## 0.14.1 — Driver pose, open window and window tint
+
+- User confirms the 0.14.0 interior and entry/exit; the head went through the
+  roof, hands were too far forward and steering animation was reversed.
+- Lowered and moved the seat back slightly; added a limit based on the head bone
+  with clearance for the head/hair under the roof.
+- Moved the right wrist back on the wheel and corrected its rotation and hand
+  orientation. The left arm rests on the open window; it moves inward when the
+  door opens or the driver exits.
+- F9 → Doors: saved window tint, 0–100%. The physically left side window is
+  hidden while seated and shown again after exiting.
+- The left door is manually operable again after entry: the menu button unlocks
+  it and the seat animation no longer overrides its state. Door movement is
+  available in the menu once seated; entry/exit keep their lockout.
+- Build and targeted driver, door and handling checks passed. New pose, window
+  effect and equipment need another in-game test.
+
+## 0.14.0 — Local interior and visible driver
+
+- Optional local BeamNG 350Z interior import: cockpit, two seats, pedals, gear
+  shifter and trim attached to the NFS doors. Separate steering-wheel rotation;
+  transparent windows use an available game shader.
+- F7 while stationary: walk to driver's door, open it, transition to Valheim's
+  sitting animation, place hands on wheel and feet on pedals, close door and
+  enable driving. Reverse on exit; a clear floor area and room for the player
+  are required.
+- Input/nitro/turret are blocked during the transition. Menu/focus loss pauses
+  the sequence; removal, errors and world changes restore the player.
+- Native sitting animation plus custom transitions/limb alignment; no BeamNG
+  character animation reused. Visual seat scale is 85%. H2 and existing handling
+  tuning are unchanged.
+- Import, model data and state sequences checked automatically; external model
+  preview reviewed. Unity gameplay test, including clothing intersections,
+  remains open.
+- Original author of the provided Modland archive is unknown. Assets remain
+  local in ignored folders; no permission to redistribute is claimed.
+
+## 0.13.1 — Movable vehicle menu
+
+Move the F9 menu by dragging its title bar with the left mouse button. Position
+is saved and clamped to the visible screen when the resolution changes.
+Closing/focus loss ends dragging. The close button and content sliders remain
+independently usable. Existing vehicle binding for categories remains: without
+a vehicle, only the garage is active. Build and menu tests checked; verify actual
+dragging in Unity in-game.
+
+## 0.13.0 — Lowering, NFS menu and parking automation
+
+- F9 → Wheels: added lowering slider, 0–12 cm in 0.5-cm steps, saved separately
+  for H2/350Z; physically offsets suspension points. Reset restores stock ride
+  height; spring/damper and drive-mode tuning are retained.
+- Front wheels retain their actual steering angle when exiting. Re-entry resumes
+  smoothed steering; parking brake stays active.
+- New F9 layout with category bar, original NFSU2 icons, selected original
+  German titles, keyboard navigation and three frontend sounds. Local import
+  with `tools/export_menu.py`, optional media folder `menu/`. Layout/actions and
+  sound roles are adapted; this is not an NFS menu emulation.
+- An enabled 350Z turret automatically guards after exit: visible laser search,
+  forward 180° sector, 30 m range, hostile creatures, barrel tracking, controlled
+  line of fire and automatic reload. Toggle under Turret; independent of engine/
+  radio persistence. Laser color, intensity and ammunition carry over. Players
+  and tamed animals are not targets.
+- Menus, focus loss and player death block automation; after manual control,
+  held RMB remains blocked until released. Each turret has its own search,
+  ammunition and movement. H2 turret is still not configured.
+- Checked with build, import/payload tests, handling and turret state tests, and
+  controlled line-of-sight API responses. No Unity gameplay test.
+
+## 0.12.0 — Hummer H2, spinner rims and garage
+
+Original H2 from the game's own NFSU2 files: stock body in yellow,
+26-inch SPINNER_STYLE01 with separate original inserts, 34 cm wide tires,
+and suspension, brakes and launch force tuned for the heavier SUV.
+The inserts spin up with a delay and coast down after stopping. Rim size is
+22–28 inches; tire outer diameter is retained. Original wheel positions from
+the HUMMER global data, with NFVU2 vehicle physics. Taillights use the matching
+stock texture with separate red/white areas; the two atlas regions for the rear
+HUMMER lettering are mirrored together.
+
+Dedicated stock sound from GIN_Hummer.gin: eight RPM ranges, 1000–4782 RPM and
+four audible forward gears. The original stock data uses no second Ginsu
+throttle-release channel; the mod plays the same Hummer sound more quietly on
+throttle release. No renamed or pitch-shifted 350Z recordings.
+
+F9 → Garage is available even without a car. Model selection and spawn button;
+F6 spawns the saved selection. Up to four independent temporary cars, searching
+for free adjacent spaces and never replacing the previous car. On foot, F7/F9
+select the nearest car; F8 removes only that car. While driving, selection stays
+with the driver's car. Spawning is available only after exiting. Model/load
+errors during spawning preserve existing cars.
+
+Each car has separate physics, meshes, materials, audio, radio, nitro and turret
+state; camera/player control and music ducking remain centralized. Lights, radio,
+wheels and drive mode have separate H2 configuration entries; existing 350Z
+entries remain valid. Cars of the same model share settings. Camera/speedometer
+remain shared. The H2 camera is higher and farther back.
+
+Initially, H2 has no engine/trunk customization, door animations, nitro or
+turret. Radio, lights, neon, burnout and collision systems are reused. Vehicles
+are not saved; this remains local single-player. Automated checks and Blender
+previews do not replace a Unity gameplay test.
+
+## 0.11.0 — Brighter adjustable laser and moving subwoofers
+
+Wider laser with a bright core and larger impact point. Under F9 → Turret →
+Laser, set 25–400% intensity (default 200), choose from seven color presets or
+use RGB sliders. Color and intensity are saved and apply to both beam and point;
+obstacles still stop the laser.
+
+The radio analyzes the bass content of the samples actually playing without
+changing them. Separate channel analysis avoids cancellation in out-of-phase
+stereo. The bass envelope drives visible cone movement up to 14 mm in both
+directions. The enclosure and outer rim remain fixed. Each speaker position has
+its own animated mesh copies; amplifiers and LCDs do not move. Also applies to
+the radio after exiting. Pause, radio off, zero volume and missing audio data
+let movement decay; changing tracks resets the displacement. This is bass
+visualization, not a sample-accurate speaker simulation.
+
+## 0.10.0 — Free aim view, Rust laser and explosive ammunition
+
+In turret mode, the camera pivot is higher and rises further when aiming steeply
+downward. The reticle is at 62% of screen height above the bottom edge; the
+barrel aims at the world point behind it. Orange indicates lag, tilt limit or a
+blocking vehicle body. Normal driving camera is unchanged when the turret is
+off. Ammo type and count appear at bottom left.
+
+Original Rust LaserSight entity model, both material areas and emitter point
+imported locally and mounted under the AK. Red beam and impact point follow the
+barrel and stop at obstacles; can be disabled in the menu. F9 → Turret:
+Normal/Explosive. Explosive adds small area damage against enemies to the direct
+hit, with distance falloff and cover checks, plus a pooled particle/light flash
+and Rust's `explosive-ammo-close` sound.
+
+Each direct ground hit with explosive ammunition lowers a circular area of 1.4 m
+radius by up to 18 cm at the center, removes grass and saves through Valheim's
+terrain compiler. Repeated hits dig further up to the normal digging limit.
+Hits on rocks, buildings or creatures do not dig underneath them. Craters persist
+in the world after the temporary car is removed. Models/samples are original;
+laser beam, particles, effects and craters are NFVU2. Additional tests cover
+terrain hits, tile boundaries, ownership and repetition.
+
+## 0.9.1 — Aim marker and roof mounting corrected
+
+The gun follows the camera view direction from the barrel. With the orbit camera,
+the old screen center aimed at the car. A single high-contrast reticle now shows
+the projected actual impact point; lag and tilt limits remain visible. Ammo is
+at bottom left. Valheim's own crosshair and bow reticle are hidden while
+controlling the turret and restored on exit, disable or removal. Moved the
+turret 20 cm back and 7.5 cm down so the supports sit on the curved roof.
+Geometry preview updated.
+
+## 0.9.0 — Rust AutoTurret with AK on the roof
+
+New F9 “Turret” tab, off by default, with a saved toggle and separate volume.
+Local import of original AutoTurret/AK world models, five diffuse textures and
+seven Rust sounds. Original rotation/tilt pivots, AK upright with barrel facing
+forward; scaled to the roof surface. Removed the cover plate for the empty weapon mount.
+
+Mouse look controls rotation and tilt with limited lag. The aim marker shows the
+actual impact point. Hold right mouse button for automatic fire: 30 rounds,
+2.5-second reload, unlimited reserve ammunition. Raycast up to 150 m, with 35
+piercing damage before Valheim resistances against hostile creatures. Rocks,
+buildings and the vehicle body block shots. No firing at players, tamed animals
+or structures. Shot variants, outdoor tail, servo loop, activation and reload
+sounds play spatially.
+
+Custom recoil animation, muzzle flash, light flash and short tracer. No Rust
+scripts or character animations reused. Firing only from the driver's seat;
+after focus loss, menu or exit, release is required. Missing/invalid optional
+assets disable only the turret. Handling, nitro and existing controls remain.
+Build and automated checks plus Blender geometry preview; Unity gameplay test
+still open.
+
+## 0.8.0 — NFS speedometers, dynamic camera and drift setup
+
+Eleven original designs from HUD_CustomTextures_00 through 10, with 7500-RPM
+scale and needles, plus NOS graphics from InGameRace.bun. Local import preserves
+alpha and removes unused texture margins. Display at bottom right: speed,
+audible RPM/gear, nitro tank and boost color. Menu → Display: design, size,
+color, KM/H/MPH and visibility; simple text fallback without assets. Layout,
+needle sweep and NOS fill animation are Valheim adaptations.
+
+Camera follows a smoothed world angle instead of rigidly following vehicle
+rotation. Limited influence from movement direction and a look-ahead target for
+corners/drifts; reverse does not turn the camera around. Mouse look pauses
+automatic following for 2.2 seconds; no recentering while stationary. Can be
+disabled and its strength adjusted in the display menu. Obstacle checks remain.
+
+Optional drift mode in addition to off-road/road: rear-wheel drive, less rear
+lateral grip, wider steering angle, faster countersteering, 20% more torque than
+road mode and less traction control during slip. Space is the rear-wheel
+handbrake; menu/exit/focus loss brakes all wheels. Original tire sound and smoke
+on slip; W+S burnout remains available. Drift parameters are separate; switching
+modes restores the previous base values. Checks and external HUD preview do not
+replace a Unity driving/camera test.
+
+## 0.7.2 — Exterior music with doors and hatch open
+
+Actual animation states control volume, low-pass filter and position of the
+spatial radio source. The existing damping remains when closed (30%, 1400 Hz);
+an open door lets more music out, and a fully open hatch reaches 85% and 12 kHz.
+These are mod tuning values. The source moves to the open side of the car or to
+the trunk; multiple openings produce a weighted position with a capped overall
+level. Existing stream continues without restarting or duplicating tracks.
+Interior playback, user volume, pause, focus/menu locks and persistence toggle
+are retained. Hood is excluded. Automated mix checks do not replace a listening
+test in Valheim.
+
+## 0.7.1 — Missing upper taillight inserts
+
+Import had brought in only the lower orange strips from the shared STYLE04 lamp
+material. The six upper triangles on each side were missing, allowing trunk neon
+to show through the taillights. Both upper inserts are now imported with their
+original geometry and texture. Separately modeled clear outer covers remain
+open. Neon position, lighting controls and handling are unchanged. Regression
+checks verify all triangles are retained without duplicates. Blender preview
+checked; confirm appearance in Valheim.
+
+## 0.7.0 — Trunk builds, door animations and engine bay
+
+F9 → Build: stock plus three original 350Z enclosures with 2/4/6 positions.
+Each position has a cover, four subwoofer designs, four amplifiers and four
+LCDs. Original AUDIO geometry, AUDIO_SKIN texture and MARKER_AUDIO_COMP
+matrices; component size chosen to fit the geometry. Default: KIT02 with four
+SPEAKER1 subwoofers. This is a mod preset, not a verified part of Rachel's
+preset. Separate trunk neon with seven colors, on/off, static or pulsing display
+and reset. Light strips and pulse pattern are custom mod effects; LCDs remain static.
+
+F9 → Doors: left/right doors, hood and hatch animate open while stationary.
+Normal/suicide/scissor doors use original quaternions and hinge points, plus the
+original lateral translation for scissor doors. Playback is normalized to one
+second; door mechanics switch only after closing. Mirrors, door trim, hood
+undersides and spoilers follow their groups. Moving off/entering closes parts
+automatically. No new door colliders; drivetrain and WheelCollider are unchanged.
+
+Choose from three original engine models with UNLIT inner surfaces under the
+hood. The base model has only simple interior geometry; no detailed cockpit was
+found. Windows remain opaque. New metadata is optional for older models;
+imported audio meshes are reused when parts change. Build, 322 automated checks
+and Blender visual checks; verify Unity appearance/controls in-game.
+
+## 0.6.0 — Run over targets and keep the vehicle running after exit
+
+At collision speed of 2.5 m/s or higher, vehicle hits cause native Valheim
+damage and knockback to hostile living creatures. Players and tamed animals are
+excluded. Small birch/pine trees and four bush variants use native chop damage
+with normal destruction effects and drops. Large trees, rocks, structures and
+planted saplings are excluded. Brief vehicle-volume preview plus collision
+contacts; each target has 0.8 seconds of hit protection. Damage and knockback
+are capped; high health/armor still helps. Handling and drivetrain are unchanged.
+Build now also references the locally installed assembly_valheim.dll without
+including it.
+
+F9 → Vehicle: “Keep running after exit” is on by default and saved. After at
+least one entry, the engine idles, and enabled neon and radio remain active.
+The toggle also works while away from the car; radio pause and individual
+neon/radio switches remain effective. Outside, the radio is spatial, attenuated
+to 30% and low-pass filtered at 1.4 kHz; it fades out by 28 meters. Valheim
+music is suppressed only while driving. Exterior engine is capped at 55% and
+30-meter range. Focus/UI pause and removal still clean up all sources.
+
+Build and 297 automated checks, including 41 new hit adapter tests, passed.
+Unity physics, in-game damage handling and audio still need in-game verification.
+
+## 0.5.0 — Stronger launch, reverse sound and burnout
+
+Forward launch torque increased by 20% up to 3 m/s, then linearly reduced to the
+previous level by 6 m/s. First audible gear ratio rises from 3.79 to 4.15; other
+gears and top speeds are retained. Reverse transmission whine is a new synthetic
+loop with speed-dependent pitch/volume. No clearly attributable original reverse
+sample was found in the file inventory and event search. Reverse light: intensity
+1.6 → 0.45, range 6 → 4 m, emission 2 → 0.7.
+
+W+S starts a burnout below 0.65 m/s when both rear wheels and at least one front
+wheel are on the ground. Front axle brakes; rear axle receives torque and
+temporarily reduced longitudinal grip. Ends above 2 m/s, on loss of contact,
+release, Space, menu or exit. Normal friction values are restored; nitro is
+blocked during W+S. Engine holds first gear under high load during burnout.
+Original SKID_PAV sound and SFX_SMOKE_B_CS smoke atlas respond to actual rear
+wheel spin. Smoke position also follows visual wheel offset. Particles are
+limited and cleared when blocked/removed. Effects, audio and controls remain separate.
+
+256 automated checks passed; actual WheelCollider physics, smoke rendering and
+audio need an in-game test.
+
+## 0.4.1 — Top-left menu and adjustable headlights
+
+Menu sits 16 pixels from the upper-left corner and scales in small windows to
+leave room below for driving prompts. F9 → Lights offers 14 color presets, an
+intensity slider from 0 to 300% and reset to stock/100%. Selection and intensity
+are saved. Headlight beams and emissive front lamps share color and intensity;
+taillights, brake lights, reverse lights and license plate light retain their
+previous behavior.
+
+Preset names come from local original files LANGUAGES/English.bin, German.bin
+and Labels.bin. RGB values and the 1.45 factor for extra-bright presets are
+NFVU2 adaptations for Unity. Build and 232 existing automated checks passed.
+Menu appearance and actual lighting still need in-game verification.
+
+## 0.4.0 — Camber, wheel offset and rim size in the menu
+
+F9 → Wheels provides separate camber (−15 to +10 degrees) and lateral offset
+(−10 to +20 cm per wheel) for the front/rear axles. A shared slider changes
+nominal rim size from 16 to 22 inches relative to the NFS 20-inch source model.
+Tire sidewall is adjusted while retaining the 70-cm outer diameter. Changes
+apply immediately and are saved in the configuration; reset restores all five
+default values.
+
+Camber is applied before wheel rotation so tilted wheels do not wobble while
+rolling. Brakes follow camber/offset; calipers remain independent of wheel
+rotation. Rim changes use the unchanged source vertices instead of cumulative
+scaling and adjust normals. Offset is mirrored per side. This is visual only:
+wheelbase, contact geometry and VehicleHandling are unchanged. In-game test of
+controls, extremes and lighting remains open. 232 automated checks passed;
+external 16/22-inch previews checked.
+
+## 0.3.1 — Rear lettering aligned correctly
+
+The rear 350Z lettering UV mapping is corrected horizontally so it reads from
+behind. Only its two triangles are affected; the shared original atlas and other
+emblems are retained. Close-up before/after export checked; in-game test remains open.
+
+## 0.3.0 — Nitro, purge and two-tone rims
+
+Hold left mouse button: forward driving with throttle and ground contact gives
+extra thrust and green flames from the four measured tailpipes; while stationary,
+bright purge jets appear at the bumper and hood. Uses original SFX_FIREB/
+SFX_SMOKE_B_CS atlases and two loops from Nitrous_00_MB.abk. Loop-role mapping,
+purge nozzle positions and Unity particle animation are documented approximations.
+Six-second tank, two-second recharge delay, ten seconds of charge while driving.
+Extra thrust is separate from the confirmed VehicleHandling. Menus, focus loss
+and exit stop effects; menu clicks do not trigger boost.
+
+F9 has nitro settings and optional flames, off by default, when releasing the
+throttle after high load. NFS has sputter/blow-off effects; exact tuning
+conditions and the correct pop substream remain unresolved. Therefore, no
+unverified backfire sound is presented or installed as original.
+
+The original rim is split into chrome lip and gold star without losing geometry.
+Adjusted material values prevent the previously almost-black metal surface.
+The texture parser no longer skips actual leading 0x11 pixel bytes. External
+rim preview and 222 automated checks passed; Unity driving, particle and audio
+tests remain open.
+
+## 0.2.1 — Taillights, wider tires, sport brakes and track titles
+
+User confirms basic operation of 0.2.0 in Valheim. Missing orange strips under
+the STYLE04 taillights and rear bumper inserts are imported again. Inner bumper
+surfaces glow white in reverse and illuminate the ground behind. S while moving
+forward remains brake for now; exiting ends reverse lights. The bumper surface
+division is a documented approximation. Orange strips are passive; turn signals
+are not implemented yet.
+
+Tire width increased from about 19.5 to 28 cm; 70-cm diameter, outer position
+and handling retained. Original STYLE03 sport brakes with red calipers and
+38-cm discs. Rotor surface was approximated as round because the original alpha
+mask was square; its original atlas is retained. Discs rotate with the wheel;
+calipers follow steering only.
+
+Radio shows 27 actual artist/track names from the EA Trax table. MPF events,
+original EXE strings and WAV checksums support the mapping. 16 other container
+streams remain local but no longer appear as radio tracks. Build/package/installer
+include only the active playlist. Changes were rendered externally and tested
+with 176 automated checks. User then also confirmed operation in Valheim.
+
+## 0.2.0 — Vehicle menu, radio and lighting
+
+F9 opens a scalable vehicle menu for drive mode, radio, lights and neon.
+Input/camera lock and audio pause are separate; radio remains audible while
+using the menu. Doors/trunk are explicitly disabled preparation for now. Local
+stereo music loads on demand, with track selection, next/previous, pause and
+volume. Original music comes from SDAT.VIV; the 43 imported music streams use
+neutral track numbers until their mapping is confirmed.
+
+Headlights, taillights and license plate light turn on upon entry and off on exit.
+Brake lights also respond to braking. Original LICENSE_PLATE texture uses its
+own rectangular geometry; placement is approximate. Original 350Z_NEON mask
+with ground-aligned projection, color selection and custom pulse animation.
+Shader appearance and light levels still need checking in Valheim.
+
+Audible gear shifts happen earlier off-road; shift interruptions are 140/120 ms.
+Wheel slip raises pitch without advancing the selected gear. Original TURBO_MED_2
+recordings add boost and blow-off; mapping and triggering are documented
+approximations. VehicleHandling remains separate. Installer/package support
+external media, file backups, SHA-256 and rollback on copy errors. User later
+confirmed basic operation in Valheim; follow-up fixes are described in 0.2.1.
+
+## 0.1.9 — Texture upload during spawn
+
+The 0.1.8 gameplay test failed with `LoadRawTextureData: not enough data provided`.
+Textures have a mipmap chain, but the model file contains only level 0.
+`SetPixelData<byte>(pixels, 0)` now loads that level specifically; `Apply(true, true)`
+then generates the smaller levels. User subsequently confirmed the appearance in Valheim.
+
+## 0.1.8 — Corrected actual tire diameter
+
+Import previously used the diagonal of a square rim backface as the radius.
+This made the visible tires in 0.1.7 only about 52 cm across, despite a stated
+72 cm. Now only the original tire surface is measured: actual 70 cm diameter at
+front and rear, about 35% larger than before. Overhanging backface triangles are
+excluded. Two regression tests check the source radius and exported tire. Preview
+also includes side and low perspective views for comparison with the reference
+image. Unity gameplay test remains open.
+
+## 0.1.7 — Wheel proportions and placement
+
+Wheel scale increased (diameter figure later corrected in 0.1.8), wheels moved
+farther out and centered longitudinally in the widebody arches. Wheel and brake
+visuals follow the suspension together; their offsets do not rotate with the
+wheels. Body visual sits 4 cm higher to make room for the larger wheels.
+Colliders, drivetrain and suspension parameters remain as before. External
+preview shows an approximate compressed position instead of collider suspension
+points. Clearance during steering and compression still needs checking in Valheim.
+
+## 0.1.6 — Rachel's original parts and vinyl
+
+The original `DDAY_PLAYER_CAR` preset from `GlobalB.lzc` determines widebody 02,
+carbon hood 07, spoiler 02, lights, Racing Hart wheels and exhaust tips. Original
+UVs, normals, material regions, textures and `350Z_ART_F_6` vinyl, including its
+mask palette, are prepared locally. Wheels follow the existing WheelColliders;
+calipers do not rotate with them. Vehicle physics and sound are unchanged. Model
+and textures remain ignored local data. Build, 83 mod checks and three asset
+checks passed; external preview rendered. Unity gameplay test remains open.
+Paint/rim tint are approximations; window transparency, lamp covers and license
+plate remain open.
+
+## 0.1.5 — Vehicle sound
+
+Original NFSU2 recordings for acceleration and throttle release, eight RPM
+ranges each, custom RPM/shift logic, rolling and skidding sounds, and a
+synthetic horn. Sounds are spatially attached to the vehicle. User confirms
+basic operation; audio refinement remains open.
+
+## 0.1.4 — Launch behavior restored
+
+Engine power is independent of wheel contact reports, physics activates on input
+and brakes release fully when accelerating. User confirmed: the car drives again
+and off-road mode works very well.
+
+## 0.1.3 — Camera and off-road mode
+
+Mouse camera with zoom and obstacle distance; switchable off-road/road mode.
+Camera and mode switching confirmed; launch issue later fixed in 0.1.4.
+
+## 0.1.2 — In-game appearance
+
+Use existing Valheim material with a loaded shader. User first confirmed spawning,
+driving and entering/exiting.
+
+## 0.1.1 — Load the model
+
+Use Newtonsoft.Json for model data instead of the unsuitable Unity JSON loader.
+
+## 0.1.0 — First prototype
+
+Extracted stock body from NFSU2: 16 parts, 3.867 vertices, 3.449 triangles.
+
+Git history begins with the project import based on 0.1.5. Earlier versions are
+documented here; previous local backups are not Git tags.

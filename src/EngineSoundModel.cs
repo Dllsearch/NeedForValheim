@@ -1,14 +1,18 @@
 using System;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // A gearbox for sound only. It never writes to the vehicle's physics.
 public sealed class EngineSoundModel {
     public static readonly int[] Bands={1400,2100,2800,3500,4300,5100,5900,6500};
-    static readonly float[] Ratios={4.15f,2.32f,1.62f,1.27f,1f,.79f};
-    public static readonly int[] HummerBands={1000,1500,2000,2500,3000,3600,4200,4782};
-    readonly bool suv;
+    public static readonly int[] SuvBands={1000,1500,2000,2500,3000,3600,4200,4782};
     readonly float[] ratios;
-    public EngineSoundModel(bool hummer=false){suv=hummer;ratios=hummer?new[]{3.06f,1.63f,1f,.7f}:Ratios;}
+    readonly float wheelRadius,upShiftRpm,downShiftRpm,minRpm,maxRpm;
+    public EngineSoundModel(CarSound sound,float wheelRadius) {
+        ratios=sound.gearRatios;this.wheelRadius=wheelRadius;
+        upShiftRpm=sound.upShiftRpm;downShiftRpm=sound.downShiftRpm;minRpm=sound.minRpm;maxRpm=sound.maxRpm;Rpm=minRpm;
+    }
+    public EngineSoundModel(bool suv=false):this(suv?CarCatalog.BuiltInH2().sound:CarCatalog.Nissan350Z().sound,
+        suv?CarCatalog.BuiltInH2().rig.wheelRadius:CarCatalog.Nissan350Z().rig.wheelRadius) {}
     public float Rpm {get;private set;}=950;
     public float Load {get;private set;}
     public float Level {get;private set;}
@@ -22,7 +26,7 @@ public sealed class EngineSoundModel {
         dt=DrivingMath.Clamp(Safe(dt),0,.1f);forwardSpeed=Safe(forwardSpeed);wheelRpm=Safe(wheelRpm);throttle=DrivingMath.Clamp(Safe(throttle),-1,1);
         Level=Move(Level,driving?1:0,dt*3);
         cooldown=Math.Max(0,cooldown-dt);shiftRemaining=Math.Max(0,shiftRemaining-dt);
-        float speed=Math.Abs(forwardSpeed),rollingRpm=speed*60/(2*(float)Math.PI*(suv?.4364f:.34f));
+        float speed=Math.Abs(forwardSpeed),rollingRpm=speed*60/(2*(float)Math.PI*wheelRadius);
         float rpmAtWheel=Math.Max(rollingRpm,Math.Min(Math.Abs(wheelRpm),rollingRpm+180));
         bool reverse=forwardSpeed<-.5f || (speed<.5f && throttle<0);
         if(!driving){Gear=1;shiftRemaining=cooldown=0;}
@@ -36,14 +40,14 @@ public sealed class EngineSoundModel {
             // Wheelspin can raise the note, but cannot race through the gears
             // while the car barely moves or a wheel is airborne.
             float shiftRpm=rollingRpm*ratios[Gear-1]*acousticDrive;
-            if(shiftRpm>(suv?4100:5600) && Gear<ratios.Length){Gear++;shiftRemaining=.14f;cooldown=.45f;}
-            else if(shiftRpm<(suv?1500:2000) && Gear>1){Gear--;shiftRemaining=.12f;cooldown=.45f;}
+            if(shiftRpm>upShiftRpm && Gear<ratios.Length){Gear++;shiftRemaining=.14f;cooldown=.45f;}
+            else if(shiftRpm<downShiftRpm && Gear>1){Gear--;shiftRemaining=.12f;cooldown=.45f;}
             rawRpm=rpmAtWheel*ratios[Gear-1]*acousticDrive;
         }
         float input=driving&&!DrivingMath.DirectionBrake(forwardSpeed,throttle)?Math.Abs(throttle):0;
-        float target=driving?Math.Max(950+input*(brake?3300:1700),rawRpm):950;
+        float target=driving?Math.Max(minRpm+input*(brake?3300:1700),rawRpm):minRpm;
         if(driving&&burnout){Gear=1;shiftRemaining=cooldown=0;input=1;target=Math.Max(5000,rawRpm);}
-        target=DrivingMath.Clamp(target,suv?1000:950,suv?4782:6700);
+        target=DrivingMath.Clamp(target,minRpm,maxRpm);
         Rpm=Move(Rpm,target,dt*(target>Rpm?6000:9500));
         Load=Move(Load,input,dt*5);
         ShiftGain=Move(ShiftGain,shiftRemaining>0?.32f:1,dt*12);

@@ -1,5 +1,5 @@
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Optional rear-drive setup. Baseline terrain/street values live in the
 // confirmed controller and are restored through SetTerrainMode.
 public static class VehicleDriftTuning {

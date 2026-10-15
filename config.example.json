@@ -1,6 +1,7 @@
 {
   "valheim_dir": "C:/Program Files (x86)/Steam/steamapps/common/Valheim",
   "disc_root": "F:/NEED FOR SPEED",
+  "mw_root": "",
   "vgmstream": ".local/vgmstream/vgmstream-cli.exe",
   "rust_dir": ".local/Rust"
 }

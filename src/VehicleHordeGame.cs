@@ -1,7 +1,7 @@
 using System;
 using BepInEx.Configuration;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     readonly HordeRun hordeRun=new HordeRun();
     readonly HordeHitGate hordeHits=new HordeHitGate();
@@ -18,7 +18,7 @@ public partial class Plugin {
     string hordeResult;
     float hordeResultLeft;
     bool HordeVehicle=>hordeRun.Active&&current==hordeVehicle;
-    string HordeAmmoName=>hordeRun.Pact==HordePact.Frost?"Eismunition":hordeRun.Pact==HordePact.Storm?"Blitzmunition":hordeRun.Explosive?"Explosiv":"Normal";
+    string HordeAmmoName=>hordeRun.Pact==HordePact.Frost?"Ice ammunition":hordeRun.Pact==HordePact.Storm?"Lightning ammunition":hordeRun.Explosive?"Explosive":"Normal";
     Color HordeAmmoTint=>hordeRun.Pact==HordePact.Frost?new Color(.6f,.9f,1):hordeRun.Pact==HordePact.Storm?new Color(.65f,.65f,1):new Color(1,.72f,.22f);
     void OnHordeTurretHit(RaycastHit hit,Character driver)=>hordeElements?.Hit(hit,driver,hordeRun.Pact);
     bool EffectiveTerrain=>HordeVehicle||terrainMode.Value;
@@ -104,21 +104,21 @@ public partial class Plugin {
         if(kind==HordePowerup.Automatic&&hordeRun.Pact==HordePact.Valkyrie)kind=HordePowerup.Repair;
         hordeVisuals.Add(point+Vector3.up*.1f,kind);return true;
     }
-    static string PowerupMessage(HordePowerup kind)=>kind==HordePowerup.Explosive?"Explosivmunition: 30 Schuss!":kind==HordePowerup.Automatic?"Autoturret: 15 Sekunden!":kind==HordePowerup.Shield?"Schild aufgeladen: +150":"Reparatur: +250 HP";
-    static string PowerupName(HordePowerup kind)=>kind==HordePowerup.Explosive?"Explosivmunition":kind==HordePowerup.Automatic?"Autoturret":kind==HordePowerup.Shield?"Schild": "Reparatur";
+    static string PowerupMessage(HordePowerup kind)=>kind==HordePowerup.Explosive?"Explosive ammunition: 30 rounds!":kind==HordePowerup.Automatic?"Auto turret: 15 seconds!":kind==HordePowerup.Shield?"Shield restored: +150":"Repair: +250 HP";
+    static string PowerupName(HordePowerup kind)=>kind==HordePowerup.Explosive?"Explosive ammunition":kind==HordePowerup.Automatic?"Auto turret":kind==HordePowerup.Shield?"Shield": "Repair";
     void FinishHordeGame(bool victory) {
         bool ranked=victory&&hordeCompleteRoster;
         string medal=hordeRun.Medal(ranked);
         int score=hordeRun.Finish(ranked);
         bool best=ranked&&score>hordeBestScore.Value;
         if(best)hordeBestScore.Value=score;
-        hordeResult=(ranked?"HORDE BESIEGT!":victory?"Training abgeschlossen":"FAHRZEUG KAMPFUNFÄHIG")+"\n"+
-            Tr(medal)+"  ·  "+score+" "+Tr("Punkte")+"\n"+hordeRun.Kills+" "+Tr("Abschüsse")+"  ·  "+Mathf.FloorToInt(hordeRun.Seconds/60)+":"+((int)hordeRun.Seconds%60).ToString("00")+
-            "  ·  "+Tr("Beste Combo")+" "+hordeRun.BestCombo+"\n"+(best?Tr("NEUER REKORD!"):Tr("Bestwert")+": "+hordeBestScore.Value)+"\n"+Tr("Numpad 9: erneut starten · Numpad 0: schließen");
+        hordeResult=(ranked?"HORDE DEFEATED!":victory?"Training complete":"VEHICLE DISABLED")+"\n"+
+            Tr(medal)+"  ·  "+score+" "+Tr("Points")+"\n"+hordeRun.Kills+" "+Tr("Kills")+"  ·  "+Mathf.FloorToInt(hordeRun.Seconds/60)+":"+((int)hordeRun.Seconds%60).ToString("00")+
+            "  ·  "+Tr("Best combo")+" "+hordeRun.BestCombo+"\n"+(best?Tr("NEW RECORD!"):Tr("Personal best")+": "+hordeBestScore.Value)+"\n"+Tr("Numpad 9: play again \u00b7 Numpad 0: close");
         hordeResultLeft=25;
         if(hordeVehicle?.body!=null){hordeVehicle.body.linearVelocity=Vector3.zero;hordeVehicle.body.angularVelocity=Vector3.zero;}
         ClearHorde();
-        ShowVehicleWarning(ranked?"Der Wald verstummt. Alle fünf Wellen besiegt!":victory?"Training abgeschlossen – Gegner fehlten. Keine Rekordwertung.":"Fahrzeug kampfunfähig. Numpad 9 für einen neuen Versuch.");
+        ShowVehicleWarning(ranked?"The forest falls silent. All five waves defeated!":victory?"Training complete \u2013 some enemies were missing. No record awarded.":"Vehicle disabled. Press Numpad 9 to try again.");
     }
     void ReleaseHordeGame() {
         hordeWeather?.End();

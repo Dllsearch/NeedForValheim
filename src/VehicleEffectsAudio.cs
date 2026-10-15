@@ -5,7 +5,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Audio;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Short local NFS samples driven by NFVU2 effect states, not original NFS logic.
 public sealed class VehicleEffectsAudio : IDisposable {
     readonly List<AudioClip> clips=new List<AudioClip>();
@@ -35,23 +35,23 @@ public sealed class VehicleEffectsAudio : IDisposable {
     public static VehicleEffectsAudio Create(GameObject car,Action<string> log,SpawnAudio prepared) {
         var result=new VehicleEffectsAudio();
         try {
-            result.root=new GameObject("350Z_EffectsAudio");result.root.transform.SetParent(car.transform,false);
+            result.root=new GameObject("Vehicle_EffectsAudio");result.root.transform.SetParent(car.transform,false);
             result.root.transform.localPosition=new Vector3(0,.55f,-1.4f);
             var mixer=Resources.FindObjectsOfTypeAll<AudioMixerGroup>().FirstOrDefault(g=>g.name.Equals("SFX",StringComparison.OrdinalIgnoreCase));
             var folder=Path.Combine(Path.GetDirectoryName(typeof(VehicleEffectsAudio).Assembly.Location),"audio","effects");
             result.nitro=result.Load(folder,"nitro.wav",true,mixer,log,prepared);
             result.purge=result.Load(folder,"purge.wav",true,mixer,log,prepared);
             result.backfire=result.Load(folder,"backfire.wav",false,mixer,log,prepared);
-            log?.Invoke("350Z effect audio: "+result.sources.Count+" optional local clips loaded.");
+            log?.Invoke("Vehicle effect audio: "+result.sources.Count+" optional local clips loaded.");
             return result;
-        }catch(Exception e){result.Dispose();log?.Invoke("350Z effect audio unavailable: "+e.Message);return null;}
+        }catch(Exception e){result.Dispose();log?.Invoke("Vehicle effect audio unavailable: "+e.Message);return null;}
     }
     AudioSource Load(string folder,string name,bool loop,AudioMixerGroup mixer,Action<string> log,SpawnAudio prepared) {
         var path=Path.Combine(folder,name);
         if(!File.Exists(path))return null;
         try {
             var data=prepared.FileData(path);
-            var clip=AudioClip.Create("350Z_"+name,data.Samples.Length/data.Channels,data.Channels,data.SampleRate,false);clips.Add(clip);
+            var clip=AudioClip.Create("Vehicle_"+name,data.Samples.Length/data.Channels,data.Channels,data.SampleRate,false);clips.Add(clip);
             if(!clip.SetData(data.Samples,0))throw new InvalidDataException("Unable to upload "+name);
             var source=root.AddComponent<AudioSource>();sources.Add(source);
             source.playOnAwake=false;source.loop=loop;source.clip=clip;source.volume=0;
@@ -59,7 +59,7 @@ public sealed class VehicleEffectsAudio : IDisposable {
             source.rolloffMode=AudioRolloffMode.Linear;source.dopplerLevel=0;source.priority=90;
             source.outputAudioMixerGroup=mixer;
             return source;
-        }catch(Exception e){log?.Invoke("350Z optional effect "+name+" rejected: "+e.Message);return null;}
+        }catch(Exception e){log?.Invoke("Vehicle optional effect "+name+" rejected: "+e.Message);return null;}
     }
     public void Tick(bool boost,bool purge,bool backfire,bool blocked,float volume) {
         if(disposed)return;

@@ -157,7 +157,9 @@ class TexturePack:
             if fmt in (0x22,0x24,0x26):
                 image=dxt_image(raw,w,h,{0x22:b'DXT1',0x24:b'DXT3',0x26:b'DXT5'}[fmt])
             elif fmt==8 and palsize>=1024:
-                image=Image.frombytes('P',(w,h),raw[:w*h]);image.putpalette(data[self.pixel_base+paloff:self.pixel_base+paloff+1024],'RGBA');image=image.convert('RGBA')
+                image=Image.frombytes('P',(w,h),raw[:w*h]);image.putpalette(data[self.pixel_base+paloff:self.pixel_base+paloff+1024],'BGRA');image=image.convert('RGBA')
+            elif fmt==0x20:
+                image=Image.frombytes('RGBA',(w,h),raw[:w*h*4],'raw','BGRA')
             else: raise ValueError(f'Unsupported global texture format {fmt:x}')
             return name,image,raw
         off,encoded,decoded,tail = self.slots[key]
@@ -179,6 +181,6 @@ class TexturePack:
             image=Image.frombytes('P',(w,h),raw[:w*h])
             palette_start=p-24-12-1024
             if palette_start < w*h: raise ValueError('Missing indexed texture palette')
-            image.putpalette(raw[palette_start:palette_start+1024],'RGBA')
+            image.putpalette(raw[palette_start:palette_start+1024],'BGRA')
         else: raise ValueError(f'Unsupported texture format {fmt:x}')
         return name,image,raw

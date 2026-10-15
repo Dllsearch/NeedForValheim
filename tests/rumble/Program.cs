@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using HarmonyLib;
-using Rachel350Z;
+using NeedForValheim;
 
 // Exercise the production prefix against a native-camera test double.
 // Runtime Harmony detouring is only supported in the game's Mono runtime.
@@ -12,7 +12,7 @@ public class GameCamera {
     [MethodImpl(MethodImplOptions.NoInlining)]
     public float GetAttenuatedShakeIntensity(){NativeVehicleCameraShake.Prefix(this,ref m_shakeIntensity);return m_shakeIntensity*m_shakeIntensity*m_shakeIntensity;}
 }
-namespace Rachel350Z {
+namespace NeedForValheim {
 public class Plugin {
     public static Plugin ControlsOwner;
     public GameCamera owned;

@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
-using Rachel350Z;
+using NeedForValheim;
 class MenuTests {
     static int checks;
     static void Check(bool ok,string name){if(!ok)throw new Exception(name);checks++;Console.WriteLine("PASS "+name);}
@@ -25,8 +25,19 @@ class MenuTests {
         string catalog=Path.Combine(args[0],"menu.json");
         if(!File.Exists(catalog)){Console.WriteLine("Optional menu media absent; runtime will use text controls.");return;}
         var data=MenuData.Load(catalog);
+        var frontend=JsonConvert.DeserializeObject<System.Collections.Generic.Dictionary<string,ModelTexture>>(File.ReadAllText(Path.Combine(args[0],"frontend.json")));
+        Check(frontend.TryGetValue("garage_floor",out var floor)&&floor.width==512&&floor.height==512,"showroom has the original detailed 512px pavement texture");
+        Check(floor.rgba.Length==512*512*4&&floor.rgba.Distinct().Count()>32,"showroom pavement contains texture detail rather than a flat checker colour");
         Check(data.icons.Count(t=>t!=null)==10&&data.icons[9]==null,"ten original icons and custom turret fallback load in runtime parser");
-        Check(data.titles[5]=="Felgen"&&data.titles[10]=="Garage","original German titles survive import and runtime deserialization");
+        Check(!string.IsNullOrWhiteSpace(data.titles[5])&&!string.IsNullOrWhiteSpace(data.titles[10]),"original localized rims and garage titles survive runtime deserialization");
+        string mw=Path.Combine(args[0],"mw-frontend.json");
+        if(File.Exists(mw)){
+            var art=MenuData.LoadFrontend(mw,128,24*1024*1024);
+            Check(art.ContainsKey("wordmark")&&art.ContainsKey("trax")&&art.ContainsKey("grit")&&art.ContainsKey("icon_10"),"MW design has original grunge, TRAX and garage artwork independent of U2");
+            Check(Enumerable.Range(0,16).All(i=>art.TryGetValue("nav_"+i,out var t)&&t.rgba.Where((b,n)=>n%4==3).Any(a=>a>0)),"all MW native bitmap navigation labels have visible alpha coverage");
+            Check(art.Keys.Count(k=>k.StartsWith("car_mw-"))>=30,"MW car logos keep separate source-prefixed identities");
+            foreach(var role in new[]{"navigate","accept","back"})using(var stream=File.OpenRead(Path.Combine(args[0],"mw-"+role+".wav"))){var wav=WavPcm16.Read(stream);Check(wav.Samples.Length>100&&wav.Samples.Any(s=>Math.Abs(s)>.01f),"MW frontend PCM loads: "+role);}
+        }
         foreach(var role in new[]{"navigate","accept","back"}) {
             var wav=WavPcm16.Read(File.OpenRead(Path.Combine(args[0],role+".wav")));
             Check(wav.Samples.Length>100&&wav.Samples.Any(s=>Math.Abs(s)>.05f)&&wav.Samples.Length<wav.SampleRate,"short non-silent original "+role+" clip accepted by Unity PCM input reader");

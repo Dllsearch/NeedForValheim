@@ -1,4 +1,4 @@
 interface:
   display_name: "NFVU2 TikTok"
-  short_description: "Gameplay-Clips mit Zoom und Farbkorrektur schneiden"
-  default_prompt: "Nutze $tiktok, um meine NFVU2-Aufnahme im gespeicherten Stil für TikTok zu schneiden."
+  short_description: "Edit gameplay clips with zoom and color correction"
+  default_prompt: "Use $tiktok to edit my NFVU2 recording for TikTok in the saved style."

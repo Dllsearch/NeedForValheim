@@ -1,49 +1,60 @@
 using System.Collections.Generic;
 using BepInEx.Configuration;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
-    readonly Dictionary<ConfigEntryBase,ConfigEntryBase> h2Settings=new Dictionary<ConfigEntryBase,ConfigEntryBase>();
+    // One settings entry per catalog vehicle: the stock entry keeps its plain section,
+    // every other car gets the section prefixed with its id (h2.Driving for the H2).
+    readonly Dictionary<ConfigEntryBase,Dictionary<string,ConfigEntryBase>> vehicleSettings=new Dictionary<ConfigEntryBase,Dictionary<string,ConfigEntryBase>>();
     ConfigEntry<T> BindVehicle<T>(string section,string key,T value,string description)=>BindVehicle(section,key,value,new ConfigDescription(description));
     ConfigEntry<T> BindVehicle<T>(string section,string key,T value,ConfigDescription description) {
         var stock=Config.Bind(section,key,value,description);
-        h2Settings[stock]=Config.Bind("Hummer."+section,key,value,description);return stock;
+        var byVehicle=new Dictionary<string,ConfigEntryBase>{{string.Empty,stock}};
+        foreach(var profile in vehicleCatalog.Profiles) {
+            string prefix=profile.ConfigPrefix;
+            if(prefix.Length==0 || byVehicle.ContainsKey(prefix))continue;
+            byVehicle[prefix]=Config.Bind(prefix+section,key,value,description);
+        }
+        vehicleSettings[stock]=byVehicle;return stock;
     }
-    ConfigEntry<T> VehicleConfig<T>(ConfigEntry<T> stock)=>stock!=null&&IsHummer&&h2Settings.TryGetValue(stock,out var other)?(ConfigEntry<T>)other:stock;
-    ConfigEntry<bool> z_terrainMode;
-    ConfigEntry<bool> terrainMode {get=>VehicleConfig(z_terrainMode);set=>z_terrainMode=value;}
-    ConfigEntry<float> z_soundVolume;
-    ConfigEntry<float> soundVolume {get=>VehicleConfig(z_soundVolume);set=>z_soundVolume=value;}
-    ConfigEntry<bool> z_radioEnabled;
-    ConfigEntry<bool> radioEnabled {get=>VehicleConfig(z_radioEnabled);set=>z_radioEnabled=value;}
-    ConfigEntry<bool> z_neonEnabled;
-    ConfigEntry<bool> neonEnabled {get=>VehicleConfig(z_neonEnabled);set=>z_neonEnabled=value;}
-    ConfigEntry<bool> z_neonPulsing;
-    ConfigEntry<bool> neonPulsing {get=>VehicleConfig(z_neonPulsing);set=>z_neonPulsing=value;}
-    ConfigEntry<bool> z_nitroEnabled;
-    ConfigEntry<bool> nitroEnabled {get=>VehicleConfig(z_nitroEnabled);set=>z_nitroEnabled=value;}
-    ConfigEntry<bool> z_backfireEnabled;
-    ConfigEntry<bool> backfireEnabled {get=>VehicleConfig(z_backfireEnabled);set=>z_backfireEnabled=value;}
-    ConfigEntry<bool> z_keepRunning;
-    ConfigEntry<bool> keepRunning {get=>VehicleConfig(z_keepRunning);set=>z_keepRunning=value;}
-    ConfigEntry<float> z_radioVolume;
-    ConfigEntry<float> radioVolume {get=>VehicleConfig(z_radioVolume);set=>z_radioVolume=value;}
-    ConfigEntry<string> z_neonColor;
-    ConfigEntry<string> neonColor {get=>VehicleConfig(z_neonColor);set=>z_neonColor=value;}
-    ConfigEntry<string> z_headlightPreset;
-    ConfigEntry<string> headlightPreset {get=>VehicleConfig(z_headlightPreset);set=>z_headlightPreset=value;}
-    ConfigEntry<float> z_headlightStrength;
-    ConfigEntry<float> headlightStrength {get=>VehicleConfig(z_headlightStrength);set=>z_headlightStrength=value;}
-    ConfigEntry<bool> z_headlightShowOff;
-    ConfigEntry<bool> headlightShowOff {get=>VehicleConfig(z_headlightShowOff);set=>z_headlightShowOff=value;}
-    ConfigEntry<float> z_frontCamber;
-    ConfigEntry<float> frontCamber {get=>VehicleConfig(z_frontCamber);set=>z_frontCamber=value;}
-    ConfigEntry<float> z_rearCamber;
-    ConfigEntry<float> rearCamber {get=>VehicleConfig(z_rearCamber);set=>z_rearCamber=value;}
-    ConfigEntry<float> z_frontWheelOffset;
-    ConfigEntry<float> frontWheelOffset {get=>VehicleConfig(z_frontWheelOffset);set=>z_frontWheelOffset=value;}
-    ConfigEntry<float> z_rearWheelOffset;
-    ConfigEntry<float> rearWheelOffset {get=>VehicleConfig(z_rearWheelOffset);set=>z_rearWheelOffset=value;}
-    ConfigEntry<bool> z_driftMode;
-    ConfigEntry<bool> driftMode {get=>VehicleConfig(z_driftMode);set=>z_driftMode=value;}
+    ConfigEntry<T> VehicleConfig<T>(ConfigEntry<T> stock) {
+        if(stock==null || !vehicleSettings.TryGetValue(stock,out var byVehicle))return stock;
+        return !byVehicle.TryGetValue(current.Profile.ConfigPrefix,out var other)?stock:(ConfigEntry<T>)other;
+    }
+    ConfigEntry<bool> baseConfig_terrainMode;
+    ConfigEntry<bool> terrainMode {get=>VehicleConfig(baseConfig_terrainMode);set=>baseConfig_terrainMode=value;}
+    ConfigEntry<float> baseConfig_soundVolume;
+    ConfigEntry<float> soundVolume {get=>VehicleConfig(baseConfig_soundVolume);set=>baseConfig_soundVolume=value;}
+    ConfigEntry<bool> baseConfig_radioEnabled;
+    ConfigEntry<bool> radioEnabled {get=>VehicleConfig(baseConfig_radioEnabled);set=>baseConfig_radioEnabled=value;}
+    ConfigEntry<bool> baseConfig_neonEnabled;
+    ConfigEntry<bool> neonEnabled {get=>VehicleConfig(baseConfig_neonEnabled);set=>baseConfig_neonEnabled=value;}
+    ConfigEntry<bool> baseConfig_neonPulsing;
+    ConfigEntry<bool> neonPulsing {get=>VehicleConfig(baseConfig_neonPulsing);set=>baseConfig_neonPulsing=value;}
+    ConfigEntry<bool> baseConfig_nitroEnabled;
+    ConfigEntry<bool> nitroEnabled {get=>VehicleConfig(baseConfig_nitroEnabled);set=>baseConfig_nitroEnabled=value;}
+    ConfigEntry<bool> baseConfig_backfireEnabled;
+    ConfigEntry<bool> backfireEnabled {get=>VehicleConfig(baseConfig_backfireEnabled);set=>baseConfig_backfireEnabled=value;}
+    ConfigEntry<bool> baseConfig_keepRunning;
+    ConfigEntry<bool> keepRunning {get=>VehicleConfig(baseConfig_keepRunning);set=>baseConfig_keepRunning=value;}
+    ConfigEntry<float> baseConfig_radioVolume;
+    ConfigEntry<float> radioVolume {get=>VehicleConfig(baseConfig_radioVolume);set=>baseConfig_radioVolume=value;}
+    ConfigEntry<string> baseConfig_neonColor;
+    ConfigEntry<string> neonColor {get=>VehicleConfig(baseConfig_neonColor);set=>baseConfig_neonColor=value;}
+    ConfigEntry<string> baseConfig_headlightPreset;
+    ConfigEntry<string> headlightPreset {get=>VehicleConfig(baseConfig_headlightPreset);set=>baseConfig_headlightPreset=value;}
+    ConfigEntry<float> baseConfig_headlightStrength;
+    ConfigEntry<float> headlightStrength {get=>VehicleConfig(baseConfig_headlightStrength);set=>baseConfig_headlightStrength=value;}
+    ConfigEntry<bool> baseConfig_headlightShowOff;
+    ConfigEntry<bool> headlightShowOff {get=>VehicleConfig(baseConfig_headlightShowOff);set=>baseConfig_headlightShowOff=value;}
+    ConfigEntry<float> baseConfig_frontCamber;
+    ConfigEntry<float> frontCamber {get=>VehicleConfig(baseConfig_frontCamber);set=>baseConfig_frontCamber=value;}
+    ConfigEntry<float> baseConfig_rearCamber;
+    ConfigEntry<float> rearCamber {get=>VehicleConfig(baseConfig_rearCamber);set=>baseConfig_rearCamber=value;}
+    ConfigEntry<float> baseConfig_frontWheelOffset;
+    ConfigEntry<float> frontWheelOffset {get=>VehicleConfig(baseConfig_frontWheelOffset);set=>baseConfig_frontWheelOffset=value;}
+    ConfigEntry<float> baseConfig_rearWheelOffset;
+    ConfigEntry<float> rearWheelOffset {get=>VehicleConfig(baseConfig_rearWheelOffset);set=>baseConfig_rearWheelOffset=value;}
+    ConfigEntry<bool> baseConfig_driftMode;
+    ConfigEntry<bool> driftMode {get=>VehicleConfig(baseConfig_driftMode);set=>baseConfig_driftMode=value;}
 }
 }

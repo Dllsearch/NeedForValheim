@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 public static class VehicleMaterials {
     public static void SetEmission(Material material, Color color) {
         if (material.HasColor("_EmissionColor")) {
@@ -40,7 +40,7 @@ public static class VehicleMaterials {
             var candidate = Shader.Find(name); if (candidate != null && candidate.isSupported) { shader = candidate; break; }
         }
         if (shader == null) throw new InvalidOperationException("No supported textured glow shader loaded");
-        var material = new Material(shader) { name = "350Z_NeonMask", renderQueue = 3000 };
+        var material = new Material(shader) { name = "Vehicle_NeonMask", renderQueue = 3000 };
         material.SetTexture("_MainTex", texture);
         if (material.HasFloat("_ZWrite")) material.SetFloat("_ZWrite", 0);
         if (material.HasFloat("_Cull")) material.SetFloat("_Cull", 0);
@@ -58,17 +58,17 @@ public static class VehicleMaterials {
         bool success=false;
         try {
             Shader wheelShader = null;
-            if (model.materials.Any(m => m.bodyPaint||IsWheelMetal(m.name)||IsWheelRubber(m.name))) {
+            if (model.materials.Any(m => m.alphaMode=="blend"||m.bodyPaint||m.rimPaint||IsWheelMetal(m.name)||IsWheelRubber(m.name))) {
                 wheelShader = Resources.FindObjectsOfTypeAll<Material>()
                     .Where(m => m != null && m.shader != null && m.shader.isSupported && m.shader.name == "Standard")
                     .Select(m => m.shader).FirstOrDefault() ?? Shader.Find("Standard");
                 if (wheelShader == null || !wheelShader.isSupported) wheelShader = templates[0].shader;
-                log("350Z wheel metal shader: " + wheelShader.name + "; fresh material, environment reflections, no emission");
+                log("Vehicle wheel metal shader: " + wheelShader.name + "; fresh material, environment reflections, no emission");
                 if(model.materials.Any(m=>m.bodyPaint))log("Vehicle metallic paint shader: "+wheelShader.name+"; metallic 0.72, smoothness 0.88");
             }
             for (int i = 0; i < textures.Length; i++) {
                 var data = model.textures[i];
-                var texture = new Texture2D(data.width, data.height, TextureFormat.RGBA32, true) { name = data.name, wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear, anisoLevel = 4 };
+                var texture = new Texture2D(data.width, data.height, TextureFormat.RGBA32, true) { name = data.name, wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Trilinear, anisoLevel = 4 };
                 textures[i] = texture;
                 // Original PNG/image rows are top-down; Unity raw upload is bottom-up.
                 var pixels = new byte[data.rgba.Length]; int stride = data.width * 4;
@@ -82,19 +82,27 @@ public static class VehicleMaterials {
             }
             for (int i = 0; i < result.Length; i++) {
                 var data = model.materials[i]; var c = data.color;
-                bool wheelMetal = IsWheelMetal(data.name);
-                bool wheelRubber = IsWheelRubber(data.name);
+                bool wheelMetal = data.rimPaint||IsWheelMetal(data.name)||((data.name??"").Contains("_wheel_")&&data.metallic>.4f);
+                bool wheelRubber = data.wheelRubber||IsWheelRubber(data.name);
                 bool paint=data.bodyPaint;
                 float metallic=paint ? .72f : data.metallic,smoothness=paint ? .88f : data.smoothness;
                 // Paint and polished rims must not inherit a
                 // building prop's maps, disabled reflections or shader keywords.
-                var material = paint||wheelMetal||wheelRubber
-                    ? new Material(wheelShader) { name = "350Z_" + data.name, renderQueue = 2000 }
-                    : Clone(templates[0], "350Z_" + data.name, new Color(c[0], c[1], c[2], c[3]));
+                // Every imported surface needs a neutral texture/tint pipeline.
+                // Custom/Piece templates retain Valheim's style/damage masks and
+                // can turn ordinary bodykit plastics and trim into white patches.
+                var material = wheelShader!=null
+                    ? new Material(wheelShader) { name = "Vehicle_" + data.name, renderQueue = 2000 }
+                    : Clone(templates[0], "Vehicle_" + data.name, new Color(c[0], c[1], c[2], c[3]));
                 result[i] = material;
+                if(data.alphaMode=="blend") {
+                    material.SetFloat("_Mode",3);material.SetInt("_SrcBlend",(int)UnityEngine.Rendering.BlendMode.SrcAlpha);material.SetInt("_DstBlend",(int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    material.SetInt("_ZWrite",0);material.DisableKeyword("_ALPHATEST_ON");material.EnableKeyword("_ALPHABLEND_ON");material.DisableKeyword("_ALPHAPREMULTIPLY_ON");material.renderQueue=3000;
+                }
+
                 // VehicleMesh supplies reverse faces with their own inward normals.
                 if(material.HasFloat("_Cull"))material.SetFloat("_Cull",2);
-                if (paint||wheelMetal||wheelRubber) foreach (var property in new[] { "_Color", "_BaseColor" })
+                foreach (var property in new[] { "_Color", "_BaseColor" })
                     if (material.HasColor(property)) material.SetColor(property, new Color(c[0], c[1], c[2], c[3]));
                 foreach (var property in new[] { "_MainTex", "_BaseMap", "_Albedo" })
                     if (material.HasTexture(property)) material.SetTexture(property,data.texture>=0?textures[data.texture]:Texture2D.whiteTexture);
@@ -147,13 +155,13 @@ public static class VehicleMaterials {
         if (source == null) {
             var names = loaded.Where(m => m != null && m.shader != null)
                 .Select(m => m.shader.name).Distinct().OrderBy(n => n).Take(30);
-            throw new InvalidOperationException("No loaded material available for 350Z. Loaded shaders: " + string.Join(", ", names));
+            throw new InvalidOperationException("No loaded material available for vehicle rendering. Loaded shaders: " + string.Join(", ", names));
         }
-        log("350Z material template: " + source.name + "; shader: " + source.shader.name + "; queue: " + source.renderQueue);
+        log("Vehicle material template: " + source.name + "; shader: " + source.shader.name + "; queue: " + source.renderQueue);
         Material paint = null, dark = null;
         try {
-            paint = Clone(source, "350Z_Paint", new Color(.25f, .7f, .06f, 1f));
-            dark = Clone(source, "350Z_Dark", new Color(.045f, .045f, .05f, 1f));
+            paint = Clone(source, "Vehicle_Paint", new Color(.25f, .7f, .06f, 1f));
+            dark = Clone(source, "Vehicle_Dark", new Color(.045f, .045f, .05f, 1f));
             return new[] { paint, dark };
         } catch {
             if (paint != null) UnityEngine.Object.Destroy(paint);
@@ -161,9 +169,10 @@ public static class VehicleMaterials {
             throw;
         }
     }
+    internal static bool TemplateReady=>Resources.FindObjectsOfTypeAll<Material>().Any(m=>Score(m)>=0);
     static int Score(Material material) {
         if (material == null || material.shader == null || !material.shader.isSupported) return -1;
-        if (material.name.StartsWith("350Z_", StringComparison.Ordinal)) return -1;
+        if (material.name.StartsWith("Vehicle_", StringComparison.Ordinal)) return -1;
         var shader = material.shader.name.ToLowerInvariant();
         if (new[] { "hidden/", "ui/", "particle", "sky", "water", "terrain", "grass", "vegetation", "tree", "decal", "effect" }.Any(shader.Contains)) return -1;
         if (material.renderQueue >= 2450 || material.GetTag("RenderType", false, "").IndexOf("transparent", StringComparison.OrdinalIgnoreCase) >= 0) return -1;
@@ -179,6 +188,8 @@ public static class VehicleMaterials {
         var material = new Material(source) { name = name, renderQueue = 2000 };
         try {
             if(material.HasFloat("_Cull"))material.SetFloat("_Cull",2);
+            foreach(var property in new[]{"_UseStyles","_UseGlossmap","_NoiseGlowEnabled"})
+                if(material.HasFloat(property))material.SetFloat(property,0);
             foreach (var property in new[] { "_Color", "_BaseColor", "_SkinColor" })
                 if (material.HasColor(property)) material.SetColor(property, color);
             foreach (var property in new[] { "_MainTex", "_BaseMap", "_Albedo" })

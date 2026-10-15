@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 public sealed class RadioBassTap : MonoBehaviour {
     readonly BassSignal signal=new BassSignal();
     public volatile int SampleRate=48000,Sequence;

@@ -5,7 +5,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Audio;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Original local Rust meshes/samples. Mount, firing, recoil and effects are NFVU2.
 public sealed class VehicleTurret : IDisposable {
     const float Range=150;
@@ -76,7 +76,7 @@ public sealed class VehicleTurret : IDisposable {
         if(File.Exists(Path.Combine(folder,"explosion.wav")))explosion=new TurretExplosion(Clip(prepared,folder,"explosion.wav"),mixer,log);
         light=muzzle.gameObject.AddComponent<Light>();light.color=new Color(1,.65f,.22f);light.range=3;light.intensity=0;light.shadows=LightShadows.None;
         root.gameObject.SetActive(false);
-        log?.Invoke("350Z Rust turret: "+model.parts.Length+" original mesh sections and "+clips.Count+" original sound clips.");
+        log?.Invoke("Vehicle Rust turret: "+model.parts.Length+" original mesh sections and "+clips.Count+" original sound clips.");
     }
     AudioClip Clip(SpawnAudio prepared,string folder,string name) {
         var data=prepared.FileData(Path.Combine(folder,name));

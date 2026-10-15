@@ -1,84 +1,84 @@
 ---
 name: release
-description: Veröffentliche einen NFVU2-Release auf GitHub mit Versionstag, Release-Notizen, geprüftem Windows-Installer und SHA-256. Verwenden bei /release, $release oder einem ausdrücklichen Veröffentlichungsauftrag.
+description: Publish an NFVU2 GitHub release with a version tag, release notes, verified Windows installer and SHA-256. Use for /release, $release or an explicit publication request.
 ---
 
 # NFVU2 GitHub Release
 
-Veröffentliche den aktuellen beauftragten Projektstand als GitHub-Release.
-Ein Aufruf von `/release` oder `$release` beauftragt Vorbereitung, Build,
-Commit der zugehörigen Änderungen, Push, Versionstag, Asset-Upload und
-Veröffentlichung. Bei einem ausdrücklich gewünschten Entwurf stoppe beim Draft.
-Eine Frage über Releases oder das Anlegen dieses Skills ist kein
-Veröffentlichungsauftrag. `/installer` baut ausschließlich lokal.
+Publish the currently requested project state as a GitHub release. Calling
+`/release` or `$release` requests preparation, build, commit of related changes,
+push, version tag, asset upload and publication. If a draft is explicitly
+requested, stop at the draft. A question about releases or creating this skill
+is not a publication request. `/installer` builds locally only.
 
-## Stand und Zugriff
+## State and access
 
-- Lies `AGENTS.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `docs/ROADMAP.md` und
-  den [Installer-Skill](../installer/SKILL.md). Befehle laufen im Repo-Stamm.
-- Prüfe Remote, Branch, Arbeitsbaum, relevante Änderungen sowie lokale und
-  entfernte Tags/Releases. Das erwartete Repository ist `Backwoodz/NFVU2`;
-  verwende kein anderes Ziel ohne entsprechenden Auftrag.
-- Prüfe GitHub-Werkzeuge und Anmeldung mit Schreibzugriff. Bevorzuge vorhandene
-  GitHub CLI (`gh auth status`) oder passende API-Werkzeuge. Ist `gh` nicht im
-  PATH, suche vorhandene lokale Installationen. Alternativ verwende den
-  angemeldeten Browser mit dem Computer-Use-Skill. Gib keine Tokens aus.
-- Committe nur zum beauftragten Release gehörende Änderungen. Falls fremde
-  Änderungen die Wahl des Stands unklar machen, bereite unabhängig davon
-  Notizen und Prüfungen vor und kläre nur diesen konkreten Punkt.
+- Read `AGENTS.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `docs/ROADMAP.md` and the
+  [installer skill](../installer/SKILL.md). Run commands from the repository root.
+- Check the remote, branch, working tree, relevant changes and local/remote
+  tags/releases. The expected repository is `Backwoodz/NFVU2`; do not use another
+  destination without a corresponding request.
+- Check GitHub tools and sign-in with write access. Prefer the available GitHub
+  CLI (`gh auth status`) or suitable API tools. If `gh` is not on PATH, look for
+  existing local installations. Alternatively, use the signed-in browser with
+  the Computer Use skill. Do not expose tokens.
+- Commit only changes related to the requested release. If unrelated changes
+  make the target state unclear, prepare notes and checks independently and
+  clarify only that specific point.
 
-## Version, Build und Commit
+## Version, build and commit
 
-- Übernimm eine gewünschte Version. Sonst wähle für einen neuen Bugfix-Release
-  die nächste freie Patch-Version oberhalb der aktuellen Mod-Version und bereits
-  veröffentlichten Versionen. Bestehende Release-Tags nicht wiederverwenden oder
-  verschieben. Änderungen bestehender Releases benötigen einen ausdrücklichen Auftrag.
-- Aktualisiere `src/NFVU2.csproj` und das `BepInPlugin`-Attribut zusammen.
-  Überführe zugehörige Unreleased-Einträge in einen Changelog-Versionsabschnitt.
-- Baue und verifiziere den Installer nach dem Installer-Skill. Erstelle englische
-  Release-Notizen mit konkreten Änderungen, Installationshinweis, Plattform und
-  Prüfergebnissen. Behaupte nur durchgeführte Spieltests. Schreibe die Notizen unter
-  `artifacts/` und verwende bei `gh` `--notes-file` für echte Zeilenumbrüche.
-- Committe den geprüften Stand einschließlich Version und Setup-Revision mit
-  expliziten Dateipfaden. Ignorierte Assets/Binaries bleiben lokal. Der Tag muss
-  exakt auf den Commit zeigen, dessen Build-Eingaben den Installer erzeugt haben.
-  Nach weiteren Build-relevanten Änderungen erneut bauen und prüfen.
-- Pushe den Release-Commit zum vorgesehenen Branch ohne Force-Push. Erstelle
-  einen annotierten Tag `v<version>` auf dessen exakter SHA und pushe diesen Tag.
-  Prüfe die entfernte Tag-SHA. Bei Konflikten oder Fehlern nicht veröffentlichen.
+- Use the requested version. Otherwise, for a new bug-fix release, choose the
+  next available patch version above the current mod version and published
+  versions. Do not reuse or move existing release tags. Changes to existing
+  releases require an explicit request.
+- Update `src/NFVU2.csproj` and the `BepInPlugin` attribute together. Move related
+  Unreleased entries into a versioned changelog section.
+- Build and verify the installer following the installer skill. Write English
+  release notes with specific changes, installation instructions, platform and
+  verification results. Claim only in-game tests that were actually performed.
+  Save the notes under `artifacts/` and use `--notes-file` with `gh` to preserve
+  real line breaks.
+- Commit the verified state, including version and setup revision, using
+  explicit file paths. Ignored assets/binaries stay local. The tag must point
+  exactly to the commit whose build inputs produced the installer. Rebuild and
+  reverify after any further build-relevant changes.
+- Push the release commit to the intended branch without force-pushing. Create
+  an annotated `v<version>` tag on its exact SHA and push that tag. Verify the
+  remote tag SHA. Do not publish if there are conflicts or errors.
 
 ## GitHub-Release
 
-- Erstelle zuerst einen Draft mit Tag, Titel, Notizen und der verifizierten EXE
-  samt `.sha256` als Assets. Lade weder `.rsp` noch `payload.zip` hoch.
-  GitHub stellt die Source-code-Archive selbst bereit. Mit CLI beispielsweise:
+- First create a draft with the tag, title, notes and verified EXE plus its
+  `.sha256` as assets. Do not upload `.rsp` or `payload.zip`. GitHub provides the
+  source code archives itself. For example, with the CLI:
 
 ```powershell
 gh release create <tag> <installer.exe> <installer.sha256> --repo Backwoodz/NFVU2 --verify-tag --draft --title <title> --notes-file <notes-file>
 gh release view <tag> --repo Backwoodz/NFVU2 --json url,isDraft,tagName,assets
 ```
 
-- Ersetze die Platzhalter durch konkrete geprüfte Werte. Kontrolliere bei
-  Wiederholungsversuchen, ob Draft oder Upload bereits existieren. Bestehende
-  Assets nicht blind mit `--clobber` ersetzen; beachte unveränderliche Releases.
-- Lade hochgeladene Assets in ein separates ignoriertes Prüfverzeichnis herunter
-  und vergleiche ihre SHA-256 mit lokalen Dateien. Prüfe Tag, Zielcommit, Titel und
-  Notizen. Bei Fehlern belasse den Draft und melde den Fehler.
-- Bei Veröffentlichungsauftrag publiziere den geprüften Draft, beispielsweise
-  mit `gh release edit <tag> --repo Backwoodz/NFVU2 --draft=false`.
-  Prüfe danach die erreichbare Release-Seite und beide Download-Assets.
-  Bezeichne einen Entwurf nie als veröffentlicht.
-- Aktualisiere anschließend README-Downloadlink und Größenangabe auf das
-  tatsächlich veröffentlichte Asset; committe und pushe diese Dokumentationsänderung.
-  Verschiebe den Release-Tag nicht auf den nachträglichen Dokumentationscommit.
+- Replace placeholders with specific verified values. On retries, check whether
+  the draft or upload already exists. Do not blindly replace existing assets with
+  `--clobber`; releases are immutable.
+- Download uploaded assets to a separate ignored verification directory and
+  compare their SHA-256 values with the local files. Check the tag, target commit,
+  title and notes. If anything fails, leave the draft unpublished and report it.
+- When publication was requested, publish the verified draft, for example with
+  `gh release edit <tag> --repo Backwoodz/NFVU2 --draft=false`. Then check that
+  the release page is reachable and both download assets are present. Never call
+  a draft published.
+- Then update the README download link and size to match the actually published
+  asset; commit and push this documentation change. Do not move the release tag
+  to this later documentation commit.
 
 ## Abschluss
 
-Liefere den direkten GitHub-Release-Link, Version/Tag, Installer-Downloadlink und
-Prüfergebnis; benenne ausstehende Spieltests. Bei fehlendem Zugriff erledige die
-lokalen Vorbereitungen und nenne den noch erforderlichen Anmeldeschritt.
-Ein normaler Push führt diesen Skill nicht aus; ein automatischer
-Release-Workflow ist im Projekt bisher nicht eingerichtet.
+Provide the direct GitHub release link, version/tag, installer download link and
+verification result; identify any pending in-game tests. If access is missing,
+complete local preparation and state the sign-in step still required.
+A regular push does not run this skill; the project does not currently have an
+automated release workflow.
 
 Referenzen:
 - [GitHub: Releases verwalten](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)

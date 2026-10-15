@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Only enemies spawned by this mode receive this marker. Ordinary world loot is untouched.
 public sealed class HordeEnemyMarker : MonoBehaviour {
     public Action<Ragdoll> OnCorpse;

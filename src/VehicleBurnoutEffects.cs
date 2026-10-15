@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Original NFS smoke atlas; emitter behaviour is authored for this Unity mod.
 public sealed class VehicleBurnoutEffects : IDisposable {
     readonly ParticleSystem[] systems=new ParticleSystem[2];
@@ -13,13 +13,13 @@ public sealed class VehicleBurnoutEffects : IDisposable {
     public static VehicleBurnoutEffects Create(GameObject car,ModelData model,WheelCollider[] wheels,Transform[] visuals,Action<string> log) {
         var result=new VehicleBurnoutEffects();
         try {result.Initialize(car,model,wheels,visuals);return result;}
-        catch(Exception e){result.Dispose();log?.Invoke("350Z tyre smoke unavailable: "+e.Message);return null;}
+        catch(Exception e){result.Dispose();log?.Invoke("Vehicle tyre smoke unavailable: "+e.Message);return null;}
     }
     void Initialize(GameObject car,ModelData model,WheelCollider[] carWheels,Transform[] wheelVisuals) {
         wheels=carWheels;visuals=wheelVisuals;
         if(model.nitroPurgeTexture<0)throw new InvalidOperationException("Original smoke atlas missing.");
         var data=model.textures[model.nitroPurgeTexture];
-        texture=new Texture2D(data.width,data.height,TextureFormat.RGBA32,false){name="350Z_TyreSmoke",wrapMode=TextureWrapMode.Clamp};
+        texture=new Texture2D(data.width,data.height,TextureFormat.RGBA32,false){name="Vehicle_TyreSmoke",wrapMode=TextureWrapMode.Clamp};
         var pixels=new byte[data.rgba.Length];
         for(int y=0;y<data.height;y++)for(int x=0;x<data.width;x++) {
             int src=(y*data.width+x)*4,dst=((data.height-1-y)*data.width+x)*4;
@@ -28,10 +28,10 @@ public sealed class VehicleBurnoutEffects : IDisposable {
         texture.SetPixelData<byte>(pixels,0);texture.Apply(false,true);
         var shader=Shader.Find("Legacy Shaders/Particles/Alpha Blended");
         material=shader!=null&&shader.isSupported?new Material(shader):VehicleMaterials.CreateGlowMaterial(texture);
-        material.name="350Z_TyreSmoke";material.SetTexture("_MainTex",texture);material.renderQueue=3000;
+        material.name="Vehicle_TyreSmoke";material.SetTexture("_MainTex",texture);material.renderQueue=3000;
         foreach(var property in new[]{"_TintColor","_Color","_BaseColor"})
             if(material.HasColor(property))material.SetColor(property,new Color(.65f,.65f,.65f,.65f));
-        root=new GameObject("350Z_TyreSmoke");root.transform.SetParent(car.transform,false);
+        root=new GameObject("Vehicle_TyreSmoke");root.transform.SetParent(car.transform,false);
         for(int i=0;i<2;i++) {
             var obj=new GameObject("RearTyreSmoke"+i);obj.transform.SetParent(root.transform,false);
             var ps=obj.AddComponent<ParticleSystem>();systems[i]=ps;ps.Stop(true,ParticleSystemStopBehavior.StopEmittingAndClear);

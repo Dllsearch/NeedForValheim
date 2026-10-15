@@ -3,7 +3,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
-using Rachel350Z;
+using NeedForValheim;
 
 // Unity-free stand-ins; the production Harmony callbacks and IL transformation
 // are compiled unchanged. This does not execute Valheim or its HUD rendering.
@@ -13,7 +13,7 @@ public static class ZInput {
     public static bool Pressed;
     public static bool GetButtonDown(string name)=>Pressed;
 }
-namespace Rachel350Z {
+namespace NeedForValheim {
     public class Plugin {
         public static Plugin ControlsOwner;
         public bool Captured;

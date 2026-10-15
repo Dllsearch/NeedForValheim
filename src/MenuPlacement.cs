@@ -1,5 +1,5 @@
 using System;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Screen-pixel placement, independent of the menu's content scale.
 public sealed class MenuPlacement {
     public float X {get;private set;}

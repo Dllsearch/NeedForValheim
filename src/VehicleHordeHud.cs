@@ -1,5 +1,5 @@
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     GUIStyle hordeTextStyle;
     static readonly Color HordeGold=new Color(1,.8f,.4f);
@@ -34,29 +34,29 @@ public partial class Plugin {
         }
         if(hordeWave.Choosing){DrawHordePactChoice();return;}
         float width=760*scale,left=(Screen.width-width)/2,top=20*scale,gap=28*scale,half=(width-gap)/2;
-        string wave=Tr("Welle")+" "+hordeWave.Number+" / "+HordeWave.WaveCount;
+        string wave=Tr("Wave")+" "+hordeWave.Number+" / "+HordeWave.WaveCount;
         int goal=hordeWave.Pending?Mathf.CeilToInt(hordeWave.Size*.85f):hordeWave.KillGoal;
-        string remaining=Tr("Abschüsse")+"  "+hordeWaveKills+" / "+goal;
+        string remaining=Tr("Kills")+"  "+hordeWaveKills+" / "+goal;
         HordeLabel(new Rect(left,top,half,40*scale),wave,title,HordeGold,TextAnchor.MiddleLeft);
         HordeLabel(new Rect(left+half+gap,top,half,40*scale),remaining,body,HordeWhite,TextAnchor.MiddleRight);
         // Five short milestones give the wave progression a visual rhythm.
         for(int i=0;i<HordeWave.WaveCount;i++)HordeFill(new Rect(left+i*width/5,top+43*scale,width/5-5*scale,3*scale),i<hordeWave.Number?HordeGold:new Color(.12f,.17f,.2f,.8f));
-        HordeLabel(new Rect(left,top+52*scale,half,34*scale),hordeRun.Score.ToString("N0")+" "+Tr("Punkte"),body,HordeWhite,TextAnchor.MiddleLeft);
+        HordeLabel(new Rect(left,top+52*scale,half,34*scale),hordeRun.Score.ToString("N0")+" "+Tr("Points"),body,HordeWhite,TextAnchor.MiddleLeft);
         HordeLabel(new Rect(left+half+gap,top+52*scale,half,34*scale),Tr("Combo")+"  x"+hordeRun.Multiplier+"  /  "+hordeRun.Combo,body,hordeRun.Multiplier>1?HordeGold:HordeWhite,TextAnchor.MiddleRight);
         if(hordeRun.ComboLeft>0)HordeFill(new Rect(left+width-180*scale,top+88*scale,180*scale*hordeRun.ComboLeft/HordeRun.ComboWindow,2*scale),HordeGold);
         DrawHordeBar(new Rect(left,top+96*scale,half,43*scale),hordeRun.Health/HordeRun.MaxHealth,
             hordeRun.Health<250?new Color(1,.3f,.18f):HordeArenaVisuals.ColorFor(HordePowerup.Repair),"HP",Mathf.CeilToInt(hordeRun.Health)+" / 1000",small,scale);
         DrawHordeBar(new Rect(left+half+gap,top+96*scale,half,43*scale),hordeRun.Shield/HordeRun.MaxShield,
-            HordeArenaVisuals.ColorFor(HordePowerup.Shield),Tr("Schild"),Mathf.CeilToInt(hordeRun.Shield)+" / 300",small,scale);
+            HordeArenaVisuals.ColorFor(HordePowerup.Shield),Tr("Shield"),Mathf.CeilToInt(hordeRun.Shield)+" / 300",small,scale);
         bool elemental=HordePacts.Elemental(hordeRun.Pact);
-        HordeLabel(new Rect(left,top+147*scale,half,32*scale),elemental?Tr(HordeAmmoName):Tr("Explosiv")+"  "+(hordeRun.Pact==HordePact.Thor?Tr("ganze Welle"):hordeRun.ExplosiveRounds+" / 30"),small,
+        HordeLabel(new Rect(left,top+147*scale,half,32*scale),elemental?Tr(HordeAmmoName):Tr("Explosive")+"  "+(hordeRun.Pact==HordePact.Thor?Tr("entire wave"):hordeRun.ExplosiveRounds+" / 30"),small,
             elemental?HordeAmmoTint:hordeRun.Explosive?HordeArenaVisuals.ColorFor(HordePowerup.Explosive):new Color(.65f,.7f,.75f),TextAnchor.MiddleLeft);
-        HordeLabel(new Rect(left+half+gap,top+147*scale,half,32*scale),"AUTO  "+(hordeRun.Pact==HordePact.Valkyrie?Tr("ganze Welle"):Mathf.CeilToInt(hordeRun.AutoLeft)+" s"),small,
+        HordeLabel(new Rect(left+half+gap,top+147*scale,half,32*scale),"AUTO  "+(hordeRun.Pact==HordePact.Valkyrie?Tr("entire wave"):Mathf.CeilToInt(hordeRun.AutoLeft)+" s"),small,
             hordeRun.Automatic?HordeArenaVisuals.ColorFor(HordePowerup.Automatic):new Color(.65f,.7f,.75f),TextAnchor.MiddleRight);
         {
-            HordeLabel(new Rect(left,top+182*scale,width,29*scale),Tr(HordePacts.Name(hordeRun.Pact))+" · "+Tr("Elite übrig")+": "+hordeRequiredAlive,small,HordeGold);
-            if(hordeBoss?.Character!=null&&!hordeBoss.Killed)DrawHordeBar(new Rect(left,top+218*scale,width,43*scale),hordeBoss.Character.GetHealth()/hordeBoss.Character.GetMaxHealth(),hordeBossEnraged?new Color(1,.35f,.2f):new Color(.5f,.8f,1),hordeBossEnraged?Tr("Moder · Zornphase"):"Moder",Mathf.CeilToInt(hordeBoss.Character.GetHealth())+" HP",small,scale);
-            if(hordeBonus.Left>0)HordeLabel(new Rect(left,top+218*scale,width,32*scale),Tr("Jagdauftrag")+": "+Mathf.CeilToInt(hordeBonus.Left)+" s · +500 "+Tr("Punkte")+" / +250 HP",small,HordeGold);
+            HordeLabel(new Rect(left,top+182*scale,width,29*scale),Tr(HordePacts.Name(hordeRun.Pact))+" · "+Tr("Elites remaining")+": "+hordeRequiredAlive,small,HordeGold);
+            if(hordeBoss?.Character!=null&&!hordeBoss.Killed)DrawHordeBar(new Rect(left,top+218*scale,width,43*scale),hordeBoss.Character.GetHealth()/hordeBoss.Character.GetMaxHealth(),hordeBossEnraged?new Color(1,.35f,.2f):new Color(.5f,.8f,1),hordeBossEnraged?Tr("Moder \u00b7 Enraged"):"Moder",Mathf.CeilToInt(hordeBoss.Character.GetHealth())+" HP",small,scale);
+            if(hordeBonus.Left>0)HordeLabel(new Rect(left,top+218*scale,width,32*scale),Tr("Hunt target")+": "+Mathf.CeilToInt(hordeBonus.Left)+" s · +500 "+Tr("Points")+" / +250 HP",small,HordeGold);
             DrawHordeTarget(hordeBonus.Left>0?hordeBonusTarget:hordeBoss,scale);
         }
         if(hordeVisuals!=null&&Camera.main!=null)foreach(var pickup in hordeVisuals.Pickups) {
@@ -72,7 +72,7 @@ public partial class Plugin {
         var screen=Camera.main.WorldToScreenPoint(target.Character.GetTopPoint()+Vector3.up);
         if(screen.z<=0)return;
         float width=240*scale;
-        HordeLabel(new Rect(screen.x-width/2,Screen.height-screen.y,width,34*scale),"▼ "+Tr(target==hordeBoss?"Moder":"Jagdauftrag"),Mathf.RoundToInt(24*scale),HordeGold);
+        HordeLabel(new Rect(screen.x-width/2,Screen.height-screen.y,width,34*scale),"▼ "+Tr(target==hordeBoss?"Moder":"Hunt target"),Mathf.RoundToInt(24*scale),HordeGold);
     }
     void DrawHordeBar(Rect rect,float fill,Color color,string label,string value,int size,float scale) {
         HordeLabel(new Rect(rect.x,rect.y,rect.width*.45f,30*scale),label,size,color,TextAnchor.MiddleLeft);

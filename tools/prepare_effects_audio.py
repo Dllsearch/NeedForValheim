@@ -5,36 +5,19 @@ import json
 from pathlib import Path
 import subprocess
 import wave
-import zipfile
 
 import numpy as np
 
-from project import LOCAL, disc_root, vgmstream_path
-from inspect_discs import Disc
-from extract_assets import DiscFile
+from project import LOCAL, vgmstream_path
+from asset_source import extract_matching
 
 
 def extract_missing(names):
     root = LOCAL / 'nfs-assets'
     missing = {name.upper(): name for name in names if not (root / name).is_file()}
-    for image in disc_root().glob('CD*/*.bin'):
-        if not missing:
-            break
-        disc = Disc(image)
-        try:
-            for record in disc.walk():
-                if record['name'] != 'COMPRESS.ZIP':
-                    continue
-                with zipfile.ZipFile(DiscFile(disc, record)) as archive:
-                    for entry in archive.infolist():
-                        key = entry.filename.replace('\\', '/').upper()
-                        if key not in missing:
-                            continue
-                        target = root / missing.pop(key)
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        target.write_bytes(archive.read(entry))
-        finally:
-            disc.f.close()
+    if missing:
+        copied = extract_matching(root, lambda upper: upper in missing)
+        missing = {key: name for key, name in missing.items() if key not in copied}
     if missing:
         raise ValueError('Original effect sources unavailable: ' + ', '.join(missing.values()))
 

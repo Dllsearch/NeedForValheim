@@ -1,5 +1,5 @@
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Shared by acquisition and the actual muzzle trace. Friendly actors are
 // blockers, even though they can never become automatic targets.
 public static class TurretTargeting {

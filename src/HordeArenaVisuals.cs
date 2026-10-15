@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public sealed class HordeArenaVisuals : IDisposable {
     public sealed class Pickup {
         public HordePowerup Kind;public Vector3 Point;public GameObject Root;

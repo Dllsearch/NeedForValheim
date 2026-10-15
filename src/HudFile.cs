@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using Newtonsoft.Json;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public sealed class HudDesign { public string name; public ModelTexture fill,lines,needle,turboFill,turboLines; }
 public sealed class HudData { public int schemaVersion; public HudDesign[] designs; public ModelTexture nitro,nitroBacking; }
 public static class HudFile {

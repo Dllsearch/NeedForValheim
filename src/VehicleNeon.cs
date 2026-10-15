@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 public sealed class VehicleNeon : IDisposable {
     const int Columns = 7, Rows = 13;
     static readonly string[] TintProperties = { "_Color", "_TintColor", "_BaseColor" };
@@ -35,10 +35,10 @@ public sealed class VehicleNeon : IDisposable {
             if (model.neonTexture >= 0) {
                 result.texture = VehicleMaterials.CreateEffectTexture(model.textures[model.neonTexture]);
                 try { result.material = VehicleMaterials.CreateGlowMaterial(result.texture); }
-                catch (InvalidOperationException e) { log?.Invoke("350Z neon projection unavailable: " + e.Message + "; ground lights remain active"); }
+                catch (InvalidOperationException e) { log?.Invoke("Vehicle neon projection unavailable: " + e.Message + "; ground lights remain active"); }
                 if (result.material != null) {
-                    result.projection = new GameObject("350Z_GroundedNeonMask");
-                    result.mesh = new Mesh { name = "350Z_TerrainNeon" }; result.mesh.MarkDynamic();
+                    result.projection = new GameObject("Vehicle_GroundedNeonMask");
+                    result.mesh = new Mesh { name = "Vehicle_TerrainNeon" }; result.mesh.MarkDynamic();
                     var uv = new Vector2[Columns * Rows]; var colors = new Color[uv.Length]; var normals = new Vector3[uv.Length];
                     for (int row = 0; row < Rows; row++) for (int col = 0; col < Columns; col++) {
                         int i = row * Columns + col;
@@ -52,12 +52,12 @@ public sealed class VehicleNeon : IDisposable {
                 }
             }
             foreach (var position in new[] { new Vector3(-.75f, .08f, 0), new Vector3(.75f, .08f, 0), new Vector3(0, .08f, 1.65f), new Vector3(0, .08f, -1.65f) }) {
-                var obj = new GameObject("350Z_NeonLight"); obj.transform.SetParent(car.transform, false); obj.transform.localPosition = position;
+                var obj = new GameObject("Vehicle_NeonLight"); obj.transform.SetParent(car.transform, false); obj.transform.localPosition = position;
                 obj.transform.localRotation = Quaternion.Euler(90, 0, 0);
                 var light = obj.AddComponent<Light>(); result.lights.Add(light);
                 light.type = LightType.Spot; light.range = 1.6f; light.spotAngle = 145; light.shadows = LightShadows.None; light.enabled = false;
             }
-            log?.Invoke("350Z neon: original 350Z_NEON mask, terrain projection and adjustable NFVU2 pulse");
+            log?.Invoke("Vehicle neon: original vehicle mask, terrain projection and adjustable NFVU2 pulse");
             return result;
         } catch { result.Dispose(); throw; }
     }

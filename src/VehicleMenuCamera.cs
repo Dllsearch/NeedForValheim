@@ -3,44 +3,62 @@ using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     delegate void GroundCameraPosition(float dt,out Vector3 position,out Quaternion rotation);
     GroundCameraPosition menuGroundCamera;
     bool menuMouseLookHeld;
+    Vector3 showroomCameraPosition;
+    Quaternion showroomCameraRotation;
+    float showroomYaw=145,showroomPitch=18,showroomDistance=6;
 
     void BeginMenuCamera() {
         menuMouseLookHeld=false;menuGroundCamera=null;
         if(menuCamera==null)return;
+        showroomCameraPosition=menuCamera.transform.position;showroomCameraRotation=menuCamera.transform.rotation;
+        showroomYaw=145;showroomPitch=18;showroomDistance=current.Profile.capabilities.suvTuning?8:6;
         // Keep the native camera disabled (its LateUpdate captures the cursor).
         // Reuse only its collision-aware positioning, without native zoom/input.
         var method=menuCamera.GetType().GetMethod("GetCameraPosition",BindingFlags.Instance|BindingFlags.NonPublic);
         if(method!=null)menuGroundCamera=(GroundCameraPosition)Delegate.CreateDelegate(typeof(GroundCameraPosition),menuCamera,method);
     }
-    void EndMenuCamera(){menuMouseLookHeld=false;menuGroundCamera=null;}
+    void EndMenuCamera(){menuMouseLookHeld=false;menuGroundCamera=null;if(menuCamera!=null)menuCamera.transform.SetPositionAndRotation(showroomCameraPosition,showroomCameraRotation);}
     void TickMenuCamera() {
         bool mouseLook=Input.GetMouseButton(1)&&!Input.GetMouseButton(0)&&!menuPlacement.Dragging;
         Vector2 degrees=Vector2.zero;
-        float scroll=0;
+        float scale=Mathf.Min(Screen.width/1600f,Screen.height/900f);
+        float pointerX=(Input.mousePosition.x-(Screen.width-1600*scale)*.5f)/scale;
+        float scroll=pointerX>290&&pointerX<1040?Input.mouseScrollDelta.y:0;
         if(mouseLook) {
             // Ignore cursor recentering on the first captured frame.
             if(menuMouseLookHeld) {
-                degrees=orbitCamera.ReadMouseDelta()*mouseSensitivity.Value;
-                if(invertMouseY.Value)degrees.y=-degrees.y;
-                scroll=Input.mouseScrollDelta.y;
+                degrees=orbitCamera.ReadMouseDelta()*menuMouseSensitivity.Value;
+                if(menuMouseInvert.Value)degrees.y=-degrees.y;
             }
         }else if(pad!=null) {
             var look=pad.rightStick.ReadUnprocessedValue();
-            degrees=new Vector2(ControlRules.Axis(look.x,stickDeadzone.Value),ControlRules.Axis(look.y,stickDeadzone.Value))*controllerSensitivity.Value*Mathf.Min(Time.unscaledDeltaTime,.1f);
-            if(controllerInvertY.Value)degrees.y=-degrees.y;
+            degrees=new Vector2(ControlRules.Axis(look.x,stickDeadzone.Value),ControlRules.Axis(look.y,stickDeadzone.Value))*menuControllerSensitivity.Value*Mathf.Min(Time.unscaledDeltaTime,.1f);
+            if(menuControllerInvert.Value)degrees.y=-degrees.y;
         }
         menuMouseLookHeld=mouseLook;
         Cursor.lockState=mouseLook?CursorLockMode.Locked:CursorLockMode.None;Cursor.visible=!mouseLook;
-        if(driving)orbitCamera.MenuFrame(degrees,scroll);
-        else if(menuPlayer is Player local)local.SetMouseLook(degrees);
+        GarageCameraInput(degrees,scroll);
     }
     void LateMenuCamera() {
-        if(!menuOpen||driving||audioBlocked||!Application.isFocused||menuCamera==null||menuGroundCamera==null)return;
+        if(!menuOpen||driving||audioBlocked||!Application.isFocused||menuCamera==null)return;
+        if(CanAccessCurrent(LocalPlayer())) {
+            var pivot=car.transform.position+Vector3.up*(current.Profile.capabilities.suvTuning?1.2f:.8f);
+            var orbit=Quaternion.Euler(showroomPitch,car.transform.eulerAngles.y+showroomYaw,0);
+            var delta=orbit*Vector3.back*showroomDistance;float distance=showroomDistance;
+            foreach(var hit in Physics.SphereCastAll(pivot,.18f,delta.normalized,distance,~0,QueryTriggerInteraction.Ignore))
+                if(!hit.transform.IsChildOf(car.transform)&&!hit.transform.IsChildOf(LocalPlayer().transform))distance=Mathf.Min(distance,Mathf.Max(.8f,hit.distance-.1f));
+            var point=pivot+delta.normalized*distance;
+            // The menu occupies the left side; keep the preview to its right.
+            var facing=Quaternion.LookRotation(pivot-point);
+            float offset=Screen.width>1000?-12:0;
+            menuCamera.transform.SetPositionAndRotation(point,facing*Quaternion.Euler(0,offset,0));return;
+        }
+        if(menuGroundCamera==null)return;
         menuGroundCamera(Time.unscaledDeltaTime,out var position,out var rotation);
         menuCamera.transform.SetPositionAndRotation(position,rotation);
     }
@@ -52,5 +70,9 @@ public partial class Plugin {
 [HarmonyPatch(typeof(PlayerController),"LateUpdate")]
 static class NativeMenuLookCapture {
     static bool Prefix(PlayerController __instance)=>Plugin.ControlsOwner==null||!Plugin.ControlsOwner.CaptureMenuLook(__instance);
+}
+[HarmonyPatch(typeof(Menu),"Show")]
+static class NativePauseDuringGarage {
+    static bool Prefix()=>Plugin.ControlsOwner==null||!Plugin.ControlsOwner.FrontendOpen;
 }
 }

@@ -1,11 +1,18 @@
 # Local game assets, tools, build products and machine settings
 .local/
 artifacts/
+/handoffs/
 config.local.json
 bin/
 obj/
 __pycache__/
 *.pyc
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage*
 *.rsp
 *.user
 *.suo
@@ -13,6 +20,9 @@ __pycache__/
 .idea/
 .env
 .env.*
+Thumbs.db
+Desktop.ini
+.DS_Store
 
 # Original game data and generated distributables must stay local
 *.dll

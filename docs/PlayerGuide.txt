@@ -1,0 +1,397 @@
+NFVU2 0.22.0 – 350Z and Hummer H2, local test for Valheim
+
+NEW: TURBO GAUGE, SOUND AND SMALL TREES
+The small left gauge on the 350Z now shows turbo boost and vacuum.
+Speed remains digital on the speedometer; the large dial shows RPM.
+Turbo and blow-off respond to load and built-up boost: less throttle
+produces quieter sound. When releasing the throttle, the needle briefly flutters
+into the vacuum range. The Hummer has no turbo gauge.
+Small trees and bushes can already be driven through at walking speed.
+If the car is directly against a small tree, keep accelerating toward it.
+Large trees and rocks still require explosive ammunition.
+For the sound test, accelerate first with little, then with more throttle, and release each time.
+Also try slowly releasing the controller trigger.
+The pressure/volume curve is a custom recreation based on NFS data.
+
+NEW: MENU, DRIVETRAIN AND EXHAUST
+When no car is reachable, the menu only shows Garage and Settings.
+Up/down on the stick/D-pad selects categories; right or A/Cross switches
+to the contents. There, directions navigate between controls.
+Left at the start of a row returns to the sidebar. LB/L1 jumps directly
+to the sidebar, RB/R1 to the contents. For sliders and selection fields,
+press A/Cross first, then change the value with the directions; A or B ends editing.
+B/Circle goes back one step at a time. L3/F9 still closes the menu directly.
+F9 → Exhaust: choose the Original/Deep/Sport sound variant, nitro flame color, and on the
+350Z choose among ten original exhaust tips. STYLE08 is the previous look.
+The drivetrain has more torque and stronger launch force forward/reverse.
+Normal turret ammunition: 14 piercing damage (three hits at 40 HP without resistance).
+Explosive ammunition now also hits large trees, trunks, and mineable rocks.
+
+VEHICLE PROMPTS
+In the vehicle, driving controls appear at bottom right with Valheim's original
+Xbox/PS5 icons instead of attack/secondary attack. The bindings change in flight and
+in the mod menu. The speedometer is above them; on foot, normal Valheim prompts return.
+DE/EN and prompt size follow the settings.
+
+CAMERA IN THE MOD MENU
+Right stick: freely rotate the camera, including on foot with the menu open.
+Mouse: hold right button and drag; in the vehicle, zoom with the mouse wheel.
+Release the right mouse button to click or move the menu.
+Vehicle and weapon controls remain locked in the menu.
+
+NEW: CONTROLLER AND LANGUAGE
+Xbox: RT throttle, LT brake/reverse, left stick steer, right stick camera.
+B enter/exit, X nitro, A handbrake, LB turret, R3 horn.
+PS5: R2/L2, Circle enter/exit, Square nitro, Cross handbrake, L1 turret.
+L3 opens/closes the mod menu. Stick/D-pad navigates, A/Cross confirms,
+LB/L1 selects the sidebar, RB/R1 the contents; A starts editing values.
+B/Circle goes back or closes the menu without exiting the vehicle.
+In flight: RB/R1 up, LB/L1 down. Turret is automatic; X/Square nitro.
+B/Circle or F7 in flight: automatic landing, then attempt to exit.
+While driving: D-pad left/right songs, up/down driving modes.
+Keyboard: 1 off-road, 2 street, 3 drift (350Z only), 4 flight; left/right arrow keys change songs.
+F9/L3 → Settings: DE/EN, button display Auto/Xbox/PlayStation,
+dead zone, controller camera, invert Y, and driving prompt size.
+After menu/pause/focus loss, release held driving keys first.
+Controller hardware and menu display still need to be checked in-game.
+
+NEW: HEADLIGHT SHOW
+F9 → Lights → enable “Show-off when exiting” (off by default).
+After exiting, the headlights flash twice on the left, twice on the
+right, then pause. Left/right as seen from the driver's seat. It repeats
+until you enter the car or turn off the show. Color and intensity also apply
+to the show. Works independently of engine keep-running; saved per vehicle type.
+“Reset headlights” also turns the show off.
+
+NEW: METALLIC PAINT
+The 350Z and Hummer H2 have more reflective paint with higher gloss.
+The change applies to freshly spawned vehicles. Color and vinyl are preserved.
+
+NEW: NITRO TUNNEL VISION AND TAILLIGHT TRAILS
+During boost, the image edges blur outward. The car and image center
+stay as sharp as possible. The lit taillights leave short red
+trails behind them, including in flight. Releasing the control fades the effect out.
+F9 → Nitro: toggle tunnel vision and taillight trails separately; effect intensity
+from 0 to 100%. Default: both on, 70%. Shared by both cars.
+Menu, pause, Alt-Tab, and exiting end the effects immediately.
+
+NEW: EXHAUST NITRO IN FLIGHT
+On the 350Z, W + left mouse button or left Ctrl in flight also activates
+the normal exhaust flames and nitro sound. The wheel nozzles keep running.
+No boost means no exhaust flames; purge and tire smoke remain ground-only.
+
+NEW: BACKGROUND LOADING
+F6 or Garage → Spawn: a loading indicator appears at the top with the current
+stage. You can keep walking during loading. The finished car appears
+in a free spot in front of you; further spawns and entering wait for it.
+F8 or “Cancel” ends only the current loading process. Existing
+cars remain. Death, teleport, and world changes also cancel it.
+Further spawns benefit from the data cache until you leave the world.
+Individual texture/graphics steps may still cause brief stutters.
+
+NEW: MOVABLE MENU
+Open with F9, grab the title bar with the left mouse button, and drag it
+to the desired place. The position is saved. On resolution changes, the menu stays
+within the visible screen. The X button still closes it directly.
+When no car is reachable, Garage and Settings are visible.
+
+NEW: LOWERING, NFS MENU AND PARKED TURRET
+F9 → Wheels: lowering in addition to camber, offset, and rim size.
+0–12 cm; 0 restores the stock ride height. More lowering = less ground clearance.
+The value is saved per vehicle model. When exiting, the front wheels retain
+their steering angle; re-entering resumes steering.
+
+F9 shows categories on the left, original NFS icons, and short navigation sounds.
+Switch with the mouse or up/down arrows. Menu volume in the configuration:
+Menu → SoundVolume (0 = muted). Import: python tools/export_menu.py.
+
+F9 → Turret: turn on the turret and enter the car once. After exiting,
+it automatically guards the area in front of the car (180°, 30 meters).
+The laser visibly sweeps if the laser switch is active. Visible
+enemies are acquired and shot automatically; reloading remains automatic.
+Players and tame animals are not targeted and block the line of fire.
+Cover and the car itself also block shots. Automation can be
+disabled in the Turret menu and works independently of whether the engine/radio keeps running outside.
+Laser color/intensity and selected ammunition apply in both modes.
+Menus, focus loss, and player death pause automation. When entering,
+aim manually again; release held RMB, then press it again.
+H2 still has no roof turret. Unity playtest for 0.13.0 is still pending.
+
+NEW: HUMMER H2 AND GARAGE
+F9 → Garage: choose and spawn a Nissan 350Z or Hummer H2.
+F6 uses the same selection. Exit before spawning.
+Existing cars remain; up to four vehicles at once.
+The Garage can also be opened without a car. Find a clear area in front of you.
+Go to the desired car: F7 enters the nearest car within 5 m,
+F9 shows its settings. F8 removes only that car.
+Vehicles are removed on world change and are not saved.
+
+H2: yellow stock body, large 26-inch chrome spinners, and its own SUV sound.
+The spinners keep turning after stopping and gradually come to rest.
+F9 → Wheels: 22–28 inches, camber, and wheel offset. Tires remain the same size.
+Driving mode, lights, neon, wheels, and radio are saved separately for H2/350Z.
+Multiple cars of the same model share their settings.
+For the H2, engine bay/trunk builds, door animations, nitro, and turret
+are not set up yet. The H2 is drivable and its engine runs normally.
+When keep-running is enabled, both cars' engines and music can play outside.
+
+NEW: LASER AND SUBWOOFER
+F9 → Turret → configure Laser: intensity from 25 to 400 percent, color presets
+or a custom RGB color. Default is a stronger beam with a bright core.
+The subwoofer cones move automatically to the radio bass.
+To see them, open the trunk and start music; they also work outside with
+“Keep running when exiting.” They stop when paused/radio is off.
+
+NEW: RUST TURRET
+F9 → Turret → enable “Rust AutoTurret mit AK auf dem Dach”.
+From the driver's seat, the turret follows the mouse view. Hold the right mouse button:
+full auto, 30 rounds, then automatic reload. Unlimited ammunition.
+The aiming camera is higher, with the crosshair above the car.
+The barrel aims at the world point behind the sight. Orange means:
+the barrel is still aligning, is at its elevation limit, or is blocked by the car.
+Toggle the Rust laser module in the Turret menu; beam and dot show the barrel path.
+Switch ammunition in the same menu between Normal and Explosive; ammo count is at bottom left.
+Explosive rounds deal area damage to enemies and dig a small crater on each direct
+ground hit. Further hits deepen it up to the digging limit.
+Crater locations are saved in the world. Walls and rocks protect the ground
+behind them; shots into those obstacles do not dig through them.
+Enemies can be hit; solid obstacles stop shots.
+The turret does not fire in the menu, when focus is lost, or outside the car.
+Afterward, release the right mouse button once before firing again.
+Volume under Turret; combines with the vehicle sound volume.
+Original Rust models and sounds, with recoil and effects animated for NFVU2.
+The new feature still needs an in-game test.
+
+The user has generally confirmed the 0.2.0 features in Valheim.
+The user also confirmed the 0.2.1 fixes in Valheim.
+Nitro, purge, and rim correction in 0.3.0 still await an in-game test.
+0.3.1 corrects the alignment of the 350Z rear badge.
+0.4.0 adds visual wheel adjustments in the vehicle menu; in-game test still pending.
+0.4.1 moves the menu to the top left and adds headlight colors/intensity.
+0.5.0 adds launch torque, reverse whine, dimmer reverse lights, and burnout.
+0.6.0 adds driving over objects and optional engine, neon, and music keep-running.
+0.7.0 adds trunk builds, animated doors/hoods, and engine visuals.
+0.8.0 adds original NFS gauges, a smoother camera, and drift mode.
+
+SPEEDOMETER, CAMERA AND DRIFT
+F9 → Display: speedometer on/off, eleven NFS designs, color, size, and KM/H or MPH.
+Bottom right shows speed, RPM/gear, and NOS level.
+RPM and gear are tied to the audible transmission. The nitro gauge follows the tank.
+The dynamic camera follows more smoothly in turns; the slider controls how
+quickly. Mouse look remains free briefly; while stationary, the view is retained.
+Middle mouse button centers the camera. Turning off “Dynamic chase camera” restores
+the previous behavior.
+F9 → Vehicle → Drift: rear-wheel drive with a loose rear end and more steering angle.
+Spacebar applies the rear handbrake; S brakes normally before reversing.
+Throttle/countersteering control the drift; tire slip produces tire sounds and smoke.
+Switching back to Off-road or Street restores the previous tuning.
+Please test the handling and camera follow behavior of this version in-game.
+Suspension and controls are based on the confirmed prototype.
+The vehicle is temporary and only for local single-player worlds.
+
+CONTROLS
+F6: Spawn vehicle.
+F7: Enter/exit near a vehicle.
+F8: Remove vehicle.
+F9: Open/close vehicle menu (key can be changed in the configuration).
+W / S: Throttle / brake, then reverse.
+Hold W + S: burnout while stationary. While moving, brakes first.
+A / D: Steer. Spacebar: brake. Hold H: horn.
+Mouse: look around. Mouse wheel: zoom. Middle click: center camera.
+Hold left mouse button: nitro while moving forward with throttle; purge while stationary.
+
+VEHICLE MENU
+F9 opens the menu at the top left, inside the car or up to five meters away. Off-road mode is
+now switched in the menu. The car brakes while navigating; camera
+and driving controls are locked, while radio and engine remain audible.
+F9 or the cross closes the menu. Chat, inventory, game menu, and
+focus loss close the vehicle menu and pause sound.
+F9 → Doors: open/close the left/right door, hood, and trunk individually.
+Opening is only possible while stationary. Everything closes when driving off or entering.
+Door mechanism: Normal, Suicide, or Scissor doors as in NFS. When changing the mechanism,
+open doors close first so they do not jump between hinges.
+Engine appearance: Stock, Style 1, or Style 2; visual change only.
+The engines and animations come from the original files. The existing
+interior is very basic; a detailed cockpit is not included.
+
+TRUNK BUILD
+F9 → Build: Stock or Build 1/2/3 with two, four, or six mounting slots.
+Choose a slot, then its part: cover, Subwoofer 1–4,
+Amplifier 1–4, or Screen 1–4. The size matches the selected enclosure.
+Build 2 with four subwoofers is installed by default. “Stock System”
+restores this system and green static trunk neon.
+The LCDs use original static textures, but do not play videos.
+Trunk neon can be toggled independently from underbody neon,
+set to one of seven colors, and set to static or pulsing.
+It lights up when the car is running or the trunk is open. The pulse is a
+regular lighting effect, not synchronized to the music beat. Settings are
+saved; doors/hood start closed after spawning.
+The doors are visually animated; there are no additional door colliders.
+
+RUNNING OVER
+Small beeches/firs, ordinary bushes, and hostile creatures can be hit
+at a contact speed of about 9 km/h or higher, including in reverse. Damage and
+knockback increase with speed; strong enemies may survive.
+Valheim handles destruction, impact sounds, effects, and loot.
+Large trees, rocks, structures, saplings, players, tame animals, and peaceful
+NPCs are excluded. Idling and minor parking bumps cause no
+additional vehicle damage. Drivetrain/suspension remain as in 0.5.0.
+
+AFTER EXITING
+F9 → Vehicle → “Keep running when exiting” is on by default.
+After driving, the engine idles, enabled neon stays on, and
+the radio keeps playing from the car at lower volume and with a muffled sound. As you move away,
+radio and engine get quieter and are inaudible from about 30 meters.
+When doors or trunk open, the music outside gradually gets louder
+and clearer; when closed, it gets quieter and more muffled again. The sound comes from
+the direction of the open side or trunk; with several openings,
+the sound source lies between them. The hood has no effect.
+The switch can also be used beside the car and is saved.
+Turning it off stops idling/neon and pauses the radio after fading out.
+A freshly spawned car stays off until you have entered it once.
+The separate radio/neon switches and manual music pause still apply.
+
+WHEELS
+F9 → Wheels offers five sliders:
+- Front and rear camber, each −15 to +10 degrees. Negative: top tilts inward.
+- Front and rear wheel offset, each −10 to +20 cm per wheel. Positive: outward.
+- Shared rim size: 16 to 22 inches, based on the NFS 20-inch model.
+The tire sidewalls adjust; the outer diameter remains 70 cm.
+This setting affects appearance. Suspension and wheelbase are retained.
+Brakes follow camber/offset and retain their size.
+Values change directly on the car, are saved, and can be reset with
+“Reset wheels” to 0 degrees, 0 cm, and 20 inches.
+The sliders also work beside the car so you can view the result.
+
+RADIO
+Locally imported NFS music starts when entering. The menu provides
+track selection, previous/next, pause, and a separate volume control.
+When exiting with keep-running enabled, it continues playing muffled and spatially.
+Without keep-running, it fades out and pauses; when re-entering, it resumes
+at the same position. A manually set pause is preserved.
+Valheim music is muted while the radio is audible in the car;
+on exit, its previous mute state is restored.
+The playlist contains 27 original EA Trax songs with artist and title names.
+The mapping is verified against the original data and audio checksums.
+Other container streams no longer appear as songs on the radio.
+Faulty tracks are skipped. If music is unavailable, the car remains usable.
+
+LIGHTS AND NEON
+F9 → Lights: headlight intensity from 0 to 300 percent and 14 color presets.
+Stock, Xenon 4000K, Red, Blue, Green, Violet, Yellow, Extra Bright White, Xenon 8000K,
+and extra-bright color variants. Selection and intensity are saved.
+“Reset headlights” restores Stock and 100 percent.
+The setting colors the light beams and front lamp surfaces together;
+taillights, brake lights, reverse lights, and license plate lighting remain independent.
+Preset names come from NFSU2; the lighting is tuned for Valheim.
+On entering, front, rear, and license plate lights turn on; on exit, they turn off.
+The light switch in the menu applies until the next entry. Brake lights also respond
+when headlights are off. The plate uses the fixed original
+UNDRGND-2 texture on its own small plate surface; its position is
+approximate. Custom NFS license plate text has not been verified.
+The white reverse lights are in the rear bumper. S first brakes while
+moving forward; only near a stop does it shift into reverse and
+turn on the white light. It stays on while rolling/braking in R,
+until forward is selected or you exit.
+The orange rear stripes are visible again, so far without a blinking function.
+The tires are now 28 cm wide, while remaining 70 cm in diameter.
+STYLE03 sport brakes have red calipers and 38-cm discs; the discs
+rotate with the wheel, while the calipers only follow steering.
+Neon is off initially. In the menu: turn it on, choose a color, choose pulsing.
+Color and mode are saved. Neon is active while driving and
+stays on after exiting when keep-running is enabled.
+The original 350Z_NEON mask is adapted to the ground. Pulse behavior and
+Unity lighting are custom adjustments and need to be checked in-game.
+
+ENGINE AND TURBO
+When launching forward, torque is increased by 20 percent up to about 11 km/h;
+the bonus tapers off by about 22 km/h. The first audible gear is slightly shorter.
+In reverse, a transmission whine with rising pitch/volume is audible.
+This sound is synthesized, not an original NFS recording.
+Audible gear changes happen earlier, especially off-road.
+Shift interruptions: 140 ms up / 120 ms down. The suspension was not
+changed for this sound adjustment. Original NFS turbo recordings
+build under load and release pressure when the throttle is released/shifting.
+Sample roles and triggers are a documented approximation; Rachel's
+exact performance stage and original behavior still need comparison.
+The horn is synthesized. NFS physics and the NFS audio engine are not running.
+
+BURNOUT
+While stationary, hold W and S together: the front axle holds the vehicle,
+the rear wheels spin. Tire noise and smoke are added.
+Both rear wheels and at least one front wheel must have ground contact to start.
+Smoke/squealing only begins when the tires actually spin.
+Release S while holding W: drive off normally. Release W: brake again/
+select reverse. Spacebar, menu, focus loss, and exiting end the burnout.
+It also cancels if contact is lost or the vehicle slides too much.
+Nitro and purge are disabled while holding W+S. Reverse lights have been dimmed since 0.5.0.
+
+NITRO AND PURGE
+While moving forward with throttle and ground contact, the left mouse button provides thrust
+and green exhaust flames. While stationary, gas jets instead come
+from the bumper and hood. Original NFS sounds accompany both states.
+A full tank lasts six seconds. After releasing, recharge while driving begins after two
+seconds; a full charge takes ten seconds.
+F9 → Nitro: turn on/off and enable optional flames when releasing the throttle.
+This option is off by default and currently has no pop sound, because the
+correct original sample has not yet been identified with certainty.
+Menu, Alt-Tab, and exiting stop nitro. After the menu, release the mouse button
+and press it again. There is no thrust in reverse or in the air.
+Flame/gas animation, nozzle positions, and boost tuning are mod adjustments.
+The rims now have a bright chrome lip and a gold-bronze center.
+
+INSTALLATION
+Close Valheim, then run python tools/install.py. The installer
+backs up the previous files and verifies all copies with SHA-256.
+Manual: copy all contents of artifacts/mod/ to
+<Valheim>/BepInEx/plugins/NeedForValheim/, including radio/ and
+audio/turbo/ and audio/effects/. The plugin ID and NeedForValheim.dll remain as before.
+Settings: BepInEx/config/local.needforvalheim.prototype.cfg.
+
+PLAYTEST
+1. Open a local test world, spawn a vehicle, enter: lights and radio on.
+2. F9: use radio, toggle lights, test neon/color/pulse, close menu.
+3. Check brief acceleration, load changes, brake, reverse gear, and horn.
+4. Compare driving modes on the same route; listen to shifts and turbo.
+5. At night, test flat ground/slope: light beams, plate, neon without floating/flickering.
+6. Check inventory, game menu, Alt-Tab, exit, and re-entry.
+7. Remove vehicle: no lingering sounds/lights, player/camera controls free.
+8. Hold left mouse button while stationary and driving: purge, green flames, tank.
+9. Test nitro with menu, Alt-Tab, braking, reverse, and jumps.
+10. Compare chrome lip/gold center by day and night.
+
+Automated checks do not replace Unity physics/playback testing.
+The external sound preview is not a recording from Valheim.
+Error log: <Valheim>/BepInEx/LogOutput.log.
+Audio sources: docs/AudioSources.txt; further tasks: docs/ROADMAP.md.
+
+
+350Z INTERIOR (0.14.0, optional local import)
+With the vehicle stopped, press F7: go to the left door, open it, visibly enter,
+and close the door. Driving controls are then available. F7 while stationary exits
+again; there must be room beside the driver's door. F8 also ends an
+ongoing entry/exit and restores the player. Menus and Alt-Tab
+pause the sequence. Please check the exact pose and clothing in-game.
+
+DRIVER POSE AND WINDOWS (0.14.1)
+F9 → Doors → Window tint: 0% clear to 100% dark, saved.
+When seated, the left window is open: left arm on the window, right hand
+on the steering wheel. To open the driver's door, the driver pulls the arm inward.
+Doors can also be operated from the seat in the menu while stationary. The lockout
+only applies during entry/exit; doors close automatically when driving off.
+
+FLIGHT MODE (from 0.15.0)
+In the car: F9 -> Vehicle -> Fly. The wheels fold horizontally; the car hovers.
+W/S: forward/reverse. A/D: turn. Shift: ascend. Spacebar: descend.
+With no input, it slows down and holds its position. Mouse remains camera control.
+Four blue flames and a deep nitro sound accompany hovering without consuming the tank.
+From 0.15.1: Shift up to 12 m/s upward, Spacebar up to 16 m/s downward; ground braking active.
+W + left mouse button: flight nitro, up to about 158 km/h, six-second tank.
+From 0.15.2, alternatively W + left Ctrl; after menus briefly release the key.
+The status line shows NITRO ACTIVE, an empty tank, or the release lockout.
+After releasing, wait two seconds, then recharge automatically while moving.
+Rim visible side faces up; wheels tilt, flames point below opposite the thrust.
+Additional analog speedometer beside the large NFS tachometer.
+To land, choose Off-road/Street/Drift in F9. W/S and A/D correct the approach.
+Exit only after landing and the wheels have unfolded. Flying cancels landing.
+F8 also removes the vehicle in flight. The new flight mode still needs an in-game test.

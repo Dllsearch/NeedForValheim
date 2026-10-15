@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Imported vehicle surfaces are thin shells. Give each side its own normals
 // instead of relying on shader-specific culling switches or smoothing the seam.
 internal static class VehicleMesh {

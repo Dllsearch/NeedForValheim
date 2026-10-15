@@ -1,5 +1,5 @@
 using System;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public sealed class HordeFrostTimer {
     public const float Duration=1.2f,Immunity=2.4f;
     public float Left {get;private set;}

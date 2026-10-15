@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Rachel350Z;
+using NeedForValheim;
 using UnityEngine;
-namespace Rachel350Z {public struct ModelVertex {public float x,y,z;}}
+namespace NeedForValheim {public struct ModelVertex {public float x,y,z;}}
 namespace UnityEngine {
     public class AudioClip {public float Length;}
     public class AudioSource {

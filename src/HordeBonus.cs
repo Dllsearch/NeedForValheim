@@ -1,5 +1,5 @@
 using System;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // A marked target rewards a single kill inside its deadline, never a later despawn.
 public sealed class HordeBonus {
     public const float Duration=25;

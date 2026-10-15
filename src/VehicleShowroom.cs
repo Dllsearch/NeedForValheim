@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 public sealed class VehicleShowroom : IDisposable {
     public readonly ShowroomState State=new ShowroomState();
     public ModelTrunkLayout[] Layouts=>model.trunkLayouts;
@@ -30,7 +30,7 @@ public sealed class VehicleShowroom : IDisposable {
         try {
         string[] roles={"leftDoor","rightDoor","hood","trunk"};
         for(int i=0;i<4;i++) {
-            var root=new GameObject("350Z_Motion_"+roles[i]);root.transform.SetParent(car.transform,false);moving[i]=root.transform;
+            var root=new GameObject("Vehicle_Motion_"+roles[i]);root.transform.SetParent(car.transform,false);moving[i]=root.transform;
         }
         foreach(var part in model.parts.Where(p=>p.group=="body")) {
             var node=car.transform.Find(part.name);if(node==null)continue;
@@ -38,17 +38,25 @@ public sealed class VehicleShowroom : IDisposable {
             if(index>=0)node.SetParent(moving[index],false);
             if(part.optionGroup=="trunk"||part.optionGroup=="engine")variants.Add(part,node.gameObject);
         }
-        var audioRoot=new GameObject("350Z_TrunkEquipment");audioRoot.transform.SetParent(car.transform,false);equipmentRoot=audioRoot.transform;
-        var neon=new Material(template){name="350Z_TrunkNeon"};ownedMaterials.Add(neon);
+        var audioRoot=new GameObject("Vehicle_TrunkEquipment");audioRoot.transform.SetParent(car.transform,false);equipmentRoot=audioRoot.transform;
+        var neon=new Material(template){name="Vehicle_TrunkNeon"};ownedMaterials.Add(neon);
         foreach(var property in new[]{"_MainTex","_BaseMap","_Albedo"})if(neon.HasTexture(property))neon.SetTexture(property,Texture2D.whiteTexture);
+        var floor=model.parts.Where(p=>p.optionGroup=="trunk"&&p.option=="2").SelectMany(p=>p.indices.Select(i=>p.vertices[i])).ToArray();
+        float halfWidth=.59f,height=.68f,centerZ=-1.43f,depth=.72f;
+        if(model.schemaVersion>=3&&floor.Length>0) {
+            halfWidth=Mathf.Max(.1f,(floor.Max(p=>p.x)-floor.Min(p=>p.x))*.42f);
+            height=floor.Max(p=>p.y)+.025f;
+            centerZ=(floor.Max(p=>p.z)+floor.Min(p=>p.z))*.5f;
+            depth=Mathf.Max(.1f,(floor.Max(p=>p.z)-floor.Min(p=>p.z))*.8f);
+        }
         for(int i=0;i<3;i++) {
             var strip=GameObject.CreatePrimitive(PrimitiveType.Cube);UnityEngine.Object.Destroy(strip.GetComponent<Collider>());
-            strip.name="350Z_TrunkNeonStrip";strip.transform.SetParent(equipmentRoot,false);
-            strip.transform.localPosition=i<2?new Vector3(i==0?-.59f:.59f,.68f,-1.43f):new Vector3(0,.57f,-1.89f);
-            strip.transform.localScale=i<2?new Vector3(.012f,.012f,.72f):new Vector3(1.03f,.012f,.012f);
+            strip.name="Vehicle_TrunkNeonStrip";strip.transform.SetParent(equipmentRoot,false);
+            strip.transform.localPosition=model.schemaVersion<3?(i<2?new Vector3(i==0?-.59f:.59f,.68f,-1.43f):new Vector3(0,.57f,-1.89f)):(i<2?new Vector3(i==0?-halfWidth:halfWidth,height,centerZ):new Vector3(0,height,centerZ-depth*.5f));
+            strip.transform.localScale=i<2?new Vector3(.012f,.012f,depth):new Vector3(model.schemaVersion<3?1.03f:halfWidth*2,.012f,.012f);
             var renderer=strip.GetComponent<Renderer>();renderer.sharedMaterial=neon;strips.Add(renderer);
         }
-        var lamp=new GameObject("350Z_TrunkGlow");lamp.transform.SetParent(equipmentRoot,false);lamp.transform.localPosition=new Vector3(0,.85f,-1.35f);
+        var lamp=new GameObject("Vehicle_TrunkGlow");lamp.transform.SetParent(equipmentRoot,false);lamp.transform.localPosition=model.schemaVersion<3?new Vector3(0,.85f,-1.35f):new Vector3(0,height+.15f,centerZ);
         trunkLight=lamp.AddComponent<Light>();trunkLight.type=LightType.Point;trunkLight.range=1.2f;trunkLight.shadows=LightShadows.None;trunkLight.enabled=false;
         }catch {Dispose();throw;}
     }
@@ -74,7 +82,7 @@ public sealed class VehicleShowroom : IDisposable {
             if(equipment[i]!=null){equipment[i].SetActive(false);UnityEngine.Object.Destroy(equipment[i]);equipment[i]=null;}
             if(choice<0)continue;
             var component=Choices(layout,i)[choice];var socket=sockets[i];
-            var root=new GameObject("350Z_AudioSlot"+i);root.transform.SetParent(equipmentRoot,false);
+            var root=new GameObject("Vehicle_AudioSlot"+i);root.transform.SetParent(equipmentRoot,false);
             root.transform.localPosition=V(socket.position);root.transform.localRotation=Quaternion.LookRotation(V(socket.forward),V(socket.up));equipment[i]=root;
             var parts=model.parts.Where(p=>p.group=="audio"&&p.option==component.id).ToArray();
             float radius=component.kind=="speaker"?parts.SelectMany(p=>p.vertices).Max(v=>Mathf.Max(Mathf.Abs(v.x),Mathf.Abs(v.y))):0;

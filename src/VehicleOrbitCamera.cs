@@ -3,7 +3,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 public sealed class VehicleOrbitCamera {
     readonly Func<Vector2> mouseDelta;
     Transform vehicle;
@@ -21,14 +21,14 @@ public sealed class VehicleOrbitCamera {
         var method=zinput?.GetMethod("GetMouseDelta",BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Static,null,Type.EmptyTypes,null);
         if(method!=null && method.ReturnType==typeof(Vector2)) {
             mouseDelta=(Func<Vector2>)Delegate.CreateDelegate(typeof(Func<Vector2>),method);
-            log("350Z orbit camera uses Valheim ZInput.GetMouseDelta.");
+            log("Vehicle orbit camera uses Valheim ZInput.GetMouseDelta.");
         } else {
             mouseDelta=()=>new Vector2(Input.GetAxisRaw("Mouse X")*10,Input.GetAxisRaw("Mouse Y")*10);
-            log("350Z orbit camera uses legacy mouse input fallback.");
+            log("Vehicle orbit camera uses legacy mouse input fallback.");
         }
     }
-    public void Begin(Transform target,bool hummer=false) {
-        suv=hummer;
+    public void Begin(Transform target,bool isSuv=false) {
+        suv=isSuv;
         vehicle=target;camera=Camera.main;
         oldLock=Cursor.lockState;oldVisible=Cursor.visible;active=true;hadInput=false;
         yaw=0;pitch=18;distance=suv?7.5f:6;smoothedDistance=distance;

@@ -21,7 +21,7 @@ public sealed class Journal {
 }
 // No Unity/game assemblies are loaded by the installer.
 public sealed class InstallerCore {
-    public const string ModRoot = "BepInEx/plugins/Rachel350Z/";
+    public const string ModRoot = "BepInEx/plugins/NeedForValheim/";
     public const string StateFile = ".nfvu2/install.json";
     const string Pending = ".nfvu2/pending.json";
     const string Legacy = ModRoot + "nfvu2-installed-files.json";
@@ -70,8 +70,8 @@ public sealed class InstallerCore {
     public static bool ModName(string name) {
         if (!name.StartsWith(ModRoot, StringComparison.Ordinal)) return false;
         string n = name.Substring(ModRoot.Length);
-        if (n == "Rachel350Z.dll" || n == "body.json") return true;
-        return Regex.IsMatch(n, @"^(radio|menu|audio/turbo|audio/effects|audio/hummer|hud|hummer|interior|turret)/[A-Za-z0-9_ .-]+\.(json|wav|ogg)$");
+        if (n == "NeedForValheim.dll" || n == "body.json") return true;
+        return Regex.IsMatch(n, @"^(radio|menu|audio/turbo|audio/effects|audio/h2|hud|h2|interior|turret)/[A-Za-z0-9_ .-]+\.(json|wav|ogg)$");
     }
     public static bool LoaderName(string n) {
         return n == "winhttp.dll" || n == "doorstop_config.ini" || n == ".doorstop_version"
@@ -158,7 +158,7 @@ public sealed class InstallerCore {
                     Dictionary<string, string> hashes;
                     using (var reader = new StreamReader(manifest.Open())) hashes = Json.Deserialize<Dictionary<string, string>>(reader.ReadToEnd());
                     ValidateMap(hashes, n => ModName(n) || LoaderName(n));
-                    if (!hashes.ContainsKey(ModRoot + "Rachel350Z.dll") || !hashes.ContainsKey(ModRoot + "body.json")
+                    if (!hashes.ContainsKey(ModRoot + "NeedForValheim.dll") || !hashes.ContainsKey(ModRoot + "body.json")
                         || !hashes.ContainsKey("winhttp.dll") || !hashes.ContainsKey("BepInEx/core/BepInEx.dll"))
                         throw new IOException("Installer payload is incomplete.");
                     if (archive.Entries.Count != hashes.Count + 1 || archive.Entries.Select(e => e.FullName).Distinct(StringComparer.OrdinalIgnoreCase).Count() != archive.Entries.Count)

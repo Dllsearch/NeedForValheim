@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Owns only light objects and private emissive material clones, never handling.
 public sealed class VehicleLighting : IDisposable {
     // Names verified in the original LANGUAGES/English.bin and German.bin.
     // RGB and bright-preset gain are calibrated for Unity, not recovered NFS values.
-    public static readonly string[] HeadlightPresets={"Serie","Xenon 4000K","Rot","Blau","Grün","Violett","Gelb",
-        "Weiß extrahell","Xenon 8000K","Rot extrahell","Blau extrahell","Grün extrahell","Violett extrahell","Gelb extrahell"};
+    public static readonly string[] HeadlightPresets={"Stock","Xenon 4000K","Red","Blue","Green","Purple","Yellow",
+        "White ultra-bright","Xenon 8000K","Red ultra-bright","Blue ultra-bright","Green ultra-bright","Purple ultra-bright","Yellow ultra-bright"};
     static readonly Color[] HeadlightColors={new Color(1,.94f,.82f),new Color(.92f,.96f,1),
         new Color(1,.08f,.035f),new Color(.12f,.35f,1),new Color(.18f,1,.1f),new Color(.62f,.15f,1),new Color(1,.85f,.12f),
         Color.white,new Color(.65f,.8f,1),new Color(1,.08f,.035f),new Color(.12f,.35f,1),new Color(.18f,1,.1f),new Color(.62f,.15f,1),new Color(1,.85f,.12f)};
@@ -39,13 +39,13 @@ public sealed class VehicleLighting : IDisposable {
                 var node = car.transform.Find(p.name);
                 var renderer = node != null ? node.GetComponent<Renderer>() : null;
                 if (renderer == null) continue;
-                var material = new Material(renderer.sharedMaterial) { name = "350Z_Lit_" + p.name };
+                var material = new Material(renderer.sharedMaterial) { name = "Vehicle_Lit_" + p.name };
                 result.surfaces.Add(new Surface { renderer = renderer, original = renderer.sharedMaterial, material = material, role = p.lightRole,
                     localX=p.indices.Average(index=>p.vertices[index].x) });
                 renderer.sharedMaterial = material;
             }
             foreach (var data in model.lights ?? new ModelLight[0]) {
-                var obj = new GameObject("350Z_" + data.role); obj.transform.SetParent(car.transform, false);
+                var obj = new GameObject("Vehicle_" + data.role); obj.transform.SetParent(car.transform, false);
                 obj.transform.localPosition = Vector(data.position);
                 obj.transform.localRotation = Quaternion.LookRotation(Vector(data.direction));
                 var light = obj.AddComponent<Light>(); result.lights.Add(light); result.roles.Add(data.role);
@@ -55,7 +55,7 @@ public sealed class VehicleLighting : IDisposable {
                 light.spotAngle = data.role == "headlight" ? 65 : 110;
                 light.intensity = data.role == "headlight" ? 3.5f : data.role == "plate" ? 1 : data.role == "reverse" ? .45f : .5f;
             }
-            log?.Invoke("350Z lighting: " + result.lights.Count + " lights and " + result.surfaces.Count + " emitting surfaces");
+            log?.Invoke("Vehicle lighting: " + result.lights.Count + " lights and " + result.surfaces.Count + " emitting surfaces");
             return result;
         } catch { result.Dispose(); throw; }
     }

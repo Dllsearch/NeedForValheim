@@ -2,13 +2,14 @@ using System;
 using System.Linq;
 using HarmonyLib;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // A real vanilla chest owns the items and saves them to the world, independently
 // of the temporary car. Never parent it to the disposable vehicle object.
 internal sealed class VehicleStorage {
     static readonly System.Reflection.MethodInfo Load=AccessTools.Method(typeof(Container),"Load");
     static readonly System.Reflection.FieldInfo InventoryName=AccessTools.Field(typeof(Inventory),"m_name");
-    readonly bool hummer;
+    readonly bool suv;
+    readonly float approachZ;
     readonly GameObject vehicle,prefab;
     readonly ZDO data;
     Container container;
@@ -20,15 +21,17 @@ internal sealed class VehicleStorage {
     bool roofWear,supportWear;
     bool released;
     public int Layout {get;private set;}
-    public int Capacity=>VehicleStorageRules.Capacity(hummer,Layout);
+    public int Capacity=>VehicleStorageRules.Capacity(suv,Layout);
     public int Count=>container!=null?container.GetInventory().NrOfItems():-1;
     public bool InUse=>container!=null&&container.IsInUse();
-    public VehicleStorage(GameObject vehicle,bool hummer,int layout) {
-        this.vehicle=vehicle;this.hummer=hummer;Layout=VehicleStorageRules.Layout(layout);
-        prefab=ZNetScene.instance.GetPrefab(hummer?"piece_chest_blackmetal":"piece_chest");
+    public VehicleStorage(GameObject vehicle,CarProfile profile,int layout):this(vehicle,!profile.capabilities.showroom,layout,profile.rig.trunkApproachZ){}
+    public VehicleStorage(GameObject vehicle,bool suv,int layout):this(vehicle,suv,layout,suv?1.8f:1.3f){}
+    public VehicleStorage(GameObject vehicle,bool suv,int layout,float approachZ) {
+        this.vehicle=vehicle;this.suv=suv;this.approachZ=approachZ;Layout=VehicleStorageRules.Layout(layout);
+        prefab=ZNetScene.instance.GetPrefab(suv?"piece_chest_blackmetal":"piece_chest");
         if(prefab==null||prefab.GetComponent<Container>()==null)throw new InvalidOperationException("Native cargo chest unavailable");
         var original=prefab.GetComponent<Container>();
-        if(original.m_width!=VehicleStorageRules.Width(hummer)||original.m_height!=4)throw new InvalidOperationException("Unexpected native chest dimensions");
+        if(original.m_width!=VehicleStorageRules.Width(suv)||original.m_height!=4)throw new InvalidOperationException("Unexpected native chest dimensions");
         var root=UnityEngine.Object.Instantiate(prefab,vehicle.transform.position,Quaternion.identity);
         view=root.GetComponent<ZNetView>();data=view.GetZDO();
         if(data==null){UnityEngine.Object.Destroy(root);throw new InvalidOperationException("Cargo needs an active world");}
@@ -49,7 +52,7 @@ internal sealed class VehicleStorage {
         if(wear!=null){roofWear=wear.m_noRoofWear;supportWear=wear.m_noSupportWear;wear.m_noRoofWear=wear.m_noSupportWear=false;}
         // If another native interaction filled a reloaded chest before this
         // frame, preserve that cargo and fall back to the stock trunk capacity.
-        if(!Resize(Layout)&&!hummer){Layout=0;Resize(Layout);}
+        if(!Resize(Layout)&&!suv){Layout=0;Resize(Layout);}
     }
     bool Resolve() {
         if(released||ZNetScene.instance==null||ZDOMan.instance==null)return false;
@@ -61,13 +64,13 @@ internal sealed class VehicleStorage {
     }
     public bool CanResize(int layout) {
         if(layout==Layout)return true;
-        return Resolve()&&VehicleStorageRules.CanResize(hummer,layout,Count,InUse);
+        return Resolve()&&VehicleStorageRules.CanResize(suv,layout,Count,InUse);
     }
     public bool Resize(int layout) {
         layout=VehicleStorageRules.Layout(layout);
-        if(container==null||!VehicleStorageRules.CanResize(hummer,layout,Count,InUse))return false;
+        if(container==null||!VehicleStorageRules.CanResize(suv,layout,Count,InUse))return false;
         var inventory=container.GetInventory();
-        int rows=VehicleStorageRules.Rows(hummer,layout);
+        int rows=VehicleStorageRules.Rows(suv,layout);
         if(inventory.GetHeight()!=rows) {
             // Repack existing instances, retaining stacks, durability and custom data.
             var items=inventory.GetAllItems();
@@ -83,7 +86,7 @@ internal sealed class VehicleStorage {
     }
     public void Tick() {
         if(vehicle==null||!Resolve())return;
-        var position=vehicle.transform.TransformPoint(new Vector3(0,.5f,hummer?-1.8f:-1.3f));
+        var position=vehicle.transform.TransformPoint(new Vector3(0,.5f,-approachZ));
         container.transform.SetPositionAndRotation(position,Quaternion.Euler(0,vehicle.transform.eulerAngles.y,0));
         // Save a grounded recovery position even when the vehicle is flying.
         var saved=position;

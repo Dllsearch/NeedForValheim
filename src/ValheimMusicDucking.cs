@@ -3,7 +3,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Verified against the installed assembly_valheim MusicMan IL: instance and
 // m_musicSource exist; UpdateMusic rewrites source.volume but never source.mute.
 // Mute only that source, so radio routed through the Music mixer stays audible.
@@ -20,7 +20,7 @@ public sealed class ValheimMusicDucking : IDisposable {
         instance=type?.GetProperty("instance",BindingFlags.Public|BindingFlags.Static);
         sourceField=type?.GetField("m_musicSource",BindingFlags.NonPublic|BindingFlags.Instance);
         if(instance==null||sourceField==null||sourceField.FieldType!=typeof(AudioSource)) {
-            failed=true;log?.Invoke("350Z radio: verified MusicMan API unavailable; automatic Valheim music muting disabled.");
+            failed=true;log?.Invoke("Vehicle radio: verified MusicMan API unavailable; automatic Valheim music muting disabled.");
         }
     }
     public void Tick(bool radioAudible) {
@@ -37,7 +37,7 @@ public sealed class ValheimMusicDucking : IDisposable {
             if(source!=null)source.mute=true;
         }catch(Exception e) {
             Restore();failed=true;
-            log?.Invoke("350Z radio: Valheim music muting unavailable: "+e.Message);
+            log?.Invoke("Vehicle radio: Valheim music muting unavailable: "+e.Message);
         }
     }
     void Restore() {

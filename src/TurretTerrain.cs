@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Single-player crater edits use the game's terrain compiler, including saving,
 // grass removal, collision rebuilding and the native eight-metre depth limit.
 public static class TurretTerrain {

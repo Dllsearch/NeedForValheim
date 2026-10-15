@@ -1,9 +1,9 @@
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     readonly Vector3[] hordeHintCorners=new Vector3[4];
     void DrawHordeEntryHint() {
-        if(!driving||IsHummer||Flying||!DriverInputReady||Multiplayer()||turret==null||!turret.ExplosiveAvailable)return;
+        if(!driving||!current.Profile.capabilities.turret||Flying||!DriverInputReady||Multiplayer()||turret==null||!turret.ExplosiveAvailable)return;
         var map=Minimap.instance;
         if(map==null||map.m_mode!=Minimap.MapMode.Small||map.m_mapImageSmall==null||!map.m_mapImageSmall.gameObject.activeInHierarchy)return;
         var rect=map.m_mapImageSmall.rectTransform;
@@ -23,8 +23,8 @@ public partial class Plugin {
         float x=Mathf.Clamp((bottomLeft.x+bottomRight.x-width)/2,8,Screen.width-width-8);
         float y=Mathf.Clamp(bottom+12*scale,8,Screen.height-80*scale);
         HordeFill(new Rect(x+width*.15f,y,width*.7f,2*scale),HordeGold);
-        HordeLabel(new Rect(x,y+7*scale,width,29*scale),Tr("Stelle dich der Horde"),Mathf.RoundToInt(22*scale),HordeGold);
-        HordeLabel(new Rect(x,y+37*scale,width,25*scale),Tr("Numpad 9 · Kampf beginnen"),Mathf.RoundToInt(18*scale),HordeWhite);
+        HordeLabel(new Rect(x,y+7*scale,width,29*scale),Tr("Face the horde"),Mathf.RoundToInt(22*scale),HordeGold);
+        HordeLabel(new Rect(x,y+37*scale,width,25*scale),Tr("Numpad 9 \u00b7 Begin the battle"),Mathf.RoundToInt(18*scale),HordeWhite);
     }
 }
 }

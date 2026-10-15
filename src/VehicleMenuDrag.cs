@@ -1,6 +1,6 @@
 using BepInEx.Configuration;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     ConfigEntry<float> menuPositionX,menuPositionY;
     MenuPlacement menuPlacement;

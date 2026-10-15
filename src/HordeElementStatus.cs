@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Owned encounter instances only. Restore original renderer blocks and movement on thaw.
 public sealed class HordeElementStatus : MonoBehaviour {
     sealed class Tint {public Renderer Renderer;public int Slot;public MaterialPropertyBlock Before,Active;}

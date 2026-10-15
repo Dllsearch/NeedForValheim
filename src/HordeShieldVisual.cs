@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // One lightweight mesh and dedicated additive material; no collider/light or per-frame allocations.
 public sealed class HordeShieldVisual : IDisposable {
     readonly GameObject root;

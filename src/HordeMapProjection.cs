@@ -1,6 +1,6 @@
 using System;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public static class HordeMapProjection {
     public const float DotSize=9;
     static bool Finite(float value)=>!float.IsNaN(value)&&!float.IsInfinity(value);

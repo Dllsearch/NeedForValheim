@@ -1,6 +1,6 @@
 using System;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Scalar control rules, independent of Unity's physics runtime.
 public static class DrivingMath {
     // NFVU2 torque tuning, independent of the acoustic gearbox and NFS physics.

@@ -1,5 +1,5 @@
 using System;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Separate free-spinning insert: follow acceleration slowly, coast after tyre stops.
 public sealed class SpinnerMotion {
     public float Rpm {get;private set;}

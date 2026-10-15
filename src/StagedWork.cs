@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Advances only on the caller's thread. A step is indivisible; the budget is soft.
 public sealed class StagedWork : IDisposable {
     public const int NextFrame=1;

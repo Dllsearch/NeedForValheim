@@ -32,7 +32,9 @@ class MenuTests(unittest.TestCase):
             for name in ('menu.json', 'navigate.wav', 'accept.wav', 'back.wav', 'provenance.json', 'source.abk'):
                 (menu/name).write_bytes(b'fixture')
             output=root/'build';sync_optional_assets(local, output)
-            for name in ('Rachel350Z.dll', 'body.json'): (output/name).write_bytes(b'fixture')
+            for name in ('NeedForValheim.dll', 'body.json'): (output/name).write_bytes(b'fixture')
+            # payload_files reads the catalog to derive MW asset folders, so it has to be valid JSON.
+            (output/'cars.json').write_text('[]', encoding='utf-8')
             files={str(p).replace('\\', '/') for p in payload_files(output)}
             self.assertIn('menu/menu.json', files);self.assertIn('menu/accept.wav', files)
             self.assertNotIn('menu/source.abk', files)
@@ -45,8 +47,13 @@ class MenuTests(unittest.TestCase):
         data=json.loads((LOCAL/'menu/menu.json').read_text())
         self.assertEqual(len(data['icons']), 11)
         self.assertEqual(sum(icon is not None for icon in data['icons']), 10)
-        self.assertEqual(data['titles'][5], 'Felgen')
-        self.assertEqual(data['titles'][10], 'Garage')
+        provenance=json.loads((LOCAL/'menu/provenance.json').read_text())
+        label_source=LOCAL/'nfs-assets'/provenance['sources'][1]['file']
+        language_source=LOCAL/'nfs-assets'/provenance['sources'][2]['file']
+        labels=language_table(label_source.read_bytes());language=language_table(language_source.read_bytes())
+        localized={label:language[key] for key,label in labels.items() if key in language}
+        self.assertEqual(data['titles'][5], localized['VISUAL_PART_RIMS'])
+        self.assertEqual(data['titles'][10], localized['THE_CRIB_TITLE'])
         for icon in filter(None, data['icons']):
             self.assertEqual(len(base64.b64decode(icon['rgba'])), icon['width']*icon['height']*4)
         for entry in json.loads((LOCAL/'menu/provenance.json').read_text())['files']:

@@ -1,6 +1,6 @@
 // Controlled API responses, not a Unity visibility/physics simulation.
 using System;
-namespace Rachel350Z { public struct ModelVertex { public float x,y,z; } }
+namespace NeedForValheim { public struct ModelVertex { public float x,y,z; } }
 namespace UnityEngine {
 public struct Vector3 {
     public float x,y,z;

@@ -1,5 +1,5 @@
 using System;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public enum FlightPhase { Ground, Folding, Flying, Landing, Unfolding }
 // Lifecycle independent of Unity; a ground-mode request keeps lift until touchdown.
 public sealed class FlightState {

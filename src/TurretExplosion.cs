@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.Audio;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Reusable local impact effects; original Rust sound, NFVU2 particles and damage.
 public sealed class TurretExplosion : IDisposable {
     readonly GameObject[] emitters=new GameObject[12];
@@ -55,7 +55,7 @@ public sealed class TurretExplosion : IDisposable {
         sounds[index].Stop();sounds[index].volume=volume;sounds[index].Play();ages[index]=.16f;
         TurretDamage.Blast(impact,driver,damageMultiplier);
         if(!terrainFailed)try {TurretTerrain.Excavate(impact);}
-        catch(Exception e){terrainFailed=true;log?.Invoke("350Z crater deformation disabled: "+e.Message);}
+        catch(Exception e){terrainFailed=true;log?.Invoke("Vehicle crater deformation disabled: "+e.Message);}
     }
     public void Dispose() {
         foreach(var obj in emitters)if(obj!=null)UnityEngine.Object.Destroy(obj);

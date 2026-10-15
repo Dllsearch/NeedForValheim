@@ -1,6 +1,6 @@
 using System;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Separate flight forces: never run the wheel controller while it owns the body.
 public sealed class VehicleFlight : IDisposable {
     readonly Rigidbody body;

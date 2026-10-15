@@ -1,5 +1,5 @@
 using System;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Optional lift-off interpretation using original effect textures, not recovered NFS rules.
 public sealed class BackfireState {
     float loadedTime,cooldown;

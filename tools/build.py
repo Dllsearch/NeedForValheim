@@ -1,29 +1,40 @@
-import shutil
-from project import BASE,LOCAL,OUTPUT,valheim_dir
+import argparse,shutil
+from project import BASE,LOCAL,OUTPUT,valheim_dir,bepinex_dir
 from build_support import standard_refs,compile_cs
 
-def build():
+def build(compile_only=False):
     game=valheim_dir();managed=game/'valheim_Data/Managed'
     refs=standard_refs()
-    for name in ('UnityEngine','UnityEngine.CoreModule','Unity.InputSystem','Unity.TextMeshPro','UnityEngine.UI','UnityEngine.UIModule','UnityEngine.AnimationModule','UnityEngine.PhysicsModule','UnityEngine.VehiclesModule','UnityEngine.InputLegacyModule','UnityEngine.IMGUIModule','UnityEngine.AudioModule','UnityEngine.ParticleSystemModule','UnityEngine.UnityWebRequestModule','UnityEngine.UnityWebRequestAudioModule','UnityEngine.TextRenderingModule','Newtonsoft.Json'):
+    for name in ('UnityEngine','UnityEngine.CoreModule','UnityEngine.ImageConversionModule','Unity.InputSystem','Unity.TextMeshPro','UnityEngine.UI','UnityEngine.UIModule','UnityEngine.AnimationModule','UnityEngine.PhysicsModule','UnityEngine.VehiclesModule','UnityEngine.InputLegacyModule','UnityEngine.IMGUIModule','UnityEngine.AudioModule','UnityEngine.ParticleSystemModule','UnityEngine.UnityWebRequestModule','UnityEngine.UnityWebRequestAudioModule','UnityEngine.TextRenderingModule','Newtonsoft.Json'):
         refs.append(managed/(name+'.dll'))
-    refs.append(game/'BepInEx/core/BepInEx.dll')
-    refs.append(game/'BepInEx/core/0Harmony.dll')
+    loader=bepinex_dir()
+    refs.append(loader/'core/BepInEx.dll')
+    refs.append(loader/'core/0Harmony.dll')
     refs.append(managed/'assembly_valheim.dll')
     refs.append(managed/'assembly_utils.dll')
+    refs.append(managed/'assembly_guiutils.dll')
+    refs.append(managed/'Splatform.dll')
     missing=[str(p) for p in refs if not p.exists()]
     if missing:raise SystemExit('Missing installed game/mod-loader references:\n'+'\n'.join(missing))
     audio=sorted((LOCAL/'audio-assets').glob('*.wav'))
-    if len(audio)!=19:raise SystemExit('Run the audio extraction, decoding and preparation scripts first (19 WAV resources required).')
+    if not compile_only and len(audio)!=19:raise SystemExit('Run the audio extraction, decoding and preparation scripts first (19 WAV resources required).')
     model=LOCAL/'model/body.json'
-    if not model.exists():raise SystemExit('Run tools/export_geometry.py first to generate body.json.')
-    output=OUTPUT/'mod/Rachel350Z.dll'
+    catalog=LOCAL/'cars/cars.json'
+    if not compile_only and not model.exists():raise SystemExit('Run tools/export_car.py 350z first to generate body.json.')
+    if not compile_only and not catalog.exists():raise SystemExit('Run tools/build_catalog.py first to generate cars.json.')
+    output=OUTPUT/'mod/NeedForValheim.dll'
     compile_cs(output,sorted((BASE/'src').glob('*.cs')),refs,audio,library=True)
+    if compile_only:
+        print('Compiled without embedded assets (not installable):',output)
+        return output
     shutil.copy2(model,output.parent/'body.json')
+    shutil.copy2(catalog,output.parent/'cars.json')
     # Long stereo songs and optional original turbo clips stay external.
     from mod_files import sync_optional_assets
     sync_optional_assets(LOCAL,output.parent)
     print('Built:',output)
     return output
 
-if __name__=='__main__':build()
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--compile-only',action='store_true',help='Check that src compiles; skip asset requirements.')
+    build(parser.parse_args().compile_only)

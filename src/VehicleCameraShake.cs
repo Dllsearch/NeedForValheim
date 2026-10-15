@@ -1,6 +1,6 @@
 using HarmonyLib;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // GamepadRumble reads this value even when our orbit/menu camera has disabled
 // GameCamera.UpdateCamera. Discard shakes there: otherwise they never decay.
 [HarmonyPatch(typeof(GameCamera), "GetAttenuatedShakeIntensity")]

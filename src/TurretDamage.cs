@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Valheim owns resistance, destruction, falling logs, rock sections and drops.
 // Never dispatch arbitrary IDestructible hits: buildings and dungeon props are excluded.
 public static class TurretDamage {

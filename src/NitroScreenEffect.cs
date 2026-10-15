@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Built-in render pipeline image effect. Uses the game's compiled UI shader
 // with authored UV layers; no runtime shader compiler, readback or game asset edits.
 public sealed class NitroScreenEffect : MonoBehaviour {

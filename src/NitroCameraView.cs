@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Own both projections while boosting; Valheim renders the sky separately.
 public sealed class NitroCameraView {
     Camera scene,sky;

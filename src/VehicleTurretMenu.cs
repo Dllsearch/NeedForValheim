@@ -4,7 +4,7 @@ using System.Reflection;
 using BepInEx.Configuration;
 using UnityEngine;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     ConfigEntry<bool> turretEnabled;
     ConfigEntry<bool> turretAutomatic;
@@ -47,7 +47,7 @@ public partial class Plugin {
         laserRed=Config.Bind("Turret","LaserRed",1f,new ConfigDescription("Laser red channel.",new AcceptableValueRange<float>(0,1)));
         laserGreen=Config.Bind("Turret","LaserGreen",.03f,new ConfigDescription("Laser green channel.",new AcceptableValueRange<float>(0,1)));
         laserBlue=Config.Bind("Turret","LaserBlue",.02f,new ConfigDescription("Laser blue channel.",new AcceptableValueRange<float>(0,1)));
-        turretAmmo=Config.Bind("Turret","Ammo","Normal",new ConfigDescription("Explosiv adds blast damage and persistent small craters on terrain hits, within Valheim's dig limit.",new AcceptableValueList<string>("Normal","Explosiv")));
+        turretAmmo=Config.Bind("Turret","Ammo","Normal",new ConfigDescription("Explosiv adds blast damage and persistent small craters on terrain hits, within Valheim's dig limit.",new AcceptableValueList<string>("Normal","Explosive")));
     }
     void TickTurret() {
         bool automatic=ControlRules.AutomaticTurret(Flying,driving,hasBeenDriven,turretAutomatic.Value);
@@ -57,45 +57,45 @@ public partial class Plugin {
         if(turret!=null)try {turret.State.ReloadMultiplier=HordeVehicle?HordePacts.Reload(hordeRun.Pact):1;
             turret.AutomaticRange=HordeVehicle?60:TurretAutoRules.Range;
             turret.Tick(requested,(driving&&DriverInputReady||automatic)&&!audioBlocked&&!menuOpen&&Application.isFocused&&(!HordeVehicle||!hordeRun.Dead&&!hordeWave.Choosing),
-            driving&&!Flying&&turretHeld,LocalPlayer() as Character,soundVolume.Value*turretVolume.Value,turretLaser.Value,!HordeVehicle&&turretAmmo.Value=="Explosiv",laserStrength.Value,LaserColor,automatic,HordeVehicle?(Func<bool>)hordeRun.ConsumeExplosiveShot:null,driving,HordeVehicle?HordePacts.Turret(hordeRun.Pact):1,HordeVehicle?(Action<RaycastHit,Character>)OnHordeTurretHit:null,HordeVehicle?HordeAmmoTint:(Color?)null);}
-        catch(Exception e){turret.Dispose();turret=null;Logger.LogWarning("350Z turret disabled: "+e);}
+            driving&&!Flying&&turretHeld,LocalPlayer() as Character,soundVolume.Value*turretVolume.Value,turretLaser.Value,!HordeVehicle&&turretAmmo.Value=="Explosive",laserStrength.Value,LaserColor,automatic,HordeVehicle?(Func<bool>)hordeRun.ConsumeExplosiveShot:null,driving,HordeVehicle?HordePacts.Turret(hordeRun.Pact):1,HordeVehicle?(Action<RaycastHit,Character>)OnHordeTurretHit:null,HordeVehicle?HordeAmmoTint:(Color?)null);}
+        catch(Exception e){turret.Dispose();turret=null;Logger.LogWarning("Vehicle turret disabled: "+e);}
     }
     void DrawTurretMenu() {
-        if(IsHummer){UiLabel(new Rect(25,150,510,80),"Der Dach-Turret ist aktuell nur beim 350Z eingerichtet.",labelStyle);return;}
+        if(!current.Profile.capabilities.turret){UiLabel(new Rect(25,150,510,80),"This vehicle has no roof turret set up.",labelStyle);return;}
         if(laserSettingsOpen){DrawLaserSettings();return;}
         GUI.enabled=turret!=null&&!HordeVehicle;
-        bool enabled=UiToggle(new Rect(25,145,510,32),HordeVehicle||turretEnabled.Value," Rust AutoTurret mit AK auf dem Dach");
+        bool enabled=UiToggle(new Rect(25,145,510,32),HordeVehicle||turretEnabled.Value," Rust AutoTurret with an AK on the roof");
         if(!HordeVehicle)turretEnabled.Value=enabled;
-        UiLabel(new Rect(25,185,510,50),(Flying?"Im Flug: automatisch zielen und schießen":padActive?"RS: zielen · "+ButtonName("LB","L1")+": schießen":"Mausblick: zielen · Rechte Maustaste: schießen")+"\n30 Schuss · automatisches Nachladen",labelStyle);
+        UiLabel(new Rect(25,185,510,50),(Flying?"In flight: automatic aim and fire":padActive?"RS: aim \u00b7 "+ButtonName("LB","L1")+": fire":"Mouse look: aim \u00b7 Right mouse button: fire")+"\n30 rounds \u00b7 auto reload",labelStyle);
         GUI.enabled=turret!=null&&turret.LaserAvailable;
         turretLaser.Value=UiToggle(new Rect(25,242,280,28),turretLaser.Value," Rust-Lasermodul");
-        if(MenuButton(new Rect(320,240,215,30),"Laser einstellen")){laserSettingsOpen=true;uiFocus=0;}
+        if(MenuButton(new Rect(320,240,215,30),"Configure laser")){laserSettingsOpen=true;uiFocus=0;}
         GUI.enabled=turret!=null&&turret.ExplosiveAvailable&&!HordeVehicle;
-        int ammo=HordeVehicle?(hordeRun.Explosive?1:0):turretAmmo.Value=="Explosiv"?1:0;
-        int next=UiToolbar(new Rect(25,285,510,32),ammo,new[]{"Normale Munition","Explosivmunition"});
-        if(next!=ammo&&!HordeVehicle)turretAmmo.Value=next==1?"Explosiv":"Normal";
+        int ammo=HordeVehicle?(hordeRun.Explosive?1:0):turretAmmo.Value=="Explosive"?1:0;
+        int next=UiToolbar(new Rect(25,285,510,32),ammo,new[]{"Normal ammunition","Explosive ammunition"});
+        if(next!=ammo&&!HordeVehicle)turretAmmo.Value=next==1?"Explosive":"Normal";
         GUI.enabled=turret!=null&&!HordeVehicle;
-        turretAutomatic.Value=UiToggle(new Rect(25,330,510,28),turretAutomatic.Value," Nach dem Aussteigen automatisch bewachen");
-        UiLabel(new Rect(25,363,510,24),"180° vorne · 30 m · "+(Flying?"Flug-Automatik":driving?"Manuelle Steuerung":hasBeenDriven&&turretAutomatic.Value?"Im Menü pausiert":"Bereit nach der Fahrt"),mutedStyle);
-        UiLabel(new Rect(25,394,510,25),"Lautstärke  "+Mathf.RoundToInt(turretVolume.Value*100)+" %",labelStyle);
+        turretAutomatic.Value=UiToggle(new Rect(25,330,510,28),turretAutomatic.Value," guard automatically after exit");
+        UiLabel(new Rect(25,363,510,24),"180\u00b0 front \u00b7 30 m \u00b7 "+(Flying?"Flight auto aim":driving?"Manual controls":hasBeenDriven&&turretAutomatic.Value?"Paused in menu":"Ready after driving"),mutedStyle);
+        UiLabel(new Rect(25,394,510,25),"Volume  "+Mathf.RoundToInt(turretVolume.Value*100)+" %",labelStyle);
         turretVolume.Value=UiSlider(new Rect(25,429,510,22),turretVolume.Value,0,1);
         GUI.enabled=true;
-        UiLabel(new Rect(25,466,510,50),HordeVehicle?"Hordenmodus: Explosivmunition und Automatik durch Powerups sammeln.":turret==null?"Rust-Assets fehlen. Lokal mit tools/export_rust_turret.py importieren.":turretAmmo.Value=="Explosiv"?"Explosiv: Flächenschaden; zerstört große Bäume und abbaubare Felsen. Bodentreffer hinterlassen Krater.":"Automatik trifft nur sichtbare Gegner. Spieler, zahme Tiere, Auto und Deckung blockieren die Schusslinie.",mutedStyle);
+        UiLabel(new Rect(25,466,510,50),HordeVehicle?"Horde mode: collect powerups for explosive rounds and auto fire.":turret==null?"Rust assets are unavailable.":turretAmmo.Value=="Explosive"?"Explosive rounds damage nearby enemies, large trees and mineable rocks. Ground hits leave craters.":"Automatic fire targets visible enemies. Players, tame animals, the car and cover block shots.",mutedStyle);
     }
     Color LaserColor=>new Color(LaserChannel(laserRed.Value),LaserChannel(laserGreen.Value),LaserChannel(laserBlue.Value),1);
     static float LaserChannel(float value)=>float.IsNaN(value)||float.IsInfinity(value)?0:Mathf.Clamp01(value);
     void DrawLaserSettings() {
-        UiLabel(new Rect(25,145,300,30),"Laser · Stärke und Farbe",labelStyle);
-        if(MenuButton(new Rect(415,145,120,28),"Zurück")){laserSettingsOpen=false;return;}
+        UiLabel(new Rect(25,145,300,30),"Laser \u00b7 strength and colour",labelStyle);
+        if(MenuButton(new Rect(415,145,120,28),"Back")){laserSettingsOpen=false;return;}
         GUI.enabled=turret!=null&&turret.LaserAvailable;
         turretLaser.Value=UiToggle(new Rect(25,187,510,28),turretLaser.Value," Laser aktivieren");
-        UiLabel(new Rect(25,226,510,25),"Stärke  "+Mathf.RoundToInt(laserStrength.Value*100)+" %",labelStyle);
+        UiLabel(new Rect(25,226,510,25),"Strength  "+Mathf.RoundToInt(laserStrength.Value*100)+" %",labelStyle);
         laserStrength.Value=Mathf.Round(UiSlider(new Rect(25,262,510,20),laserStrength.Value,.25f,4)*20)/20;
         int selected=-1;var current=LaserColor;
         for(int i=0;i<NeonColors.Length;i++)if(Mathf.Abs(current.r-NeonColors[i].r)+Mathf.Abs(current.g-NeonColors[i].g)+Mathf.Abs(current.b-NeonColors[i].b)<.01f)selected=i;
         int preset=UiGrid(new Rect(25,301,510,52),selected,ColorNames,4);
         if(preset>=0&&preset!=selected){var c=NeonColors[preset];laserRed.Value=c.r;laserGreen.Value=c.g;laserBlue.Value=c.b;}
-        var channels=new[]{laserRed,laserGreen,laserBlue};var names=new[]{"Rot","Grün","Blau"};
+        var channels=new[]{laserRed,laserGreen,laserBlue};var names=new[]{"Red","Green","Blue"};
         for(int i=0;i<3;i++) {
             float y=370+i*40;
             UiLabel(new Rect(25,y,85,24),names[i]+" "+Mathf.RoundToInt(LaserChannel(channels[i].Value)*255),mutedStyle);
@@ -103,7 +103,7 @@ public partial class Plugin {
         }
         var old=GUI.color;GUI.color=LaserColor;GUI.DrawTexture(new Rect(440,375,85,85),Texture2D.whiteTexture);GUI.color=old;
         GUI.enabled=true;
-        UiLabel(new Rect(25,490,510,26),"Stärke und Farbe gelten für Strahl und Treffpunkt.",mutedStyle);
+        UiLabel(new Rect(25,490,510,26),"Brightness and colour apply to the beam and impact point.",mutedStyle);
     }
     void DrawTurretAim() {
         if(!driving||Flying||menuOpen||audioBlocked||hordeWave.Choosing||turret==null||!turret.Enabled||Camera.main==null)return;
@@ -120,7 +120,7 @@ public partial class Plugin {
             }
             GUI.color=Color.white;
             string ammoName=HordeVehicle?HordeAmmoName:turretAmmo.Value;
-            string ammoText=turret.State.ReloadLeft>0?"AK · Nachladen…":(HordeVehicle&&hordeRun.Automatic?"AUTO":padActive?ButtonName("LB","L1"):"RMB")+": AK "+ammoName+" · "+turret.State.Ammo+" / 30"+(turret.Obstructed?" · Blockiert":"");
+            string ammoText=turret.State.ReloadLeft>0?"AK \u00b7 Reloading\u00b7":(HordeVehicle&&hordeRun.Automatic?"AUTO":padActive?ButtonName("LB","L1"):"RMB")+": AK "+ammoName+" · "+turret.State.Ammo+" / 30"+(turret.Obstructed?" · Blocked":"");
             if(HordeVehicle) {
                 if(!Hud.IsUserHidden())HordeLabel(new Rect(20,Screen.height-controlHintHeight-60,580,38),Tr(ammoText),24,HordeWhite,TextAnchor.MiddleLeft);
             }else UiBox(new Rect(15,Screen.height-controlHintHeight-52,340,28),ammoText);

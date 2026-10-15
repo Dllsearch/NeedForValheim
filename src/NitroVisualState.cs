@@ -1,6 +1,6 @@
 using System;
 
-namespace Rachel350Z {
+namespace NeedForValheim {
 // NFVU2 timing, not recovered NFS constants. No authority over fuel or handling.
 public sealed class NitroVisualState {
     public float Amount { get; private set; }

@@ -1,17 +1,23 @@
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // All spawned-car resources are owned independently; player/camera remain with Plugin.
 internal sealed class VehicleRuntime {
-    public bool Hummer;
+    public CarProfile Profile = CarCatalog.Nissan350Z();
+    public bool Suv => Profile.IsSuv;
     public Transform[] spinners;
     public readonly SpinnerMotion[] spinnerMotion={new SpinnerMotion(),new SpinnerMotion(),new SpinnerMotion(),new SpinnerMotion()};
     public GameObject car;
     public Rigidbody body;
+    public bool parkingFrozen;
+    public Vector3 parkPosition;
+    public Quaternion parkRotation;
+    public float parkSupportTime;
     public WheelCollider[] wheels;
     public Transform[] visuals;
     public Material[] vehicleMaterials;
     public Texture2D[] vehicleTextures;
     public Transform[] brakeVisuals;
+    public Transform[] extraRearWheels,extraRearBrakes;
     public WheelSizeVisuals wheelSizeVisuals;
     public bool originalWheels;
     public float wheelVisualLift;
@@ -19,6 +25,10 @@ internal sealed class VehicleRuntime {
     public float rearWheelVisualOffset;
     public PhysicsMaterial chassisMaterial;
     public VehicleHandling handling;
+    public float appliedGrip=1;
+    public VehicleStyling styling;
+    public VehicleDecals decals;
+    public readonly System.Collections.Generic.Dictionary<string,int> styleSelection=new System.Collections.Generic.Dictionary<string,int>();
     public VehicleFlight flight;
     public VehicleNitroEffects flightEffects;
     public VehicleEffectsAudio flightAudio;
@@ -58,8 +68,8 @@ internal sealed class VehicleRuntime {
 public partial class Plugin {
     readonly VehicleFleet<VehicleRuntime> fleet=new VehicleFleet<VehicleRuntime>(new VehicleRuntime());
     VehicleRuntime current {get=>fleet.Current;set=>fleet.Current=value;}
-    bool IsHummer=>current.Hummer;
-    string VehicleName=>IsHummer?"Hummer H2":"Nissan 350Z";
+    bool IsSuv=>current.Suv;
+    string VehicleName=>current.Profile.displayName;
     GameObject car {get=>current.car;set=>current.car=value;}
     Rigidbody body {get=>current.body;set=>current.body=value;}
     WheelCollider[] wheels {get=>current.wheels;set=>current.wheels=value;}

@@ -1,7 +1,7 @@
 using System;
 using HarmonyLib;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 // Native attacks/projectiles already look up IDestructible on the struck hull.
 public sealed class VehicleHordeHull : MonoBehaviour,IDestructible {
     public Action<HitData> OnHit;

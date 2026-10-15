@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Globalization;
-using Rachel350Z;
+using NeedForValheim;
 class AudioTests {
     static int checks;
     static void Check(bool ok,string name){if(!ok)throw new Exception(name);checks++;Console.WriteLine("PASS "+name);}
@@ -14,7 +14,7 @@ class AudioTests {
     static float WheelRpm(float speed)=>Math.Abs(speed)*60/(2*(float)Math.PI*.34f);
     static void Main(string[] args){
         var assembly=typeof(WavPcm16).Assembly;
-        var names=assembly.GetManifestResourceNames().Where(n=>n.StartsWith("Rachel350Z.Audio.")).ToArray();
+        var names=assembly.GetManifestResourceNames().Where(n=>n.StartsWith("NeedForValheim.Audio.")).ToArray();
         Check(names.Length==19,"all 19 clips embedded in the actual plugin");
         foreach(var name in names){
             var data=WavPcm16.Read(assembly.GetManifestResourceStream(name));

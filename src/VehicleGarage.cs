@@ -1,19 +1,75 @@
 using System;
+using System.IO;
 using System.Linq;
+using System.Collections.Generic;
+using Newtonsoft.Json;
 using BepInEx.Configuration;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public partial class Plugin {
     ConfigEntry<string> spawnModel;
+    ConfigEntry<string> garageRoster;
+    Queue<string> garageRestore;
+    bool leavingGarage;
+    CarCatalog vehicleCatalog=CarCatalog.CreateStock();
     MonoBehaviour fleetOwner;
-    void InitializeGarage(){spawnModel=Config.Bind("Garage","SpawnModel","Nissan 350Z",new ConfigDescription("Vehicle created with F6 or the garage button.",new AcceptableValueList<string>("Nissan 350Z","Hummer H2")));}
+    CarProfile SelectedProfile=>vehicleCatalog.Get(spawnModel.Value);
+    void InitializeGarage() {
+        try { vehicleCatalog=CarCatalog.Load(Path.GetDirectoryName(Info.Location)); }
+        catch (Exception e) { vehicleCatalog=CarCatalog.CreateStock(); Logger.LogWarning("cars.json ignored: "+e); }
+        spawnModel=Config.Bind("Garage","SpawnModel",CarCatalog.StockId,
+            new ConfigDescription("Vehicle created with F6 or the garage button.",
+                new AcceptableValueList<string>(vehicleCatalog.Profiles.Select(p=>p.id).ToArray())));
+        garageRoster=Config.Bind("Garage","ParkedCars","[]","Saved garage roster (up to four model ids). Recall it from My garage after loading a world; positions and cargo are not saved.");
+    }
+    void SaveGarageRoster(){if(!leavingGarage&&garageRestore==null){garageRoster.Value=JsonConvert.SerializeObject(fleet.Select(v=>v.Profile.id));Config.Save();}}
+    string[] SavedGarageIds() {
+        try{return (JsonConvert.DeserializeObject<string[]>(garageRoster.Value)??Array.Empty<string>()).Where(id=>vehicleCatalog.Profiles.Any(p=>p.id==id)).Distinct().Take(4).ToArray();}
+        catch{return Array.Empty<string>();}
+    }
+    void RecallGarage() {
+        try {
+            if(garageRoster.Value.Length>1024)throw new InvalidOperationException("Invalid garage roster");
+            var ids=JsonConvert.DeserializeObject<string[]>(garageRoster.Value);
+            if(ids==null||ids.Length>4||ids.Any(id=>!vehicleCatalog.Profiles.Any(p=>p.id==id)))throw new InvalidOperationException("Saved garage contains an unavailable car");
+            garageRestore=new Queue<string>(ids.Distinct().Where(id=>!fleet.Any(v=>v.Profile.id==id)));CloseVehicleMenu();
+        }catch(Exception error){workshopMessage=error.Message;garageRestore=null;}
+    }
+    void TickGarageRestore(MonoBehaviour local) {
+        if(garageRestore==null||SpawnBusy)return;
+        if(garageRestore.Count==0){garageRestore=null;SaveGarageRoster();return;}
+        spawnModel.Value=garageRestore.Dequeue();reopenGarage=garageRestore.Count==0;
+        Spawn(local);
+        if(!SpawnBusy){garageRestore=null;reopenGarage=false;ShowVehicleWarning("Garage recall stopped: "+status);}
+    }
     bool CanAccessCurrent(MonoBehaviour local)=>car!=null&&local!=null&&(driving||Vector3.Distance(local.transform.position,car.transform.position)<5);
+    bool GarageCanPark=>!driving||!Flying&&DriverInputReady&&body!=null&&body.linearVelocity.magnitude<.5f;
+    void TakeGarageCar(CarProfile profile) {
+        if(SpawnBusy)return;
+        if(!GarageCanPark){workshopMessage="Park before changing cars.";return;}
+        var existing=fleet.FirstOrDefault(v=>v.Profile.id==profile.id);
+        if(driving)Exit();
+        spawnModel.Value=profile.id;
+        if(existing!=null){current=existing;garageView=1;SelectFrontendProfile(profile);workshopMessage="Selected your parked "+profile.displayName+".";SetVehicleMenu(true);return;}
+        reopenGarage=true;Spawn(LocalPlayer());if(!SpawnBusy)reopenGarage=false;
+    }
+    void RemoveGarageCar(VehicleRuntime vehicle) {
+        if(vehicle==null||!fleet.Contains(vehicle)||SpawnBusy)return;
+        if(hordeWave.Active||vehicle.driving&&!GarageCanPark){workshopMessage="Park before removing the occupied car.";return;}
+        var selected=current;
+        if(vehicle==current&&driving)Exit();else CloseVehicleMenu();
+        current=vehicle;Cleanup();garageView=1;menuTab=10;
+        current=selected!=vehicle&&fleet.Contains(selected)?selected:fleet.FirstOrDefault()??new VehicleRuntime();
+        workshopMessage="Removed "+vehicle.Profile.displayName+" from your garage.";
+        SetVehicleMenu(true);
+    }
     void SelectNearest(MonoBehaviour local) {
         var nearest=fleet.Nearest(v=>v.car!=null?(v.car.transform.position-local.transform.position).sqrMagnitude:float.PositiveInfinity);
         if(nearest!=null)current=nearest;
     }
     void ForEachVehicle(Action action)=>fleet.Visit(action);
     void CleanupAll() {
+        garageRestore=null;leavingGarage=true;
         ClearHorde();
         ClearNitroVisuals();
         if(spawnCacheUsed){spawnCache=new SpawnAssetCache();spawnCacheUsed=false;}
@@ -22,35 +78,72 @@ public partial class Plugin {
         CloseVehicleMenu();
         foreach(var vehicle in fleet.ToArray()){current=vehicle;Cleanup();}
         current=new VehicleRuntime();fleetOwner=null;orbitCamera?.End();fleetMusic?.Tick(false);
+        leavingGarage=false;
     }
-    bool FindSpawnPoint(MonoBehaviour local,bool hummer,out Vector3 result) {
-        var rotation=Quaternion.Euler(0,local.transform.eulerAngles.y,0);
-        // Try alternating spots alongside the first car, then the next row.
-        for(int i=0;i<18;i++) {
-            int column=i%6;float side=column==0?0:((column+1)/2)*3.8f*(column%2==1?1:-1);
-            var origin=local.transform.position+rotation*new Vector3(side,6,6+i/6*6);
-            if(!Physics.Raycast(origin,Vector3.down,out var hit,18,~0,QueryTriggerInteraction.Ignore))continue;
-            if(hit.normal.y<.7f)continue;
-            var root=hit.point+Vector3.up*(hummer?.3f:.35f);
-            if(fleet.Any(v=>v.car!=null&&Vector3.Distance(v.car.transform.position,root)<3.7f))continue;
-            var centre=root+Vector3.up*(hummer?1.02f:.76f);
-            var half=hummer?new Vector3(1.18f,.7f,2.55f):new Vector3(1.1f,.4f,2.4f);
-            if(Physics.CheckBox(centre,half,rotation,~0,QueryTriggerInteraction.Ignore))continue;
-            result=root;return true;
-        }
-        result=Vector3.zero;return false;
+    bool FindSpawnPoint(MonoBehaviour local,CarProfile profile,out Vector3 result) {
+        if(TryGarageStationSpawnAnchor(local,out var origin,out var yaw))return FindSpawnPoint(origin,yaw,profile,out result,true);
+        return FindSpawnPoint(local.transform.position,SpawnRotation(local),profile,out result);
     }
+    int garagePage,garageView,garageSource;
+    bool reopenGarage;
     void DrawGarageMenu() {
-        UiLabel(new Rect(25,145,510,30),"Fahrzeug spawnen",labelStyle);
-        int selected=spawnModel.Value=="Hummer H2"?1:0;
-        int next=UiToolbar(new Rect(25,185,510,40),selected,new[]{"Nissan 350Z","Hummer H2"});
-        if(next!=selected)spawnModel.Value=next==1?"Hummer H2":"Nissan 350Z";
-        UiLabel(new Rect(25,240,510,65),next==1?"Gelber H2 · 26-Zoll-Spinner · eigener SUV-Sound\nOhne Motorraum- und Kofferraumausbau.":"350Z mit deinen bisherigen Funktionen und Einstellungen.",mutedStyle);
-        GUI.enabled=!SpawnBusy&&!driving&&fleet.Count<4;
-        if(MenuButton(new Rect(25,310,510,40),padActive?"Fahrzeug spawnen ("+ButtonName("A","Kreuz")+")":"Ausgewähltes Fahrzeug spawnen (F6)")){Spawn(LocalPlayer());return;}
+        garageView=UiToolbar(new Rect(25,141,510,31),garageView,new[]{"Car lot","My garage · "+fleet.Count+" / 4"});
+        if(garageView==1){DrawGarageFleet();return;}
+        int source=UiToolbar(new Rect(25,178,510,28),garageSource,new[]{"Underground 2","Most Wanted"});
+        if(source!=garageSource){garageSource=source;garagePage=0;}
+        var profiles=vehicleCatalog.ForSource(garageSource==0?CarCatalog.Underground2:CarCatalog.MostWanted);
+        if(profiles.Length==0){UiLabel(new Rect(25,224,510,90),"No cars imported from this game yet.",labelStyle);return;}
+        if(!profiles.Any(p=>p.id==spawnModel.Value)){spawnModel.Value=profiles[0].id;SelectFrontendProfile(profiles[0]);}
+        garagePage=Mathf.Clamp(garagePage,0,(profiles.Length-1)/9);
+        var page=profiles.Skip(garagePage*9).Take(9).ToArray();
+        int selected=Array.FindIndex(page,p=>p.id==spawnModel.Value);
+        int next=UiGrid(new Rect(25,215,510,106),selected,page.Select(p=>p.displayName).ToArray(),3);
+        if(next>=0&&next!=selected){spawnModel.Value=page[next].id;SelectFrontendProfile(page[next]);}
+        GUI.enabled=garagePage>0;if(MenuButton(new Rect(25,332,120,28),"‹ Previous"))garagePage--;GUI.enabled=true;
+        UiLabel(new Rect(162,334,230,26),(garageSource==0?"NFSU2":"NFSMW")+" CARS   "+(garagePage+1)+" / "+((profiles.Length+8)/9),labelStyle);
+        GUI.enabled=(garagePage+1)*9<profiles.Length;if(MenuButton(new Rect(410,332,120,28),"Next ›"))garagePage++;GUI.enabled=true;
+        var profile=SelectedProfile;
+        UiLabel(new Rect(25,375,510,32),profile.displayName,titleStyle);
+        UiLabel(new Rect(25,412,510,43),Mathf.RoundToInt(profile.rig.mass)+" kg · "+profile.sound.gearRatios.Length+" gears · "+profile.rig.rimNominal+" inch rims\n"+(profile.capabilities.drift?"Road / off-road / drift":"Road / off-road")+(profile.capabilities.flight?" / flight":""),mutedStyle);
+        bool owned=fleet.Any(v=>v.Profile.id==profile.id);
+        GUI.enabled=!SpawnBusy&&GarageCanPark&&(owned||fleet.Count<VehicleFleet<VehicleRuntime>.Capacity);
+        if(MenuButton(new Rect(25,465,510,35),owned?"SELECT PARKED CAR":OwnsGarageCar(profile.id)?"RECALL OWNED CAR":CoinEconomy?"BUY CAR · 1 COIN":"TAKE CAR")){TakeGarageCar(profile);return;}
         GUI.enabled=true;
-        UiLabel(new Rect(25,366,510,60),"Gespawnt: "+fleet.Count+" / 4\n"+string.Join(" · ",fleet.Select(v=>v.Hummer?"H2":"350Z")),labelStyle);
-        UiLabel(new Rect(25,436,510,72),"Bestehende Autos bleiben stehen. Zum Einsteigen oder Einstellen zum gewünschten Auto gehen: F7 / F9. F8 entfernt nur dieses Auto. Fahrzeuge bleiben bis zum Weltwechsel.",mutedStyle);
+        UiLabel(new Rect(25,503,510,20),string.IsNullOrEmpty(workshopMessage)?GarageEconomySummary:workshopMessage,mutedStyle);
+    }
+    void DrawGarageFleet() {
+        var local=LocalPlayer();int row=0;
+        foreach(var vehicle in fleet.ToArray()) {
+            float y=190+row++*46;
+            int distance=Mathf.RoundToInt(Vector3.Distance(local.transform.position,vehicle.car.transform.position));
+            GUI.enabled=GarageCanPark;
+            if(MenuButton(new Rect(25,y,365,36),vehicle.Profile.displayName+"   ·   "+distance+" m",vehicle==current?navSelectedStyle:null)){if(driving&&vehicle!=current)Exit();current=vehicle;spawnModel.Value=vehicle.Profile.id;SelectFrontendProfile(vehicle.Profile);SetVehicleMenu(true);}
+            GUI.enabled=GarageCanPark&&!SpawnBusy&&!hordeWave.Active;
+            if(MenuButton(new Rect(400,y,130,36),"REMOVE")){RemoveGarageCar(vehicle);return;}
+            GUI.enabled=true;
+        }
+        if(fleet.Count==0) {
+            var saved=SavedGarageIds();
+            foreach(var id in saved) {
+                var profile=vehicleCatalog.Get(id);float y=190+row++*46;
+                if(MenuButton(new Rect(25,y,365,36),profile.displayName+" · saved")){spawnModel.Value=id;SelectFrontendProfile(profile);}
+                if(MenuButton(new Rect(400,y,130,36),"REMOVE")){garageRoster.Value=JsonConvert.SerializeObject(saved.Where(value=>value!=id));Config.Save();workshopMessage="Removed "+profile.displayName+" from saved garage.";return;}
+            }
+            if(saved.Length==0)UiLabel(new Rect(25,201,510,68),"Your garage is empty. Choose a car in the car lot.",labelStyle);
+            GUI.enabled=!SpawnBusy&&saved.Length>0;
+            if(MenuButton(new Rect(25,399,510,35),"RECALL SAVED GARAGE")){RecallGarage();return;}GUI.enabled=true;
+        }
+        GUI.enabled=car!=null;
+        if(fleet.Count>0) {
+            if(MenuButton(new Rect(25,399,245,35),"Performance"))ChangeMenuTab(13);
+            if(MenuButton(new Rect(285,399,245,35),"Styling"))ChangeMenuTab(14);
+        }
+        GUI.enabled=CanAccessCurrent(local)&&(!driving||DriverInputReady);
+        if(MenuButton(new Rect(25,449,245,35),driving?"EXIT CAR":"DRIVE")){CloseVehicleMenu();if(driving)RequestExit();else Enter(local);return;}
+        GUI.enabled=car!=null&&GarageCanPark&&!SpawnBusy&&!HordeVehicle;
+        if(MenuButton(new Rect(285,449,245,35),"REMOVE FROM GARAGE")){RemoveGarageCar(current);return;}
+        GUI.enabled=true;
+        GUI.enabled=!SpawnBusy;garageCoinEconomy.Value=UiToggle(new Rect(25,491,510,30),garageCoinEconomy.Value,"Prototype economy: 1 Coin per car / new upgrade level");GUI.enabled=true;
     }
 }
 }

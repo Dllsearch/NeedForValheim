@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-namespace Rachel350Z {
+namespace NeedForValheim {
 public sealed class VehicleDashboard : IDisposable {
     readonly List<Texture2D> textures=new List<Texture2D>();
     readonly Texture2D[] faces=new Texture2D[11],lines=new Texture2D[11],needles=new Texture2D[11],nitroLevels=new Texture2D[49];
@@ -10,7 +10,7 @@ public sealed class VehicleDashboard : IDisposable {
     Texture2D turboFallback;
     GUIStyle speedStyle,smallStyle,gearStyle,dialStyle;
     Texture2D Texture(ModelTexture data,byte[] pixels=null) {
-        var result=new Texture2D(data.width,data.height,TextureFormat.RGBA32,false){name="350Z_HUD_"+data.name,wrapMode=TextureWrapMode.Clamp,filterMode=FilterMode.Bilinear};
+        var result=new Texture2D(data.width,data.height,TextureFormat.RGBA32,false){name="Vehicle_HUD_"+data.name,wrapMode=TextureWrapMode.Clamp,filterMode=FilterMode.Bilinear};
         textures.Add(result);pixels=pixels??data.rgba;var flipped=new byte[pixels.Length];int row=data.width*4;
         for(int y=0;y<data.height;y++)Array.Copy(pixels,y*row,flipped,(data.height-1-y)*row,row);
         result.SetPixelData<byte>(flipped,0);result.Apply(false,true);return result;
@@ -72,7 +72,7 @@ public sealed class VehicleDashboard : IDisposable {
             GUI.Label(new Rect(145,180,145,58),Mathf.RoundToInt(HudMath.Speed(speed,mph)).ToString(),speedStyle);
             GUI.Label(new Rect(190,237,100,24),mph?"MPH":"KM/H",smallStyle);
             GUI.Label(new Rect(192,143,98,34),gear<0?"R":"G "+Mathf.Clamp(gear,1,6),gearStyle);
-            GUI.Label(new Rect(150,275,155,26),nitroEnabled?"NOS "+Mathf.RoundToInt(HudMath.Unit(charge)*100)+" %":"NOS AUS",smallStyle);
+            GUI.Label(new Rect(150,275,155,26),nitroEnabled?"NOS "+Mathf.RoundToInt(HudMath.Unit(charge)*100)+" %":"NOS OFF",smallStyle);
         } finally {GUI.matrix=matrix;GUI.color=color;}
     }
     static void Pointer(Vector2 centre,float angle,float length,Color colour) {
