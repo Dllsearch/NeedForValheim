@@ -1,5 +1,5 @@
 
-#ORIGINAL TEXT:
+# ORIGINAL TEXT:
 
 ![NFVU2 — Need for Valheim: Underground 2](docs/images/nfvu2-logo.png)
 
