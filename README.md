@@ -6,13 +6,13 @@
 Drive a Nissan 350Z through Valheim. Drift through the meadows, hit the nitro,
 or take off and fly. Viking transportation got a little out of hand.
 
-*Is it random? — Yes. Is it useful? — Not really. Did I make it anyway? — Kinda. Codex did all of it.*
+*Is it random? — Yes. Is it useful? — Not really. Did I make it anyway? — Kinda. Codex did all of it.* © @Backwoodz
 
 ![350Z in Valheim with the driver's arm resting out of the window](docs/images/350z-ingame-driver.png)
 
 ### What you get
 
-The source build includes the expanded garage below; the published installer is still v0.28.0.
+The source build includes the expanded garage below; the published installer isn't updated yet.
 
 - A 76-car local garage: 30 Underground 2 cars and the 46 Racing entries from the installed Most Wanted roster, with separate U2/MW tabs, saved rosters and three named builds per model.
 - Stage 1–3 engine, turbo, transmission, tyre, brake and NOS upgrades; paint, vinyls, bodykits, bumpers, hoods, spoilers, roof scoops, brakes and branded rims. MW includes all four native wheel-size variants, native decal slots/logos, window tint and original acceleration/coast engine stages.
@@ -25,9 +25,9 @@ The source build includes the expanded garage below; the published installer is 
 
 ### Install & drive
 
-Windows 10/11, 64-bit. **Single-player only**; cars are temporary and are not saved with the world.
+Windows 10/11, 64-bit. **Single-player only** (for now, hehehe); cars are temporary and are not saved with the world.
 
-**[Download the Windows installer](https://github.com/Backwoodz/NFVU2/releases/download/v0.28.0/NFVU2-Setup-0.28.0-r6.exe)**
+**[Download the Windows installer](https://github.com/Backwoodz/NFVU2/releases/download/v0.28.0/NFVU2-Setup-0.28.0-r6.exe)** (links to the OG B4CKW00DZ mod, cuz no installer for this fork for now)
 
 1. Close Valheim, run the installer and select **valheim.exe**.
 2. Click **Install / Update**. Music is included; BepInEx is installed if needed.
