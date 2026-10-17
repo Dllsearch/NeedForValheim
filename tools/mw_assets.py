@@ -4,7 +4,19 @@ import math
 import re
 import struct
 import zlib
-from nfs_formats import bin_hash
+from functools import lru_cache
+from nfs_formats import bin_hash,TexturePack
+from project import LOCAL
+from vehicle_geometry import badge_uv
+
+SHARED_BRAKE_KEYS={0x17f9f794,*[bin_hash('BRAKE_STYLE%02d'%i) for i in range(4)]}
+
+@lru_cache(maxsize=1)
+def shared_brake_pack():
+    # Both owned games share the brake UV contract. Some MW installs contain
+    # empty shared texture packages; the local U2 atlas is an explicit donor.
+    path=LOCAL/'global-decompressed.bin'
+    return TexturePack(path) if path.is_file() else None
 
 
 def deflate(data):return base64.b64encode(zlib.compress(data,9)[2:-4]).decode('ascii')
@@ -41,7 +53,7 @@ class Compiler:
                'GLOBAL/GlobalB.bun','GLOBAL/InGameA.bun','GLOBAL/InGameB.bun','GLOBAL/InGameC.bun']
         self.packs=[(p,source.pack(p)) for p in paths if (source.root/p).is_file()]
 
-    def texture(self,key):
+    def texture(self,key,optional=False):
         if key in self.tex_ids:return self.tex_ids[key]
         for path,pack in self.packs:
             if key in pack.slots or key in pack.records:
@@ -49,7 +61,18 @@ class Compiler:
                 result=len(self.textures);self.tex_ids[key]=result
                 self.textures.append(dict(name=name,width=image.width,height=image.height,rgbaDeflate=deflate(image.tobytes())))
                 return result
-        self.unresolved.add(f'{key:08x}');self.tex_ids[key]=-1;return -1
+        if not optional:self.unresolved.add(f'{key:08x}')
+        self.tex_ids[key]=-1;return -1
+
+    def shared_brake_texture(self,key):
+        pack=shared_brake_pack()
+        if pack is None or key not in pack.slots and key not in pack.records:return -1
+        if self.tex_ids.get(key,-1)>=0:return self.tex_ids[key]
+        name,image,_=pack.decode(key);image=image.convert('RGBA')
+        index=len(self.textures);self.tex_ids[key]=index
+        self.textures.append(dict(name='u2_shared_'+name,width=image.width,height=image.height,rgbaDeflate=deflate(image.tobytes())))
+        self.adapted.add(f'{key:08x}: U2 GLOBAL/GlobalB shared brake atlas donor ({name}); matching original UV layout')
+        return index
 
     def material(self,section,group):
         name=section['materialName'].upper();key=section['textureKey'];identity=(name,key,group)
@@ -59,9 +82,15 @@ class Compiler:
         elif 'BRAKELIGHT' in name:key=bin_hash(self.car+'_KIT00_BRAKELIGHT_ON')
         paint=name.startswith('BODY') and not any(x in name for x in ('CHROME','ALUMINUM','MOLDING','PLASTIC','CARBON','BOTTOM','BADGING'))
         generated={bin_hash(self.car+suffix) for suffix in ('_SKIN1','_SKIN2','_SKIN3','_WHEEL')}|{bin_hash(n) for n in ('GLOBAL_SKIN1','SPOILER_SKIN1','ROOF_SKIN','ROOF_SKIN1')}
-        absent_brake=key==0x17f9f794 or key in {bin_hash('BRAKE_STYLE'+str(i).zfill(2)) for i in range(4)}
-        tex=-1 if glass or key in generated or absent_brake else self.texture(key)
-        if absent_brake:self.adapted.add(f'{key:08x}: original shared BRAKES texture packages are empty; neutral material')
+        shared_brake=key in SHARED_BRAKE_KEYS
+        disc=name.startswith('DISC') or 'ROTOR' in name
+        # MW's shared brake packages have empty texture slots in this install.
+        # Reuse its stock rotor artwork; retain each accessory's authored size.
+        tex=-1 if glass or key in generated else self.texture(key,optional=shared_brake)
+        if shared_brake and tex<0:tex=self.shared_brake_texture(key)
+        if shared_brake and tex<0:
+            tex=self.texture(bin_hash('ROTOR1')) if disc else -1
+            self.adapted.add(f'{key:08x}: empty shared brake texture; stock MW rotor artwork or neutral solid hardware')
         if key in generated:self.generated.add(f'{key:08x}')
         colour=[1.,1.,1.,1.];metal=.08;smooth=.45;alpha='opaque'
         if paint:
@@ -71,9 +100,14 @@ class Compiler:
             colour,metal,smooth,alpha=([.75,.85,.9,.08] if 'HEADLIGHT' in name or 'BRAKELIGHT' in name else [.05,.08,.1,.42]),.1,.95,'blend'
         elif any(x in name for x in ('CHROME','SILVER','ALUMINUM','ROTOR','DISC')):metal,smooth=.85,.75
         elif name.startswith('TIRE'):smooth=.12
-        elif 'CALIPER' in name:metal,smooth=.4,.55
+        elif 'CALIPER' in name:
+            metal,smooth=.4,.55
+            if tex<0:
+                colour=[.18,.20,.22,1.]
+                self.adapted.add(name+': generated MW caliper paint uses NFVU2 cast-metal tint')
         elif tex<0:colour=[.13,.13,.14,1.]
-        if name in ('DOORLINE','BADGING','LICENSE_PLATE') or 'DECAL' in name:alpha='blend'
+        if name=='DOORLINE' or any(tag in name for tag in ('BADGING','LICENSE_PLATE','DECAL')):alpha='blend'
+        if disc or shared_brake and tex>=0:alpha='mask'
         index=len(self.materials);self.mat_ids[identity]=index
         self.materials.append(dict(name='mw_'+name.lower()+'_'+group,color=colour,metallic=metal,smoothness=smooth,
                                    texture=tex,alphaMode=alpha,bodyPaint=paint,wheelRubber=group=='wheel' and name.startswith('TIRE'),
@@ -97,6 +131,11 @@ class Compiler:
             return dict(zip(('x','y','z'),xyz))
         for n,s in enumerate(mesh['slices']):
             if not s['indices'] or s['materialName'].startswith('TIRE') and 'BACK' in s['materialName']:continue
+            if group=='brake' and s['textureKey']==0x17f9f794 and s['materialName'].lower() in ('caliperdecal','texture bits'):
+                material=self.material(s,group)
+                if self.materials[material]['texture']<0:
+                    self.adapted.add(mesh['name']+': unavailable alpha hardware decals omitted; original solid caliper retained')
+                    continue
             ids=list(s['indices'])
             if group=='wheel':
                 ids=[v for i in range(0,len(ids),3) if all(math.hypot(mesh['vertices'][v][0],mesh['vertices'][v][2])<=radius*1.012 for v in ids[i:i+3]) for v in ids[i:i+3]]
@@ -105,11 +144,12 @@ class Compiler:
                 for i in range(0,len(ids),3):ids[i+1],ids[i+2]=ids[i+2],ids[i+1]
             used=sorted(set(ids));remap={old:new for new,old in enumerate(used)}
             role=('headlight' if 'HEADLIGHT' in s['materialName'] and 'BULB' in s['materialName'] else 'taillight' if 'BRAKELIGHT' in s['materialName'] and 'BULB' in s['materialName'] else '')
+            coords=[dict(u=u if abs(u)<100 else u%1,v=1-v if abs(v)<100 else (1-v)%1) for u,v in mesh['uv']]
+            if any(tag in s['materialName'].upper() for tag in ('BADGING','LICENSE_PLATE')):coords=badge_uv(mesh,s,coords)
             part=dict(name=f'{mesh["name"]}_{axle}_{n}',group=group,axle=axle,material=self.material(s,group) if material_override is None else material_override,lightRole=role,
                       rotatesWithWheel=group=='brake' and any(n in s['materialName'].upper() for n in ('ROTOR','DISC')),
                       vertices=[vector(mesh['vertices'][i]) for i in used],normals=[vector(mesh['normals'][i],True) for i in used],
-                      uv=[dict(u=mesh['uv'][i][0] if abs(mesh['uv'][i][0])<100 else mesh['uv'][i][0]%1,
-                               v=1-mesh['uv'][i][1] if abs(mesh['uv'][i][1])<100 else (1-mesh['uv'][i][1])%1) for i in used],
+                      uv=[coords[i] for i in used],
                       indices=[remap[i] for i in ids])
             size=re.search(r'_(17|18|19|20)_25_A$',mesh['name']) if group=='wheel' else None
             if size:

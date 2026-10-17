@@ -7,6 +7,11 @@ class FlightTests {
     static void Check(bool ok,string message){if(!ok)throw new Exception(message);checks++;Console.WriteLine("PASS "+message);}
     static bool Near(float a,float b,float tolerance=.02f)=>Math.Abs(a-b)<tolerance;
     static void Main() {
+        var resumed=new FlightState();resumed.Resume(false,.5f);
+        Check(resumed.Active&&!resumed.Landing&&Near(resumed.Blend,.5f),"handover restores fold without restarting animation");
+        resumed.Resume(false,1);Check(resumed.CanPilot&&resumed.Phase==FlightPhase.Flying,"full-fold handover permits immediate piloting");
+        resumed.Resume(true,.7f);Check(resumed.Landing&&Near(resumed.Blend,.7f),"handover preserves pending powered landing");
+        resumed.Resume(false,float.NaN);Check(resumed.Active&&!float.IsNaN(resumed.Blend),"invalid resume blend cannot poison flight");
         var s=new FlightState();Check(!s.Active,"starts grounded");
         s.Fly();s.Step(.1f,false);Check(s.Active&&s.Fold>0&&s.Fold<1&&!s.CanPilot,"folding animates before piloting");
         float before=s.Fold;s.Step(float.NaN,false);s.Step(float.PositiveInfinity,false);s.Step(-1,false);Check(s.Fold==before,"bad frame times do not poison folding");

@@ -7,6 +7,9 @@ class Program {
     static int checks;
     static void Check(bool valid,string name){if(!valid)throw new Exception(name);checks++;}
     static void Main(string[] args) {
+        Check(WheelFitMath.RimDesign("5ZIGEN STYLE01 17 in")==WheelFitMath.RimDesign("5ZIGEN STYLE01 20 in"),"native diameter variants share one rim design");
+        Check(WheelFitMath.RimDesign("BBS STYLE01 18 in")!=WheelFitMath.RimDesign("BBS STYLE02 18 in"),"different rim designs stay distinct");
+        Check(WheelFitMath.RimDesign("Factory",true)=="Factory"&&WheelFitMath.RimDesign("OZ 20",false)=="OZ 20","factory and number-only model names remain intact");
         var catalog=CarCatalog.Load(args[0]);
         foreach(var car in catalog.Profiles) {
             var model=ModelFile.Load(Path.Combine(args[0],car.assets.modelFile));

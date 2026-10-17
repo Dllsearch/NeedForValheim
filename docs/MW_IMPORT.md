@@ -84,13 +84,31 @@ fallbacks; no missing lamp geometry is fabricated.
 This source registers six service vehicles as Racing. Its archived BMWM3 model
 lacks a pvehicle graph, so the explicitly marked BMWM3GTR attribute donor is not
 claimed as original BMWM3 handling/audio. Shared BRAKES texture packages are empty
-in the source installation: their geometries use recorded neutral-material
-adaptations. Original car brakes retain their own textures. Unresolved required
+in the source installation. Matching shared U2 GlobalB brake atlases are used
+as explicit donors when available locally: disc UVs match, including STYLE03,
+and the common caliper atlas retains its alpha hardware and lettering. Provenance
+records every donor. Without these optional donor atlases, the importer uses a
+stock MW rotor texture and solid cast-metal hardware; unavailable decorative
+billboards are omitted. Original car brakes retain their own textures. Unresolved required
 texture references fail export.
+
+Badge correction reconstructs continuous position/UV topology when source solids
+duplicate triangle vertices. Adjacent atlas chunks and spaced single letters
+retain word order, including slightly overlapping source seams. This changes UVs
+only; the original chassis handedness, normals and triangle winding are retained.
 
 MW vinyls retain original UVs, tint channels, coverage and fixed-colour art;
 precomposites and standalone artwork are included. Indexed BGRA palettes are
 converted to RGBA. U2 and MW catalogs remain isolated.
+Carbon vinyl uses the imported carbon part's metallic/smoothness settings rather
+than inheriting body-paint reflections. Original weave textures and UVs remain.
+
+`tools/export_hud.py` also imports all eleven native MW tachometers from
+`GLOBAL/HUDS_Custom_00..10.bin`, including authored numbers and needle pivots.
+`HUDTEXRACE` meter arcs are unrelated artwork and are not used as tachometers.
+Live readouts, boost and NOS placement remain NFVU2 adaptations. The eleven U2
+designs retain their original artwork, with their needles aligned to the source
+rotation pivot. `tools/render_hud.py` previews both sets without launching a game.
 
 ## Formats and evidence
 

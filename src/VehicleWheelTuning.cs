@@ -6,7 +6,7 @@ namespace NeedForValheim {
 public partial class Plugin {
     // Rim size is per vehicle: the profile decides the nominal size and its slider range.
     readonly Dictionary<string,ConfigEntry<float>> rimSettings=new Dictionary<string,ConfigEntry<float>>();
-    ConfigEntry<float> RimSetting=>rimSettings.TryGetValue(current.Profile.ConfigPrefix,out var entry)?entry:rimSettings[string.Empty];
+    ConfigEntry<float> RimSetting=>NetworkSetting(rimSettings.TryGetValue(current.Profile.ConfigPrefix,out var entry)?entry:rimSettings[string.Empty]);
     ConfigEntry<float> baseConfig_lowering;
     ConfigEntry<float> lowering=>VehicleConfig(baseConfig_lowering);
 
@@ -73,9 +73,17 @@ public partial class Plugin {
         var anchor=wheels[index].transform.localPosition;anchor.x=(index%2==0?-1:1)*track;wheels[index].transform.localPosition=anchor;
         visuals[index].localScale=new Vector3(widthScale,1,1);
         Vector3 pos;Quaternion rot;
-        if(Flying)current.flight.WheelPose(index,out pos,out rot);else wheels[index].GetWorldPose(out pos,out rot);
-        float fold=Flying?current.flight.State.Blend:0;
-        var vectoring=Flying?car.transform.rotation*Quaternion.Euler(current.flight.WheelPitch*fold,0,current.flight.WheelRoll*fold)*Quaternion.Inverse(car.transform.rotation):Quaternion.identity;
+        bool remote=current.networkData!=null&&!current.networkDriving;
+        if(remote) {
+            pos=car.transform.TransformPoint(current.networkData.GetVec3(VehicleMotionTelemetry.Prefix+"wheel"+index,anchor));
+            float steer=index<2?current.networkData.GetFloat(VehicleNetworkProtocol.Steering):0;
+            wheels[index].steerAngle=steer;
+            rot=car.transform.rotation*current.networkData.GetQuaternion(VehicleMotionTelemetry.Prefix+"rotation"+index,Quaternion.identity);
+        } else if(Flying)current.flight.WheelPose(index,out pos,out rot);else wheels[index].GetWorldPose(out pos,out rot);
+        float fold=remote?current.networkData.GetFloat(VehicleMotionTelemetry.Prefix+"fold"):Flying?current.flight.State.Blend:0;
+        float pitch=remote?current.networkData.GetFloat(VehicleMotionTelemetry.Prefix+"pitch"):current.flight?.WheelPitch??0;
+        float roll=remote?current.networkData.GetFloat(VehicleMotionTelemetry.Prefix+"roll"):current.flight?.WheelRoll??0;
+        var vectoring=fold>0?car.transform.rotation*Quaternion.Euler(pitch*fold,0,roll*fold)*Quaternion.Inverse(car.transform.rotation):Quaternion.identity;
         if(!originalWheels) {
             var folding=Quaternion.AngleAxis(FlightState.WheelTilt(index,0,fold),Vector3.forward);
             visuals[index].SetPositionAndRotation(pos,vectoring*car.transform.rotation*folding*Quaternion.Inverse(car.transform.rotation)*rot*Quaternion.Euler(0,0,90));return;
@@ -96,7 +104,7 @@ public partial class Plugin {
         if(brakeVisuals[index]!=null)brakeVisuals[index].SetPositionAndRotation(pos,vectoring*steering*tilt*mirror);
         UpdateExtraRearPose(index);
         if(current.spinners!=null&&current.spinners[index]!=null) {
-            var motion=current.spinnerMotion[index];motion.Step(Time.deltaTime,wheels[index].rpm);
+            var motion=current.spinnerMotion[index];motion.Step(Time.deltaTime,remote?current.networkData.GetFloat(VehicleMotionTelemetry.Prefix+"wheelrpm"+index):wheels[index].rpm);
             current.spinners[index].SetPositionAndRotation(pos,vectoring*steering*tilt*Quaternion.AngleAxis(motion.Angle,Vector3.right)*mirror);
             float scale=WheelFitMath.Sanitize(RimSetting.Value,rig.rimMin,rig.rimMax,rig.rimNominal)/rig.rimNominal;
             current.spinners[index].localScale=new Vector3(1,scale,scale);

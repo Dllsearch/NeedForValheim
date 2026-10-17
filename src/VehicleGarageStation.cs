@@ -19,6 +19,7 @@ public partial class Plugin {
     Vector3 garageSpawnOrigin;
     Quaternion garageSpawnYaw;
     Material garageStationMaterial;
+    Material garageFloorMaterial,garageMetalMaterial;
     void InitializeGarageStation(){controlsHarmony.PatchAll(typeof(GarageStationSceneHook));controlsHarmony.PatchAll(typeof(GarageStationDatabaseHook));}
     void RegisterGarageStation(ZNetScene scene) {
         if(garageStationPrefab==null) {
@@ -36,16 +37,30 @@ public partial class Plugin {
             garageStationPrefab.AddComponent<VehicleGarageStation>();
             var sourceMaterial=garageStationPrefab.GetComponentsInChildren<Renderer>(true).SelectMany(r=>r.sharedMaterials).FirstOrDefault(m=>m!=null);
             if(sourceMaterial!=null)garageStationMaterial=new Material(sourceMaterial){name="NFVU2 garage timber"};
+            EnsureMenuAssets();
+            var shader=Resources.FindObjectsOfTypeAll<Material>().Where(m=>m!=null&&m.shader!=null&&m.shader.isSupported&&m.shader.name=="Standard").Select(m=>m.shader).FirstOrDefault();
+            Material Surface(string name,Color color,float metal,float smooth,Vector2 tiling) {
+                var material=shader!=null?new Material(shader):new Material(sourceMaterial);material.name=name;
+                foreach(var property in new[]{"_Color","_BaseColor"})if(material.HasColor(property))material.SetColor(property,color);
+                if(material.HasFloat("_Metallic"))material.SetFloat("_Metallic",metal);
+                if(material.HasFloat("_Glossiness"))material.SetFloat("_Glossiness",smooth);
+                if(menuAssets!=null&&menuAssets.Frontend.TryGetValue("garage_floor",out var texture))
+                    foreach(var property in new[]{"_MainTex","_BaseMap","_Albedo"})if(material.HasTexture(property)){material.SetTexture(property,texture);material.SetTextureScale(property,tiling);}
+                return material;
+            }
+            garageFloorMaterial=Surface("Garage concrete - original U2 track texture",new Color(.65f,.67f,.66f),.05f,.25f,new Vector2(4,6));
+            garageMetalMaterial=Surface("Garage weathered steel",new Color(.24f,.27f,.28f),.7f,.4f,new Vector2(1,3));
             // A real buildable service bay; inherited Piece/WearNTear/ZNetView
             // provide placement, hammer removal/refund and normal world saving.
-            void Beam(string name,Vector3 position,Vector3 size) {
+            void Beam(string name,Vector3 position,Vector3 size,Material material=null) {
                 var node=GameObject.CreatePrimitive(PrimitiveType.Cube);node.name=name;node.transform.SetParent(garageStationPrefab.transform,false);node.transform.localPosition=position;node.transform.localScale=size;
-                node.layer=garageStationPrefab.layer;if(garageStationMaterial!=null)node.GetComponent<Renderer>().sharedMaterial=garageStationMaterial;
+                node.layer=garageStationPrefab.layer;if((material??garageStationMaterial)!=null)node.GetComponent<Renderer>().sharedMaterial=material??garageStationMaterial;
             }
-            Beam("Service bay",new Vector3(0,.02f,4.8f),new Vector3(5.8f,.08f,8));
-            foreach(float x in new[]{-2.8f,2.8f})foreach(float z in new[]{1.3f,8.3f})Beam("Garage post",new Vector3(x,2.25f,z),new Vector3(.2f,4.5f,.2f));
-            Beam("Garage roof",new Vector3(0,4.6f,4.8f),new Vector3(6.2f,.2f,8.4f));
-            Beam("Front lintel",new Vector3(0,4.25f,1.3f),new Vector3(5.8f,.3f,.2f));
+            Beam("Service bay",new Vector3(0,.02f,4.8f),new Vector3(5.8f,.08f,8),garageFloorMaterial);
+            foreach(float x in new[]{-2.8f,2.8f})foreach(float z in new[]{1.3f,8.3f})Beam("Garage post",new Vector3(x,2.25f,z),new Vector3(.2f,4.5f,.2f),garageMetalMaterial);
+            Beam("Garage roof",new Vector3(0,4.6f,4.8f),new Vector3(6.2f,.12f,8.4f),garageMetalMaterial);
+            for(int i=0;i<24;i++)Beam("Roof seam",new Vector3(-3+i*.26f,4.69f,4.8f),new Vector3(.025f,.07f,8.4f),garageMetalMaterial);
+            Beam("Front lintel",new Vector3(0,4.25f,1.3f),new Vector3(5.8f,.3f,.2f),garageMetalMaterial);
             garageStationPrefab.SetActive(true);
             Logger.LogInfo("Garage station prefab registered: hammer / Crafting / NFS Garage, 10 Wood");
         }
@@ -80,6 +95,8 @@ public partial class Plugin {
         FinishGarageStationSpawn(false);
         if(garageStationPrefab!=null&&ObjectDB.instance!=null){var table=ObjectDB.instance.GetItemPrefab("Hammer")?.GetComponent<ItemDrop>()?.m_itemData.m_shared.m_buildPieces;table?.m_pieces.Remove(garageStationPrefab);}
         if(garagePrefabRoot!=null)Destroy(garagePrefabRoot);if(garageStationMaterial!=null)Destroy(garageStationMaterial);
+        if(garageFloorMaterial!=null)Destroy(garageFloorMaterial);if(garageMetalMaterial!=null)Destroy(garageMetalMaterial);
+        garageFloorMaterial=garageMetalMaterial=null;
         garagePrefabRoot=garageStationPrefab=null;garageStationMaterial=null;
     }
 }

@@ -15,10 +15,11 @@ def dotnet_toolchain():
     csc=root/version/'Roslyn/bincore/csc.dll'
     return root.parent,csc
 
-def compile_cs(output,sources,refs,resources=(),library=False):
+def compile_cs(output,sources,refs,resources=(),library=False,defines=()):
     _,compiler=dotnet_toolchain()
     output.parent.mkdir(parents=True,exist_ok=True)
     args=['-nostdlib+','-deterministic+','-langversion:latest','-target:'+('library' if library else 'exe'),f'-out:"{output}"']
+    args += ['-define:'+name for name in defines]
     args += [f'-reference:"{p}"' for p in refs]
     args += [f'-resource:"{p}",NeedForValheim.Audio.{p.name}' for p in resources]
     args += [f'"{p}"' for p in sources]

@@ -4,10 +4,11 @@ using UnityEngine;
 namespace NeedForValheim {
 public partial class Plugin {
     bool CanOpenStorage=>LocalPlayer() is Player local&&!local.IsDead()&&!local.IsTeleporting()&&!local.IsAttached()&&
-        CanAccessCurrent(local)&&!Multiplayer()&&!driving&&!Flying&&!HordeVehicle&&body!=null&&body.linearVelocity.magnitude<=.5f&&
+        CanAccessCurrent(local)&&(!NetworkSessionActive||OwnNetworkVehicle(current)&&current.networkData.GetLong(VehicleNetworkProtocol.Driver)==0&&current.networkData.GetVec3(VehicleNetworkProtocol.Velocity,Vector3.zero).magnitude<=.5f&&networkCargo==null&&!networkCargoRequestPending)&&!Multiplayer()&&!driving&&!Flying&&!HordeVehicle&&body!=null&&body.linearVelocity.magnitude<=.5f&&
         Vector3.Distance(local.transform.position,car.transform.TransformPoint(new Vector3(0,.5f,-current.Profile.rig.trunkApproachZ)))<3.5f;
     void OpenVehicleStorage() {
         if(!CanOpenStorage)return;
+        if(NetworkSessionActive){RequestNetworkStorage();return;}
         try {
             if(current.storage==null)current.storage=new VehicleStorage(car,current.Profile,trunkLayout.Value);
             CloseVehicleMenu();
@@ -17,6 +18,7 @@ public partial class Plugin {
         } catch(Exception e){Logger.LogError("Vehicle storage: "+e);ShowVehicleWarning("Storage is currently unavailable.");}
     }
     void DrawStorageButton(Rect rect) {
+        if(NetworkSessionActive){GUI.enabled=CanOpenStorage;if(MenuButton(rect,"Open storage"))OpenVehicleStorage();GUI.enabled=true;return;}
         int capacity=current.storage?.Capacity??VehicleStorageRules.Capacity(current.Profile,trunkLayout.Value);
         int count=current.storage?.Count??0;
         GUI.enabled=CanOpenStorage;

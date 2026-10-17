@@ -50,6 +50,7 @@ public partial class Plugin {
         turretAmmo=Config.Bind("Turret","Ammo","Normal",new ConfigDescription("Explosiv adds blast damage and persistent small craters on terrain hits, within Valheim's dig limit.",new AcceptableValueList<string>("Normal","Explosive")));
     }
     void TickTurret() {
+        if(NetworkSessionActive)return;
         bool automatic=ControlRules.AutomaticTurret(Flying,driving,hasBeenDriven,turretAutomatic.Value);
         if(HordeVehicle)automatic=hordeRun.Automatic;
         bool requested=HordeVehicle||turretEnabled.Value;
@@ -122,8 +123,8 @@ public partial class Plugin {
             string ammoName=HordeVehicle?HordeAmmoName:turretAmmo.Value;
             string ammoText=turret.State.ReloadLeft>0?"AK \u00b7 Reloading\u00b7":(HordeVehicle&&hordeRun.Automatic?"AUTO":padActive?ButtonName("LB","L1"):"RMB")+": AK "+ammoName+" · "+turret.State.Ammo+" / 30"+(turret.Obstructed?" · Blocked":"");
             if(HordeVehicle) {
-                if(!Hud.IsUserHidden())HordeLabel(new Rect(20,Screen.height-controlHintHeight-60,580,38),Tr(ammoText),24,HordeWhite,TextAnchor.MiddleLeft);
-            }else UiBox(new Rect(15,Screen.height-controlHintHeight-52,340,28),ammoText);
+                if(!Hud.IsUserHidden())HordeLabel(new Rect(20,Screen.height-60,580,38),Tr(ammoText),24,HordeWhite,TextAnchor.MiddleLeft);
+            }else UiBox(new Rect(15,Screen.height-52,340,28),ammoText);
         }finally{GUI.color=old;}
     }
 }

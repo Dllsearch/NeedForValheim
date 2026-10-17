@@ -16,9 +16,9 @@ public partial class Plugin {
     void TickDecals() {
         if(current.decals==null)return;
         var kit=current.styling?.ActiveOption("Bodykit");
-        current.decals.Tick(decalSettings[current.Profile.id].ToDictionary(p=>p.Key,p=>p.Value.Value),kit!=null&&kit.sourceKit>=0?kit.sourceKit:0);
+        current.decals.Tick(decalSettings[current.Profile.id].ToDictionary(p=>p.Key,p=>NetworkSetting(p.Value).Value),kit!=null&&kit.sourceKit>=0?kit.sourceKit:0);
     }
-    IEnumerable<ConfigEntryBase> CurrentDecalSettings()=>decalSettings.TryGetValue(current.Profile.id,out var entries)?entries.Values.Cast<ConfigEntryBase>():Enumerable.Empty<ConfigEntryBase>();
+    IEnumerable<ConfigEntryBase> CurrentDecalSettings()=>decalSettings.TryGetValue(current.Profile.id,out var entries)?entries.Values.Select(e=>(ConfigEntryBase)NetworkSetting(e)):Enumerable.Empty<ConfigEntryBase>();
     void RestoreMissingDecalSettings(Dictionary<string,string> saved) {
         foreach(var entry in CurrentDecalSettings().Concat(new ConfigEntryBase[]{glassColour,glassShade}))if(!saved.ContainsKey(entry.Definition.Section+"/"+entry.Definition.Key))entry.BoxedValue=entry.DefaultValue;
     }
@@ -31,7 +31,7 @@ public partial class Plugin {
         GUI.enabled=true;var slot=catalog.Slots[decalSlot];UiLabel(new Rect(157,187,245,26),(decalSlot+1)+" / "+catalog.Slots.Length+" decal slots",labelStyle);
         UiLabel(new Rect(25,225,510,28),slot.title.Replace(" RECT MEDIUM","").Replace(" WIDE MEDIUM",""),labelStyle);
         var options=new[]{new DecalArtwork{id=0,title="None"}}.Concat(catalog.Artwork.Where(e=>e.kind==slot.kind).OrderBy(e=>e.title)).ToArray();
-        decalPage=Math.Max(0,Math.Min(decalPage,(options.Length-1)/9));var page=options.Skip(decalPage*9).Take(9).ToArray();var setting=decalSettings[current.Profile.id][slot.key];int selected=Array.FindIndex(page,e=>e.id==setting.Value);
+        decalPage=Math.Max(0,Math.Min(decalPage,(options.Length-1)/9));var page=options.Skip(decalPage*9).Take(9).ToArray();var setting=NetworkSetting(decalSettings[current.Profile.id][slot.key]);int selected=Array.FindIndex(page,e=>e.id==setting.Value);
         GUI.enabled=WorkshopParked;int next=UiGrid(new Rect(25,267,510,162),selected,page.Select(e=>e.title).ToArray(),3);if(next>=0&&next!=selected)setting.Value=page[next].id;
         GUI.enabled=decalPage>0;if(MenuButton(new Rect(25,448,120,30),"‹ Previous"))decalPage--;
         GUI.enabled=true;UiLabel(new Rect(159,451,240,27),"Artwork "+(decalPage+1)+" / "+((options.Length+8)/9),labelStyle);

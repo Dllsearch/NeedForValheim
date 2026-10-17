@@ -6,6 +6,7 @@ public sealed class NitroState {
     public float Charge { get; private set; } = 1;
     public bool Boosting { get; private set; }
     public bool Purging { get; private set; }
+    public void RestoreCharge(float charge){Charge=Finite(charge)?DrivingMath.Clamp(charge,0,1):0;exhausted=Charge<=0;refillDelay=2;Boosting=Purging=false;}
     bool exhausted;
     float refillDelay;
     public float CapacityMultiplier {get;set;}=1;

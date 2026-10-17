@@ -17,13 +17,14 @@ public partial class Plugin {
     ConfigEntry<float> menuMouseSensitivity,menuControllerSensitivity;
     ConfigEntry<bool> menuMouseInvert,menuControllerInvert;
     int hoveredTab=-1;
-    static readonly string[] MenuNames={"Vehicle","Radio","Lights","Neon","Nitro","Wheels","Doors","Trunk","Display","Turret","Garage","Settings","Exhaust","Performance","Styling","Builds"};
+    static readonly string[] MenuNames={"Vehicle","Radio","Lights","Neon","Nitro","Wheels","Doors","Trunk","Display","Turret","Garage","Settings","Exhaust","Performance","Styling","Builds","Showcase"};
     Color MenuAccent=>IsMwFrontend?new Color(.84f,.84f,.66f):new Color(.2f,.85f,1);
     Color MenuSelection=>IsMwFrontend?new Color(.82f,.78f,.3f):new Color(.83f,.96f,.22f);
     static readonly int[] MenuOrder={10,13,14,15,0,5,6,7,2,3,4,12,1,8,9,11};
-    static readonly int[] MenuRoots={10,13,14,15,0,1,11};
-    static int MenuRoot(int tab)=>tab==5||tab==6||tab==7||tab==2||tab==3||tab==4||tab==12?14:tab==8||tab==9?0:tab;
-    int[] VisibleMenuOrder(){int root=MenuRoot(menuTab);return MenuRoots.SelectMany(r=>r==root?new[]{r}.Concat(MenuOrder.Where(t=>t!=root&&MenuRoot(t)==root)):new[]{r}).ToArray();}
+    static readonly int[] MenuRoots={10,13,14,16,15,0,1,11};
+    static int MenuRoot(int tab)=>tab==5?14:tab==6||tab==7||tab==2||tab==3||tab==4||tab==12?16:tab==8||tab==9?0:tab;
+    int[] VisibleMenuOrder()=>MenuRoots;
+    string MenuTitle(int tab)=>tab==10?"CAR SELECT":tab==14?"CUSTOMIZE":tab==15?"SAVED BUILDS":tab==11?"OPTIONS":Tr(MenuNames[tab]).ToUpperInvariant();
     int NextMenuTab(int direction) {
         var order=VisibleMenuOrder();int index=Math.Max(0,Array.IndexOf(order,menuTab));
         return order[ControlRules.MenuMove(index,direction,order.Length)];
@@ -72,7 +73,7 @@ public partial class Plugin {
         var normal=MenuShape(IsMwFrontend?new Color(.09f,.085f,.06f,.84f):new Color(.055f,.085f,.1f,.9f));
         var hover=MenuShape(new Color(.18f,.23f,.12f));
         var selected=MenuShape(MenuSelection);
-        var button=menuSkin.button;button.fontSize=14;button.fontStyle=FontStyle.Bold;
+        var button=menuSkin.button;button.fontSize=14;button.fontStyle=FontStyle.Bold;button.wordWrap=true;
         button.border=new RectOffset(10,10,3,3);button.margin=new RectOffset(2,2,2,2);
         button.normal.background=normal;button.normal.textColor=Color.white;
         button.hover.background=hover;button.hover.textColor=MenuAccent;
@@ -88,7 +89,7 @@ public partial class Plugin {
         menuSkin.horizontalSliderThumb.fixedWidth=14;menuSkin.horizontalSliderThumb.fixedHeight=16;
         menuSkin.horizontalSliderThumb.border=new RectOffset();
         choiceSelectedStyle=new GUIStyle(button);choiceSelectedStyle.normal.background=selected;choiceSelectedStyle.normal.textColor=Color.black;choiceSelectedStyle.hover.background=selected;choiceSelectedStyle.hover.textColor=Color.black;
-        navStyle=new GUIStyle(button){alignment=TextAnchor.MiddleLeft,fontSize=23,fontStyle=FontStyle.BoldAndItalic,padding=new RectOffset(49,8,0,0)};
+        navStyle=new GUIStyle(button){alignment=TextAnchor.MiddleLeft,fontSize=23,fontStyle=FontStyle.BoldAndItalic,padding=new RectOffset(49,8,0,0),wordWrap=false};
         navStyle.normal.background=MenuShape(IsMwFrontend?new Color(.13f,.12f,.08f,.48f):new Color(.015f,.03f,.04f,.3f));
         navSelectedStyle=new GUIStyle(navStyle);navSelectedStyle.normal.background=selected;navSelectedStyle.normal.textColor=Color.black;
         navSelectedStyle.hover.background=selected;navSelectedStyle.hover.textColor=Color.black;
@@ -104,7 +105,7 @@ public partial class Plugin {
             float y=160+row++*43;
             var rect=new Rect(child?34:16,y,child?238:256,38);
             if(rect.Contains(e.mousePosition))hover=i;
-            string title=i==10?"CAR SELECT":i==14?"CUSTOMIZE":i==15?"SAVED BUILDS":i==11?"OPTIONS":Tr(MenuNames[i]).ToUpperInvariant();
+            string title=MenuTitle(i);
             bool nativeLabel=IsMwFrontend&&menuAssets!=null&&menuAssets.MwFrontend.ContainsKey("nav_"+i);
             if(UiButton(rect,nativeLabel?"":title,i==menuTab?navSelectedStyle:navStyle,false)){ChangeMenuTab(i);FocusMenuPane(false);MenuSound(1);}
             if(nativeLabel)FrontendArt("nav_"+i,new Rect(rect.x+45,y+3,rect.width-54,32),i==menuTab?Color.black:Color.white);

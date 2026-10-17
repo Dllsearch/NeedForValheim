@@ -8,10 +8,11 @@ public sealed class VehicleFleet<T> : IEnumerable<T> where T:class {
     public T Current {get;set;}
     public const int Capacity=4;
     public int Count=>items.Count;
+    public int Limit {get;set;}=Capacity;
     public VehicleFleet(T empty){Current=empty;}
     public void Add(T item) {
         if(item==null||items.Contains(item))throw new ArgumentException("Duplicate or null vehicle");
-        if(items.Count>=Capacity)throw new InvalidOperationException("Garage is full");
+        if(items.Count>=Limit)throw new InvalidOperationException("Garage is full");
         items.Add(item);
     }
     public bool Contains(T item)=>items.Contains(item);

@@ -10,7 +10,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 import bpy
 import numpy as np
 from mathutils import Vector
-from vehicle_preview import load_vehicle,instances
+from vehicle_preview import load_vehicle,instances,apply_styles
 
 
 def main():
@@ -28,6 +28,8 @@ def main():
     parser.add_argument('--samples',type=int,default=24)
     parser.add_argument('--width',type=int,default=1200)
     parser.add_argument('--paint',type=Path,help='optional composed body-paint PNG for any vehicle')
+    parser.add_argument('--part',action='append',default=[],help='original styling selection, e.g. Brakes:1; repeat for other categories')
+    parser.add_argument('--hide-group',action='append',default=[],choices=('body','wheel','brake','spinner'),help='hide a mesh group for geometry/material inspection')
     parser.add_argument('--audio',default='1,1,1,1,1,1',help='component choice per trunk socket, comma separated; 0 selects its cover')
     parser.add_argument('--save-blend',action='store_true',help='save an editable scene with embedded textures')
     parser.add_argument('--camera',type=float,nargs=3,metavar=('X','Y','Z'),help='inspection camera position in vehicle coordinates')
@@ -39,6 +41,8 @@ def main():
     if len(audio_options)>6 or any(value<0 for value in audio_options):parser.error('--audio accepts up to six nonnegative choices')
     args.root=args.root.resolve();args.output=args.output.resolve()
     profile,model=load_vehicle(args.root,args.car.lower())
+    model=apply_styles(args.root,args.car.lower(),model,args.part)
+    model['parts']=[p for p in model['parts'] if p['group'] not in args.hide_group]
     bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
     images=[]
     for texture in model['textures']:

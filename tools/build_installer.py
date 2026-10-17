@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import time
 import zipfile
 
 from build_support import dotnet_toolchain
@@ -17,6 +18,19 @@ LOADER_URL = f'https://thunderstore.io/package/download/denikson/BepInExPack_Val
 LOADER_SHA256 = 'bce631497976a93977ceb08e166712e6c31d15244956f89f17df092a9b62e29f'
 MOD_ROOT = 'BepInEx/plugins/NeedForValheim/'
 SETUP_REVISION = 6
+STEPS = 4
+
+
+def step(number, text):
+    print(f'[{number}/{STEPS}] {text}', flush=True)
+
+
+def detail(text):
+    print('        ' + text, flush=True)
+
+
+def size(path):
+    return f'{path.stat().st_size / 1048576:.1f} MB'
 
 
 def sha256(path):
@@ -41,6 +55,10 @@ def framework():
 def compile_installer(output, sources, payload=None, windowed=False):
     _, compiler = dotnet_toolchain()
     root = framework()
+    detail(f'Compiling {len(sources)} source files with the .NET SDK Roslyn compiler')
+    detail('Against .NET Framework 4.8 at ' + str(root) + '; compiler output below')
+    if payload:
+        detail('Embedding payload.zip as NFVU2.Payload (' + size(payload) + ')')
     refs = ['mscorlib', 'System', 'System.Core', 'System.Web.Extensions',
             'System.IO.Compression', 'System.Windows.Forms', 'System.Drawing']
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -62,21 +80,30 @@ def compile_installer(output, sources, payload=None, windowed=False):
 def loader_archive():
     archive = LOCAL/'installer'/f'BepInExPack_Valheim-{LOADER_VERSION}.zip'
     archive.parent.mkdir(parents=True, exist_ok=True)
-    if not archive.exists():
+    if archive.exists():
+        detail('Using the cached loader: ' + str(archive) + f' ({size(archive)})')
+    else:
+        detail('Downloading BepInExPack_Valheim ' + LOADER_VERSION + ' from ' + LOADER_URL)
+        detail('Saving to ' + str(archive) + ' (progress bar from curl.exe below)')
         temporary = archive.with_suffix('.download')
-        subprocess.run(['curl.exe', '--fail', '--location', '--retry', '2',
+        subprocess.run(['curl.exe', '--fail', '--location', '--retry', '2', '--progress-bar',
                         '--user-agent', 'Mozilla/5.0', LOADER_URL, '--output', str(temporary)], check=True)
         if sha256(temporary) != LOADER_SHA256:
+            temporary.unlink()
             raise ValueError('BepInEx download checksum mismatch; archive was not accepted.')
         temporary.replace(archive)
+        detail('Downloaded ' + size(archive))
     if sha256(archive) != LOADER_SHA256:
         raise ValueError('BepInEx archive checksum mismatch.')
+    detail('SHA-256 matches the pinned loader checksum')
     return archive
 
 
 def make_payload(target, source, loader):
     hashes = {}
+    loader_files = 0
     names = list(payload_files(source))
+    detail(f'Allowlisted mod files from {source}: {len(names)}')
     if not any(n.parts[0] == 'radio' and n.suffix.lower() in ('.wav', '.ogg') for n in names):
         raise ValueError('Radio music is required for the player installer. Import music and build the mod first.')
     with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as output:
@@ -99,26 +126,39 @@ def make_payload(target, source, loader):
                 data = archive.read(name)
                 output.writestr(n, data)
                 hashes[n] = hashlib.sha256(data).hexdigest()
+                loader_files += 1
         output.writestr('payload.json', json.dumps(hashes, indent=2))
     with zipfile.ZipFile(target) as archive:
         if archive.testzip() is not None:
             raise ValueError('Payload ZIP verification failed.')
+    detail(f'Loader files added: {loader_files}; payload written to {target} ({size(target)})')
     return hashes
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args()
+    started = time.monotonic()
     target = OUTPUT/'installer'
     target.mkdir(parents=True, exist_ok=True)
-    payload = target/'payload.zip'
-    make_payload(payload, OUTPUT/'mod', loader_archive())
     executable = target/f'NFVU2-Setup-{version()}-r{SETUP_REVISION}.exe'
+    print(f'NFVU2 installer build: mod version {version()}, setup revision r{SETUP_REVISION}')
+    print(f'Target: {executable}')
+    step(1, 'BepInEx loader archive (cached, or downloaded once into .local/installer)')
+    loader = loader_archive()
+    step(2, 'Payload: mod files + loader -> artifacts/installer/payload.zip')
+    payload = target/'payload.zip'
+    make_payload(payload, OUTPUT/'mod', loader)
+    step(3, 'Compile the wizard EXE with the embedded payload')
     compile_installer(executable, sorted((BASE/'installer').glob('*.cs')), payload, windowed=True)
+    step(4, 'Checksum the finished EXE')
     digest = sha256(executable)
-    executable.with_suffix('.sha256').write_text(f'{digest}  {executable.name}\n', encoding='utf-8')
-    print('Local installer:', executable)
-    print('SHA-256:', digest)
+    checksum = executable.with_suffix('.sha256')
+    checksum.write_text(f'{digest}  {executable.name}\n', encoding='utf-8')
+    detail('SHA-256: ' + digest)
+    print(f'Done in {time.monotonic() - started:.0f} s')
+    print('Local installer:', executable, f'({size(executable)})')
+    print('SHA-256 file:', checksum)
 
 
 if __name__ == '__main__':

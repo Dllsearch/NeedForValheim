@@ -15,7 +15,7 @@ from pathlib import Path
 
 from asset_source import extract_matching
 from export_geometry import parse
-from vehicle_geometry import wheel_source_radius, sport_brake_geometry, exhaust_mouths, badge_uv, badge_rows_uv, BADGE_OVERLAY
+from vehicle_geometry import wheel_source_radius, sport_brake_geometry, exhaust_mouths, badge_uv, badge_rows_uv, BADGE_OVERLAY, source_attachment
 import showroom_assets
 from nfs_formats import TexturePack, bin_hash, jdlz
 from project import LOCAL
@@ -380,10 +380,14 @@ def export(ident, output_root=LOCAL):
                    if 'REAR_BUM' in n and any(k in p['sockets'] for k in (0xbcf8a18b,0xbd7cf15e))), {})
     exhaust_mounts=[mounts[k] for k in (0xbcf8a18b,0xbd7cf15e) if k in mounts]
     selected=[]
+    spoiler_socket=pick(meshes,car+'_BASE').get('sockets',{}).get(0xc93b73fd)
     for n in body:
         if 'EXHAUST' in n:
             if not exhaust_mounts:raise ValueError('Missing original exhaust attachment for '+car)
             selected.extend((pick(meshes,n),'body',n if i==0 else n+'_DUAL',socket) for i,socket in enumerate(exhaust_mounts))
+        elif 'SPOILER' in n:
+            if spoiler_socket is None:raise ValueError('Missing original spoiler attachment for '+car)
+            selected.append((pick(meshes,n),'body',n,spoiler_socket))
         else:selected.append((pick(meshes,n),'body',n,None))
     selected.append((wheel, 'wheel', wheel_family,None))
     if spec.get('spinner'):
@@ -419,6 +423,9 @@ def export(ident, output_root=LOCAL):
 
     source_radius=wheel_source_radius(wheel)
     radius = spec.get('visualRadius',source_radius)
+    # Original locators are hub centres in the body frame. Align the rolling
+    # surface with the ground, not the lowest chassis/exhaust vertex.
+    if 'visualLift' not in spec:lift=radius-front[2]
     radial=radius/source_radius
     rubber = {i for s in wheel['slices'] if s['materialKey'] == RUBBER for i in s['indices']}
     axial_positions = [wheel['vertices'][i][1] for i in rubber]
@@ -488,11 +495,10 @@ def export(ident, output_root=LOCAL):
                               metallic=metal, smoothness=smooth, texture=tex, bodyPaint=key == PAINT and group=='body' and not showroom,alphaMode='blend' if badge else 'opaque'))
         return len(materials) - 1
 
-    def vertex(v, group, normal=False, socket=None):
+    def vertex(v, group, normal=False, socket=None,exhaust_axes=True):
         x, y, z = v
         if socket:
-            x,y,z=z,y,-x
-            x,y,z=(x*socket[a]+y*socket[4+a]+z*socket[8+a]+(0 if normal else socket[12+a]) for a in range(3))
+            x,y,z=source_attachment(v,socket,normal,exhaust_axes)
         if group == 'body':
             result = (y, z + (0 if normal else lift), x)
         elif group == 'wheel':
@@ -578,8 +584,8 @@ def export(ident, output_root=LOCAL):
                 parts.append(compact(dict(name=spec.get('sectionNames','{name}_A_{section}').format(name=name,section=number,role=label),group=group,lightRole=label,
                     movingPart=moving_part(name) if group=='body' else '',optionGroup=option_group,option=option,
                     material=material(key,tex,group,group=='audio' or option_group in ('engine','trunk'),is_badge),rotatesWithWheel=group=='brake' and (key==0xb1aae6bb if spec.get('brakeFamily') else key!=CALIPER),
-                    vertices=[vertex(v,group,socket=socket) for v in part['vertices']],
-                    normals=[vertex(v,group,True,socket) for v in part['normals']],uv=coords,indices=triangles)))
+                    vertices=[vertex(v,group,socket=socket,exhaust_axes='SPOILER' not in name) for v in part['vertices']],
+                    normals=[vertex(v,group,True,socket,exhaust_axes='SPOILER' not in name) for v in part['normals']],uv=coords,indices=triangles)))
 
     lights = []
     for (role, right), points in lamps.items():
@@ -593,7 +599,8 @@ def export(ident, output_root=LOCAL):
     model = dict(schemaVersion=3, preset=spec['preset'], parts=parts, materials=materials,
                  textures=textures, lights=lights, neonTexture=texture(bin_hash(f'{car}_NEON')),
                  nitroFlameTexture=texture(bin_hash('SFX_FIREB')), nitroPurgeTexture=texture(bin_hash('SFX_SMOKE_B_CS')),
-                 previewHubHeight=front[2] + lift,animations=animations,trunkLayouts=layouts,audioComponents=components)
+                 previewHubHeight=front[2] + lift,suspensionHubAtRest='visualLift' not in spec,
+                 animations=animations,trunkLayouts=layouts,audioComponents=components)
     from car_effects import nitro_emitters
     fallback=[vertex((socket[12],socket[13],socket[14]),'body') for socket in exhaust_mounts]
     model['effectEmitters']=nitro_emitters([p for p in parts if p.get('optionGroup')!='exhaust'],abs(front[1]),abs(front[0]),fallback)
@@ -620,6 +627,8 @@ def export(ident, output_root=LOCAL):
                             boxSizeY=round((height[1] - height[0]) * .65, 4),
                             boxSizeZ=round((length[1] - length[0]) * .95, 4), mass=spec['mass'],
                             trackWidth=rig['trackWidth'], wheelHeight=rig['wheelRadius'],
+                            rearWheelHeight=round(rear[2]+lift,4) if 'visualLift' not in spec else 0,
+                            rearTrackWidth=round(abs(rear[1]),4),
                             frontAxleZ=rig['frontAxleZ'], rearAxleZ=rig['rearAxleZ'],
                             wheelRadius=rig['wheelRadius'], spawnLift=rig['spawnLift'],
                             clearanceX=spec['clearance'][0], clearanceZ=spec['clearance'][1],

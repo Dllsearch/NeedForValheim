@@ -17,7 +17,7 @@ public partial class Plugin {
         try {if(garageAccounts.Value.Length>1048576)throw new ArgumentException("Garage accounts too large");garageProgression=JsonConvert.DeserializeObject<GarageProgression>(garageAccounts.Value)??new GarageProgression();garageProgression.Validate();}
         catch(Exception error){garageProgression=new GarageProgression();Logger.LogWarning("Garage accounts unavailable: "+error.Message);}
     }
-    bool CoinEconomy=>garageCoinEconomy!=null&&garageCoinEconomy.Value;
+    bool CoinEconomy=>!NetworkSessionActive&&garageCoinEconomy!=null&&garageCoinEconomy.Value;
     ConfigEntry<int>[] PerformanceEntries()=>new[]{engineStage,turboStage,gearStage,tyreStage,brakeStage,nosStage};
     ConfigEntry<int>[] PerformanceEntries(CarProfile profile)=>new[]{baseConfig_engineStage,baseConfig_turboStage,baseConfig_gearStage,baseConfig_tyreStage,baseConfig_brakeStage,baseConfig_nosStage}
         .Select(entry=>(ConfigEntry<int>)vehicleSettings[entry][profile.ConfigPrefix]).ToArray();
@@ -93,6 +93,6 @@ public partial class Plugin {
         if(!CoinEconomy)return;var progress=CarProgress(LocalPlayer() as Player,current.Profile.id);if(progress==null)return;
         var entries=PerformanceEntries();for(int i=0;i<6;i++)if(entries[i].Value>progress.stages[i])entries[i].Value=progress.stages[i];
     }
-    string GarageEconomySummary=>CoinEconomy?"Car: 1 Coin · each new upgrade level: 1 Coin · recall is free · wallet: "+CoinCount(LocalPlayer() as Player):"Sandbox · all cars unlocked · four parked cars";
+    string GarageEconomySummary=>NetworkSessionActive?"Network sandbox / up to four owned cars per player":CoinEconomy?"Car: 1 Coin · each new upgrade level: 1 Coin · recall is free · wallet: "+CoinCount(LocalPlayer() as Player):"Sandbox · all cars unlocked · four parked cars";
 }
 }

@@ -33,18 +33,7 @@ from vehicle_geometry import wheel_source_radius, wheel_geometry, wheel_finish_s
 
 def visual_uv(part,section,family):
     uv=[{'u':u,'v':1-v} for u,v in part['uv']]
-    if section['textureKey']==bin_hash('350Z_BADGING') and section['materialKey']==BADGE_OVERLAY and family!='350Z_KIT00_TRUNK':uv=badge_uv(part,section,uv)
-    if family=='350Z_KIT00_TRUNK' and section['textureKey']==bin_hash('350Z_BADGING'):
-        # This atlas section also contains the central Nissan emblem. Correct
-        # only the two triangles of the lateral 350Z wordmark: its original
-        # U direction reads backwards on our converted rear-facing geometry.
-        badge={i for j in range(0,len(section['indices']),3)
-               if all(part['vertices'][i][1]>.25 and part['vertices'][i][0]<-1.9
-                      for i in section['indices'][j:j+3])
-               for i in section['indices'][j:j+3]}
-        if len(badge)!=4:raise ValueError('Re-identify rear 350Z wordmark UV island')
-        total=min(uv[i]['u'] for i in badge)+max(uv[i]['u'] for i in badge)
-        for i in badge:uv[i]['u']=total-uv[i]['u']
+    if section['textureKey']==bin_hash('350Z_BADGING') and section['materialKey']==BADGE_OVERLAY:uv=badge_uv(part,section,uv)
     return uv
 
 

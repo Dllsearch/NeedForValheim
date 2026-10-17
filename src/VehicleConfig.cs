@@ -18,8 +18,10 @@ public partial class Plugin {
     }
     ConfigEntry<T> VehicleConfig<T>(ConfigEntry<T> stock) {
         if(stock==null || !vehicleSettings.TryGetValue(stock,out var byVehicle))return stock;
-        return !byVehicle.TryGetValue(current.Profile.ConfigPrefix,out var other)?stock:(ConfigEntry<T>)other;
+        var entry=!byVehicle.TryGetValue(current.Profile.ConfigPrefix,out var other)?stock:(ConfigEntry<T>)other;
+        return NetworkSetting(entry);
     }
+    ConfigEntry<T> NetworkSetting<T>(ConfigEntry<T> entry)=>current.networkSettings!=null?current.networkSettings.Get(entry):entry;
     ConfigEntry<bool> baseConfig_terrainMode;
     ConfigEntry<bool> terrainMode {get=>VehicleConfig(baseConfig_terrainMode);set=>baseConfig_terrainMode=value;}
     ConfigEntry<float> baseConfig_soundVolume;

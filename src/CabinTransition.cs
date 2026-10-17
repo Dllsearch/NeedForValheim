@@ -1,10 +1,23 @@
 using System;
 namespace NeedForValheim {
+// A route must make measurable progress and finish in bounded active time.
+public sealed class CabinApproach {
+    float elapsed,stalled,best=float.PositiveInfinity;
+    public bool Step(float dt,float distance,bool paused) {
+        if(paused||float.IsNaN(dt)||float.IsInfinity(dt)||dt<=0)return false;
+        dt=Math.Min(dt,.1f);elapsed+=dt;
+        if(!float.IsNaN(distance)&&!float.IsInfinity(distance)&&distance<best-.02f){best=distance;stalled=0;}
+        else stalled+=dt;
+        return elapsed>=6||stalled>=.8f;
+    }
+    public void NextWaypoint(){best=float.PositiveInfinity;stalled=0;}
+}
 // Deterministic door/seat timing, independent of Unity and frame rate.
 public enum CabinPhase { Approach, OpenEnter, Enter, CloseEnter, Seated, OpenExit, Exit, Complete }
 public sealed class CabinTransition {
     public CabinPhase Phase {get;private set;}=CabinPhase.Approach;
     public float TimeInPhase {get;private set;}
+    public bool DoorTimedOut {get;private set;}
     public bool CanDrive=>Phase==CabinPhase.Seated;
     public bool DoorOpen=>Phase==CabinPhase.OpenEnter||Phase==CabinPhase.Enter||Phase==CabinPhase.OpenExit||Phase==CabinPhase.Exit;
     // Once seated, the menu owns the door again. Only the entry/exit sequence forces its target.
@@ -13,14 +26,16 @@ public sealed class CabinTransition {
         Phase==CabinPhase.CloseEnter||Phase==CabinPhase.Seated||Phase==CabinPhase.OpenExit?1:0;
     public void Arrive(){if(Phase==CabinPhase.Approach){Phase=CabinPhase.OpenEnter;TimeInPhase=0;}}
     public bool BeginExit(){if(!CanDrive)return false;Phase=CabinPhase.OpenExit;TimeInPhase=0;return true;}
-    public void CancelExit(){if(Phase==CabinPhase.OpenExit||Phase==CabinPhase.Exit||Phase==CabinPhase.Complete){Phase=CabinPhase.Seated;TimeInPhase=0;}}
+    public void CancelExit(){if(Phase==CabinPhase.OpenExit||Phase==CabinPhase.Exit||Phase==CabinPhase.Complete){Phase=CabinPhase.Seated;TimeInPhase=0;DoorTimedOut=false;}}
     public void Step(float dt,bool blocked,float doorProgress,bool hasDoor=true) {
-        if(blocked||float.IsNaN(dt)||float.IsInfinity(dt)||dt<=0)return;
+        if(DoorTimedOut||blocked||float.IsNaN(dt)||float.IsInfinity(dt)||dt<=0)return;
         if(Phase==CabinPhase.Approach||Phase==CabinPhase.Seated||Phase==CabinPhase.Complete)return;
         TimeInPhase+=Math.Min(dt,.1f);
         bool next=Phase==CabinPhase.OpenEnter||Phase==CabinPhase.OpenExit?(hasDoor?doorProgress>=.97f:TimeInPhase>=.55f):
             Phase==CabinPhase.CloseEnter?(hasDoor?doorProgress<=.03f:TimeInPhase>=.55f):TimeInPhase>=1.4f;
-        if(!next)return;
+        // Sliding/moving cars force their doors shut. Entry and exit must not
+        // wait forever for a progress value that can no longer be reached.
+        if(!next){if(TimeInPhase>=4)DoorTimedOut=true;return;}
         Phase=Phase==CabinPhase.OpenEnter?CabinPhase.Enter:Phase==CabinPhase.Enter?CabinPhase.CloseEnter:
             Phase==CabinPhase.CloseEnter?CabinPhase.Seated:Phase==CabinPhase.OpenExit?CabinPhase.Exit:CabinPhase.Complete;
         TimeInPhase=0;

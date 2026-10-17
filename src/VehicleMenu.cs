@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using BepInEx.Configuration;
 using UnityEngine;
@@ -29,7 +30,8 @@ public partial class Plugin {
         headlightPreset=BindVehicle("Lights","HeadlightPreset","Stock",new ConfigDescription("Front headlight colour preset. Names follow NFSU2; RGB values are adapted for Unity.",new AcceptableValueList<string>(VehicleLighting.HeadlightPresets)));
         headlightStrength=BindVehicle("Lights","HeadlightStrength",1f,new ConfigDescription("Front headlight strength multiplier: 0 to 3. Rear, reverse and plate lights are independent.",new AcceptableValueRange<float>(0,3)));
         headlightShowOff=BindVehicle("Lights","ShowOffAfterExit",false,"After exiting: two left flashes, two right flashes, pause, repeat. Left/right from the driver's seat. Stops on entry; independent of parked engine/radio.");
-        menuKey=Config.Bind("Controls","VehicleMenu",new KeyboardShortcut(KeyCode.F9),"Open the garage anywhere, or vehicle controls while seated/within 5 metres.");
+        menuKey=Config.Bind("Controls","VehicleMenu",new KeyboardShortcut(KeyCode.None),"Optional global menu shortcut. Function keys are disabled. Use Inventory > CARS / GARAGE, or Tab while seated.");
+        if(FunctionKey(menuKey.Value.MainKey)||menuKey.Value.Modifiers.Any(FunctionKey))menuKey.Value=new KeyboardShortcut(KeyCode.None);
         nitroEnabled=BindVehicle("Nitro","Enabled",true,"Hold left mouse: forward throttle boosts; stationary purges. Six seconds of boost, refills while driving after release.");
         backfireEnabled=BindVehicle("Nitro","LiftOffBackfire",false,"Optional high-RPM lift-off effect. Uses original assets with NFVU2 trigger thresholds, not verified NFS tuning rules.");
         radioEnabled=BindVehicle("Radio","Enabled",true,"Play the local NFS radio while seated, and outside if KeepRunningAfterExit is enabled.");
@@ -39,6 +41,8 @@ public partial class Plugin {
         neonColor=BindVehicle("Neon","Color","Green",new ConfigDescription("Underbody neon colour.",new AcceptableValueList<string>(ColorNames)));
     }
     bool CanUseVehicleMenu(MonoBehaviour local)=>local!=null&&!Multiplayer();
+    static bool FunctionKey(KeyCode key)=>key>=KeyCode.F1&&key<=KeyCode.F15;
+    bool MenuShortcutDown=>menuKey.Value.MainKey!=KeyCode.None&&!FunctionKey(menuKey.Value.MainKey)&&!menuKey.Value.Modifiers.Any(FunctionKey)&&menuKey.Value.IsDown();
     internal bool FrontendOpen=>ready&&menuOpen;
     void BlockDrivingInput(bool blockCamera=true){controlsGate.Block();handbrakeHeld=turretHeld=false;throttle=steer=0;current.flightVertical=0;brake=1;honking=false;burnoutHeld=false;nitroHeld=false;nitroInput.Reset();ActiveNitro?.Stop();if(blockCamera)orbitCamera?.InputFrame(false,mouseSensitivity.Value,invertMouseY.Value);}
     void SetVehicleMenu(bool open) {
@@ -90,6 +94,7 @@ public partial class Plugin {
     }
     void DisposeMenu(){DisposeMenuTheme();if(menuBackground!=null)Destroy(menuBackground);menuBackground=null;panelStyle=titleStyle=labelStyle=mutedStyle=songButtonStyle=null;}
     void OnGUI() {
+        if(visualAuditActive){DrawVisualAudit();return;}
         if(!menuOpen||audioBlocked||!Application.isFocused)StopMenuDrag();
         if(!ready||LocalPlayer()==null)return;
         DrawControlHints();
@@ -124,13 +129,15 @@ public partial class Plugin {
         if(MenuButton(new Rect(25,280,245,38),driving?"Exit":"Enter")){
             var local=LocalPlayer();CloseVehicleMenu();if(driving)RequestExit();else if(CanAccessCurrent(local))Enter(local);return;
         }
-        GUI.enabled=GarageCanPark&&!SpawnBusy&&!HordeVehicle;
-        if(MenuButton(new Rect(285,280,245,38),"REMOVE FROM GARAGE")){RemoveGarageCar(current);return;}
+        GUI.enabled=!SpawnBusy;
+        if(MenuButton(new Rect(285,280,245,38),"UNSPAWN")){UnspawnCurrent();return;}
         GUI.enabled=true;
         keepRunning.Value=UiToggle(new Rect(25,340,510,32),keepRunning.Value," Keep running after exit");
         UiLabel(new Rect(25,378,510,60),"Idling engine, enabled neon and muffled music. Can also be switched beside the car.\nRemoving the car leaves its cargo in a chest.",mutedStyle);
+        GUI.enabled=showroom!=null;
         if(MenuButton(new Rect(25,445,245,38),"Doors and hood"))ChangeMenuTab(6);
         if(MenuButton(new Rect(285,445,245,38),"Trunk layout"))ChangeMenuTab(7);
+        GUI.enabled=true;
         DrawStorageButton(new Rect(25,488,245,30));
         UiLabel(new Rect(285,488,245,30),"Park and walk to the rear to load cargo.",mutedStyle);
     }

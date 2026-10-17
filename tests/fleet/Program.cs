@@ -24,6 +24,10 @@ class Program {
         Check(duplicate&&fleet.Count==4,"duplicate instance cannot be owned twice");
         fleet.Visit(()=>fleet.Remove(fleet.Current));Check(fleet.Count==0,"world cleanup visits every car despite removals");
         Check(fleet.Nearest(c=>c.distance)==null,"empty garage has no nearest car");
+        var observers=new VehicleFleet<Car>(new Car()){Limit=8};
+        for(int i=0;i<8;i++)observers.Add(new Car());
+        bool capped=false;try{observers.Add(new Car());}catch(InvalidOperationException){capped=true;}
+        Check(observers.Count==8&&capped,"observer capacity can expand while retaining a hard rendering bound");
         var spinner=new SpinnerMotion();spinner.Step(.1f,0);Check(spinner.Angle==0&&spinner.Rpm==0,"spinner rests before driving");
         for(int i=0;i<40;i++)spinner.Step(.05f,200);
         Check(spinner.Rpm>100&&spinner.Rpm<200,"spinner gains speed with bearing inertia");

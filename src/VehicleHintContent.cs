@@ -32,10 +32,10 @@ public static class VehicleHintContent {
             row(controller?icon("button_lb","button_l1"):"RMB","Fire turret");
         }
         if(nitro||flight)row(controller?icon("button_x","button_square"):"LMB / "+tr("Ctrl"),"Nitro");
-        row(controller?icon("button_b","button_circle"):"E / F7",flight?"Land & exit":"Exit");
+        row(controller?icon("button_b","button_circle"):"E",flight?"Land & exit":"Exit");
         row(controller?icon("dpad_left","dpad_left")+" / "+icon("dpad_right","dpad_right"):"← / →","Songs");
         row(controller?icon("dpad_up","dpad_up")+" / "+icon("dpad_down","dpad_down"):"1–4","Drive mode");
-        row(controller?close:"Tab / "+close,"Mod menu");
+        row(close,"Mod menu");
         row(controller?icon("button_rs","button_r3"):"H","Horn");
         if(flight)row("", "Turret: automatic");
         return rows.ToArray();

@@ -30,6 +30,12 @@ public partial class Plugin {
         controlsHarmony.PatchAll(typeof(NativeInventoryDuringGarage));
         controlsHarmony.PatchAll(typeof(NativePauseDuringGarage));
         VehicleExitSafety.Install(controlsHarmony);
+        controlsHarmony.PatchAll(typeof(WorldVehicleSave));
+        controlsHarmony.PatchAll(typeof(WorldVehicleShutdown));
+        controlsHarmony.PatchAll(typeof(WorldVehicleCargoLoad));
+        controlsHarmony.PatchAll(typeof(NativeNetworkCargoOpen));
+        controlsHarmony.PatchAll(typeof(NativeNetworkCargoResponse));
+        controlsHarmony.PatchAll(typeof(WorldVehicleCargoProtection));
         Logger.LogInfo("Garage input hooks registered: InventoryGui.Show and Menu.Show");
         controlsHarmony.PatchAll(typeof(NativeVehicleCameraShake));
         InitializeHordeGame();
@@ -66,7 +72,10 @@ public partial class Plugin {
         exitAfterLanding=false;
         if(mode==3)SelectFlightMode();
         else {
-            driftMode.Value=mode==2;terrainMode.Value=mode==0;
+            if(current.networkDriving&&current.networkSettings!=null) {
+                current.networkSettings.SetRuntime(driftMode,mode==2);
+                current.networkSettings.SetRuntime(terrainMode,mode==0);
+            }else {driftMode.Value=mode==2;terrainMode.Value=mode==0;}
             if(Flying)current.flight.Land();else ApplyDriveMode();
             status=DriveModeName;
         }
@@ -80,7 +89,7 @@ public partial class Plugin {
     }
     int CurrentControlMode=>HordeVehicle?0:Flying&&!current.flight.State.Landing?3:current.Profile.capabilities.drift&&driftMode.Value?2:terrainMode.Value?0:1;
     void TickControlActions(MonoBehaviour local) {
-        if(Input.GetKeyDown(KeyCode.F7)||PadDown("back")||driving&&vehicleInteractFrame!=Time.frameCount&&ZInput.GetButtonDown("Use")) {
+        if(PadDown("back")||driving&&vehicleInteractFrame!=Time.frameCount&&ZInput.GetButtonDown("Use")) {
             if(driving){if(Flying){exitAfterLanding=true;current.flight.Land();status="Landing before exit \u00b7";}else RequestExit();}
             else if(CanAccessCurrent(local))Enter(local);
             controlsGate.Block();

@@ -57,7 +57,7 @@ class Program {
         var warm=Task.Run(()=>SpawnAssets.Load(args[0],false,cache,CancellationToken.None)).GetAwaiter().GetResult();
         double cached=timer.Elapsed.TotalMilliseconds;
         Check(worker!=caller,"real payload is parsed on a background thread without Unity");
-        Check(assets.Model.parts.Length>0&&assets.Hud.designs.Length==11,"body and installed HUD load together");
+        Check(assets.Model.parts.Length>0&&assets.Hud.designs.Length==22&&assets.Hud.mwNitro!=null,"body and installed HUD load together");
         bool cabin=File.Exists(Path.Combine(args[0],"interior/interior.json")),turret=File.Exists(Path.Combine(args[0],"turret/turret.json"));
         Check(cabin?assets.Interior?.parts.Length>0:assets.Interior==null&&assets.Warnings.Any(w=>w.StartsWith("Cabin unavailable:")),"optional cabin is either validated or reported unavailable");
         Check(turret?assets.Turret?.parts.Length>0:assets.Turret==null&&assets.Warnings.Any(w=>w.StartsWith("Turret unavailable:")),"optional turret is either validated or reported unavailable");

@@ -11,6 +11,8 @@ public sealed class VehicleVinylRenderer:IDisposable {
     readonly Dictionary<int,Texture2D> thumbnails=new Dictionary<int,Texture2D>();
     VinylCatalog catalog;Task<byte[]> rendering;CancellationTokenSource cancellation;
     Texture2D texture;string signature="";bool disposed;
+    float renderingCarbon;
+    public float CarbonAmount {get;private set;}
     public string Status {get;private set;}="Loading original vinyls…";
     public VinylEntry[] Entries=>catalog?.entries??Array.Empty<VinylEntry>();
     public bool Loading=>catalog==null;
@@ -34,7 +36,7 @@ public sealed class VehicleVinylRenderer:IDisposable {
             try{
                 var bytes=job.GetAwaiter().GetResult();var fresh=new Texture2D(512,512,TextureFormat.RGBA32,true){name="NFVU2_LayeredVinyl",wrapMode=TextureWrapMode.Clamp,filterMode=FilterMode.Trilinear,anisoLevel=4};
                 var flipped=new byte[bytes.Length];int stride=512*4;for(int y=0;y<512;y++)Array.Copy(bytes,y*stride,flipped,(511-y)*stride,stride);
-                fresh.SetPixelData<byte>(flipped,0);fresh.Apply(true,true);if(texture!=null)UnityEngine.Object.Destroy(texture);texture=fresh;changed=true;
+                fresh.SetPixelData<byte>(flipped,0);fresh.Apply(true,true);if(texture!=null)UnityEngine.Object.Destroy(texture);texture=fresh;CarbonAmount=renderingCarbon;changed=true;
             }catch(OperationCanceledException){}catch(Exception e){Status="Vinyl preview unavailable: "+e.Message;}
         }return changed;
     }
@@ -44,12 +46,13 @@ public sealed class VehicleVinylRenderer:IDisposable {
         if(key==signature)return;signature=key;
         cancellation?.Cancel();cancellation?.Dispose();cancellation=new CancellationTokenSource();var token=cancellation.Token;
         bool active=layers.Any(l=>l.design>=2&&l.opacity>0);
-        if(!active){rendering=null;if(texture!=null)UnityEngine.Object.Destroy(texture);texture=null;return;}
+        if(!active){rendering=null;if(texture!=null)UnityEngine.Object.Destroy(texture);texture=null;CarbonAmount=0;return;}
         if(Loading){signature="";return;}
         var triangles=layers.Any(l=>l.design==2||l.design==3)?geometry():Array.Empty<VinylPoint[]>();
         var palette=Plugin.PaintColors.Select(c=>new[]{Byte(c.r),Byte(c.g),Byte(c.b)}).ToArray();
         byte[] foundation={Byte(baseColor.r),Byte(baseColor.g),Byte(baseColor.b),255};
         var entries=Entries;
+        renderingCarbon=layers.Where(l=>entries.Any(e=>e.id==l.design&&e.category=="Carbon")).Select(l=>Mathf.Clamp01(l.opacity)).DefaultIfEmpty(0).Max();
         rendering=Task.Run(()=>{
             var canvas=new byte[512*512*4];for(int p=0;p<canvas.Length;p+=4)Buffer.BlockCopy(foundation,0,canvas,p,4);
             foreach(var layer in layers){token.ThrowIfCancellationRequested();if(layer.design<2||layer.opacity<=0)continue;

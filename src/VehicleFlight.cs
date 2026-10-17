@@ -36,6 +36,12 @@ public sealed class VehicleFlight : IDisposable {
         } else if(state.Landing)targetHeight=body.position.y+1;
         state.Fly();body.WakeUp();
     }
+    public void Resume(bool landing,float blend) {
+        Restore();Fly();state.Resume(landing,blend);
+        // A handover resumes hover here, without the takeoff height increment.
+        holdPosition=body.position;targetHeight=body.position.y;
+        moving=verticalMoving=false;
+    }
     public void Land(){state.Land();Nitro.Stop();}
     public void Step(bool inputAllowed,float forward,float turn,float vertical,bool nitroHeld=false) {
         if(!Active)return;

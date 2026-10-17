@@ -7,6 +7,41 @@ from nfs_formats import bin_hash
 BADGE_OVERLAY = 0x02a05578
 
 
+def source_attachment(vector, matrix, normal=False, exhaust_axes=False):
+    """Apply a source socket before the shared NFS-to-Unity axis conversion."""
+    x,y,z=vector
+    if exhaust_axes:x,y,z=z,y,-x
+    return tuple(x*matrix[a]+y*matrix[4+a]+z*matrix[8+a]+(0 if normal else matrix[12+a]) for a in range(3))
+
+
+def painted_arch_width(mesh, axle):
+    """Sample the outer body arch at the original axle, in source metres.
+
+    This is a geometric fit, like the MW arch sampler, not decoded U2 tuning.
+    Only lateral kit deltas are used; source wheelbase, radius and height stay.
+    """
+    vertices=np.asarray(mesh['vertices'])
+    # Wide kits may use carbon or pretextured body materials instead of paint.
+    # Glass, badge overlays, bright trim and inner black panels are not fenders.
+    trim={0xa6348ee3,0xd79597d6,0x471a1dca,0x1ff8c329,BADGE_OVERLAY,
+          0xfd102a92,0x54949afd,0x2e65e067,0x22719fa9,0x12c9453c,0x0fedee40,0x2787edab,0x3ed70c43,0x010cb64a}
+    ids=[i for section in mesh['slices'] if section['materialKey'] not in trim for i in section['indices']]
+    if not ids:raise ValueError('No exterior body shell: '+mesh['name'])
+    faces=vertices[np.asarray(ids).reshape(-1,3)]
+    a=faces.reshape(-1,3);b=np.roll(faces,-1,axis=1).reshape(-1,3);delta=b-a
+    samples=[]
+    for x in np.linspace(axle-.12,axle+.12,13):
+        crossing=((a[:,0]-x)*(b[:,0]-x)<=0)&(abs(delta[:,0])>1e-8)
+        points=a[crossing]+delta[crossing]*((x-a[crossing,0])/delta[crossing,0])[:,None]
+        if not len(points):continue
+        outer=points[:,1].max();points=points[points[:,1]>outer*.83]
+        if not len(points):continue
+        crown=points[:,2].min();rim=points[points[:,2]<=crown+.04]
+        samples.append(float(rim[:,1].max()))
+    if len(samples)<7:raise ValueError('Insufficient painted wheel arch: '+mesh['name'])
+    return float(np.median(samples))
+
+
 def badge_uv(part, section, coords):
     """Reverse each badge's lateral mapping, including rotated atlas islands.
 
@@ -17,22 +52,69 @@ def badge_uv(part, section, coords):
     result=[dict(value) for value in coords]
     islands=[]
     ids=section['indices']
+    # Some source solids duplicate every triangle's vertices. Reconstruct
+    # continuous geometry/UV topology before reflecting an emblem as a whole.
+    # UV is part of the key: adjoining halves in separate atlas rows must stay
+    # independent patches for the word-order correction below.
+    identities={};aliases={}
+    for i in set(ids):
+        key=tuple(round(v,5) for v in part['vertices'][i])+tuple(round(coords[i][k],6) for k in ('u','v'))
+        identities.setdefault(key,i);aliases[i]=identities[key]
     for offset in range(0,len(ids),3):
-        group=set(ids[offset:offset+3]);joined=[other for other in islands if other & group]
+        group={aliases[i] for i in ids[offset:offset+3]};joined=[other for other in islands if other & group]
         for other in joined:group|=other;islands.remove(other)
         islands.append(group)
+    patches=[]
     for island in islands:
-        indices=sorted(island)
+        indices=sorted(i for i in set(ids) if aliases[i] in island)
         normal=np.mean([part['normals'][i] for i in indices],axis=0)
-        horizontal=1 if abs(normal[0])>=abs(normal[1]) else 0
-        points=np.array([[part['vertices'][i][horizontal],part['vertices'][i][2],1] for i in indices])
+        horizontal=1 if abs(normal[0])>=abs(normal[1]) or abs(normal[2])>.7 else 0
+        vertical=0 if abs(normal[2])>.7 else 2
+        points=np.array([[part['vertices'][i][horizontal],part['vertices'][i][vertical],1] for i in indices])
         values=np.array([[coords[i]['u'],coords[i]['v']] for i in indices])
         coefficients,_,rank,_=np.linalg.lstsq(points,values,rcond=None)
         if rank<3:continue
-        center=(points[:,0].min()+points[:,0].max())*.5
-        mirrored=values+(2*(center-points[:,0]))[:,None]*coefficients[0]
-        mirrored=np.clip(mirrored,values.min(axis=0),values.max(axis=0))
-        for i,value in zip(indices,mirrored):result[i]=dict(u=float(value[0]),v=float(value[1]))
+        patches.append(dict(ids=indices,points=points,values=values,fit=coefficients,normal=normal,
+                            center=np.mean([part['vertices'][i] for i in indices],axis=0),axes=(horizontal,vertical)))
+    # A word can span adjacent quads and even different atlas rows (SUB/ARU).
+    # Reflect their order as well as each quad's mapping. Separate emblems and
+    # badges on opposite faces must retain their own artwork and positions.
+    groups=[]
+    for p in patches:
+        linked=[]
+        for group in groups:
+            for q in group:
+                if p['axes']!=q['axes'] or np.dot(p['normal'],q['normal'])<.8:continue
+                a,b=p['points'][:,:2],q['points'][:,:2]
+                span=np.minimum(np.ptp(a,axis=0),np.ptp(b,axis=0))
+                overlap=min(a[:,1].max(),b[:,1].max())-max(a[:,1].min(),b[:,1].min())
+                gap=max(a[:,0].min(),b[:,0].min())-min(a[:,0].max(),b[:,0].max())
+                depth=abs(np.dot(p['center']-q['center'],q['normal']))
+                # Source quads can overlap slightly at a word seam (Escalade
+                # overlaps by 0.47 mm; other seams differ only by float noise).
+                # Keep that seam together without merging stacked overlays.
+                seam=min(span[0]*.05,.002)
+                sizes_a,sizes_b=np.ptp(a,axis=0),np.ptp(b,axis=0)
+                letters=all(size[1]>0 and size[0]/size[1]<1.6 for size in (sizes_a,sizes_b))
+                # Spaced single-letter badges (HUMMER, LOTUS) are still one
+                # word; full wordmarks retain the tighter adjacency limit.
+                reach=span[1]*4 if letters else min(span[0]*.3,span[1]*3)
+                if span[1]>0 and overlap>span[1]*.8 and -seam<=gap<reach and depth<.025:
+                    linked.append(group);break
+        merged=[p]
+        for group in linked:merged+=group
+        groups=[group for group in groups if all(group is not other for other in linked)]
+        groups.append(merged)
+    for group in groups:
+        ordered=sorted(group,key=lambda p:np.mean(p['points'][:,0]))
+        for p,q in zip(ordered,reversed(ordered)):
+            a,b=p['points'],q['points'];sample=a.copy()
+            for axis in range(2):
+                span=np.ptp(a[:,axis]);fraction=(a[:,axis]-a[:,axis].min())/span if span else np.zeros(len(a))
+                sample[:,axis]=b[:,axis].min()+((1-fraction) if axis==0 else fraction)*np.ptp(b[:,axis])
+            residual=p['values']-a@p['fit'] if p is q else 0
+            mirrored=np.clip(sample@q['fit']+residual,q['values'].min(axis=0),q['values'].max(axis=0))
+            for i,value in zip(p['ids'],mirrored):result[i]=dict(u=float(value[0]),v=float(value[1]))
     return result
 
 

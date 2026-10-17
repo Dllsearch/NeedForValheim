@@ -7,7 +7,7 @@ from build_support import compile_cs,test_refs,runtime_config
 def main():
     suites=['model','mesh','handling','audio','radio','nitro','impact','showroom','driving','turret','targeting','terrain','blast','fleet','vehicle_assets','menu','cabin','flight','loading','lighting','controls','hotbar','rumble','nitroview','horde','hordehull','hordecorpses','turretfireaudio','hordeweather','horderadar','hordeelements','storage','carprofile','streaming']
     parser=argparse.ArgumentParser();parser.add_argument('--skip-build',action='store_true');parser.add_argument('--handling-only',action='store_true')
-    suites.extend(('wheelsize','mw','garageprogression','surface','mapmarkers','vehicle_safety'))
+    suites.extend(('wheelsize','mw','garageprogression','surface','mapmarkers','vehicle_safety','cabin_entry','network','networksettings','networkintegration'))
     parser.add_argument('--suite',action='append',choices=suites,help='Run only these C# suites; repeat to combine.')
     parser.add_argument('--vehicle-assets-root',type=Path,default=LOCAL,help='generated vehicle profiles/models for the vehicle_assets suite')
     args=parser.parse_args()
@@ -19,6 +19,15 @@ def main():
         out=OUTPUT/'tests'/suite;out.mkdir(parents=True,exist_ok=True)
         sources=list((BASE/'tests'/suite).glob('*.cs'));refs=list(references);arguments=[]
         if suite=='handling':sources.extend(BASE/'src'/name for name in ('DrivingMath.cs','VehicleHandling.cs','VehicleDriftTuning.cs','SuvTuning.cs','MwChassisTuning.cs','VehicleRideHeight.cs','PerformanceTuning.cs'))
+        elif suite=='network':sources.extend(BASE/'src'/name for name in ('VehicleNetworkProtocol.cs','VehicleNetworkClient.cs'))
+        elif suite=='networkintegration':
+            sources.extend(BASE/'src'/name for name in ('CarProfile.cs','VehiclePersistence.cs','VehicleStorageRules.cs','VehicleNetworkProtocol.cs','VehicleNetworkClient.cs','VehicleNetworkServer.cs','VehicleMotionTelemetry.cs'))
+            arguments=[str(OUTPUT/'mod')]
+        elif suite=='networksettings':
+            sources.append(BASE/'src/NetworkVehicleSettings.cs')
+            configdll=out/'BepInEx.dll';shutil.copy2(bepinex_dir()/'core/BepInEx.dll',configdll);refs.append(configdll)
+            for name in ('UnityEngine.dll','UnityEngine.CoreModule.dll'):
+                target=out/name;shutil.copy2(valheim_dir()/'valheim_Data/Managed'/name,target);refs.append(target)
         elif suite=='mesh':sources.append(BASE/'src/VehicleMesh.cs')
         elif suite=='streaming':sources.extend(BASE/'src'/name for name in ('VehicleWorldStreaming.cs','VehicleParkingRules.cs'))
         elif suite=='garageprogression':sources.append(BASE/'src/GarageProgression.cs')
@@ -29,7 +38,7 @@ def main():
         elif suite=='flight':sources.extend(BASE/'src'/name for name in ('FlightState.cs','VehicleFlight.cs','NitroState.cs','DrivingMath.cs'))
         elif suite=='impact':sources.extend(BASE/'src'/name for name in ('VehicleImpactRules.cs','VehicleImpact.cs'))
         elif suite=='nitroview':sources.append(BASE/'src/NitroCameraView.cs')
-        elif suite=='storage':sources.extend(BASE/'src'/name for name in ('CarProfile.cs','VehicleStorageRules.cs','VehicleStorage.cs'))
+        elif suite=='storage':sources.extend(BASE/'src'/name for name in ('CarProfile.cs','VehicleStorageRules.cs','VehicleStorage.cs','VehiclePersistence.cs','VehicleNetworkProtocol.cs'))
         elif suite=='carprofile':sources.extend(BASE/'src'/name for name in ('CarProfile.cs','ModelFile.cs','TurretState.cs','VehicleStorageRules.cs','ControlRules.cs','DrivingMath.cs'))
         elif suite=='mw':
             sources.extend(BASE/'src'/name for name in ('CarProfile.cs','ModelFile.cs','TurretState.cs','VehicleVinylData.cs','VehicleDecalData.cs','WheelFitMath.cs','WheelSizeVisuals.cs'));sources.append(BASE/'tests/wheelsize/Doubles.cs')
@@ -49,7 +58,7 @@ def main():
             harmony=out/'0Harmony.dll';shutil.copy2(bepinex_dir()/'core/0Harmony.dll',harmony);refs.append(harmony)
         else:
             plugin=out/'NeedForValheim.dll';shutil.copy2(OUTPUT/'mod/NeedForValheim.dll',plugin);refs.append(plugin)
-        if suite in ('model','storage','carprofile','wheelsize','mw'):
+        if suite in ('model','storage','carprofile','wheelsize','mw','networksettings','networkintegration'):
             jsondll=out/'Newtonsoft.Json.dll';shutil.copy2(valheim_dir()/'valheim_Data/Managed/Newtonsoft.Json.dll',jsondll);refs.append(jsondll)
         if suite=='mw':arguments=[str(LOCAL/'mw-export')]
         if suite=='model':arguments=[str(LOCAL/'model/body.json')]

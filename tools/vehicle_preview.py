@@ -28,6 +28,27 @@ def load_vehicle(root, ident):
 def xyz(v):return tuple(v[k] for k in ('x','y','z'))
 
 
+def apply_styles(root,ident,model,choices):
+    """Use the same replacement targets/material tables as the runtime garage."""
+    if not choices:return model
+    path=Path(root)/'styling'/(ident+'.json')
+    if not path.exists():path=Path(root)/'mw-export/styling'/(ident+'.json')
+    library=unpack_model(json.loads(path.read_text(encoding='utf-8-sig')))
+    for choice in choices:
+        category,number=choice.split(':');number=int(number)
+        if not any(o['category']==category and o['id']==number for o in library['styleOptions']):raise ValueError('Unknown part '+choice)
+        removed={r.split('|',1)[1] for r in library['styleReplacements'] if r.startswith(category+'|')}
+        model['parts']=[p for p in model['parts'] if p['name'] not in removed]
+    material_offset=len(model['materials']);texture_offset=len(model['textures'])
+    model['textures']+=library['textures']
+    model['materials']+=[{**m,'texture':m['texture']+texture_offset if m['texture']>=0 else -1} for m in library['materials']]
+    model['parts']+=[{**p,'optionGroup':'','material':p['material']+material_offset} for p in library['parts'] if p.get('option') in choices]
+    for choice in choices:
+        if choice.startswith('Bodykit:'):
+            model['_wheelFit']=next(o for o in library['styleOptions'] if o['category']=='Bodykit' and o['id']==int(choice.split(':')[1]))
+    return model
+
+
 def rotate(v,q):
     x,y,z,w=(q[k] for k in ('x','y','z','w'))
     a,b,c=v
@@ -81,8 +102,17 @@ def instances(profile,model,layout=2,engine=0,exhaust=8,opening=0,door_style='RE
         for axle,z in axles:
             if part.get('axle') and part['axle']!=axle:continue
             track=rig.get('rearTrackWidth',0) or rig['trackWidth'] if axle=='rear' else rig['trackWidth']
+            fit=model.get('_wheelFit',{});offset=fit.get('frontWheelOffset' if axle=='front' else 'rearWheelOffset',0)
+            width_scale=fit.get('frontTyreScale' if axle=='front' else 'rearTyreScale',1)
+            width=(rig.get('rearTyreWidth',0) or rig.get('tyreWidth',0)) if axle=='rear' else rig.get('tyreWidth',0)
+            track+=offset-width*(width_scale-1)/2
+            adjusted=[]
+            for x,y,z in normals:
+                normal=(x/width_scale,y,z);length=math.sqrt(sum(c*c for c in normal))
+                adjusted.append(tuple(c/length for c in normal) if length>1e-8 else (0,1,0))
+            axle_hub=hub+((rig.get('rearWheelHeight',0) or rig.get('wheelHeight',rig['wheelRadius']))-rig.get('wheelHeight',rig['wheelRadius']) if axle=='rear' else 0)
             for side in (-1,1):
-                yield part,[(side*(track+x),y+hub,side*depth+z) for x,y,depth in points],[(side*x,y,side*z) for x,y,z in normals]
+                yield part,[(side*(track+x*width_scale),y+axle_hub,side*depth+z) for x,y,depth in points],[(side*x,y,side*z) for x,y,z in adjusted]
     if layouts:
         for index,slot in enumerate(layouts[layout]['sockets']):
             choices=[c for c in model.get('audioComponents',[]) if c['size']==slot['size']]

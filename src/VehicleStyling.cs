@@ -28,10 +28,11 @@ public sealed class VehicleStyling : IDisposable {
     readonly VehicleVinylRenderer vinyls;
     readonly Color originalBodyColour;
     int paintRevision;
+    float carbonMetal=.08f,carbonGloss=.45f;
     int lastPaint=-1,lastFinish=-1,lastRim=-1,lastVinyl=-1,lastVinylColor=-1;
     bool lastTrim;
     readonly bool factoryWide;
-    sealed class PaintSurface {public Material material;public Color color;public Texture texture;public float metal,gloss;public bool rim,trim,vinyl;}
+    sealed class PaintSurface {public Material material;public Color color;public Texture texture;public float metal,gloss;public bool rim,trim,vinyl,carbon;}
     public Material[] Materials=>materials;
     public bool Busy=>pending!=null;
     public bool HasCatalog=>catalog!=null;
@@ -68,13 +69,17 @@ public sealed class VehicleStyling : IDisposable {
         for(int i=0;i<table.Length;i++) {
             var description=data.materials[i];var m=table[i];
             string name=description.name??"";
+            bool carbon=description.texture>=0&&IsCarbon(data.textures[description.texture].name);
+            if(carbon) {
+                carbonMetal=description.metallic;carbonGloss=description.smoothness;
+            }
             bool wheelSurface=data.parts.Any(p=>p.material==i&&(p.group=="wheel"||p.group=="spinner"));
             bool rim=wheelSurface&&(description.rimPaint||name.StartsWith("wheel_",StringComparison.Ordinal)||(name.Contains("_wheel_")&&description.metallic>.4f));
             bool trim=data.parts.Any(p=>p.material==i&&p.group=="body")&&(name.StartsWith("wheel_chrome_",StringComparison.Ordinal)||new[]{"fd102a92_","54949afd_","2e65e067_","22719fa9_"}.Any(prefix=>name.StartsWith(prefix,StringComparison.Ordinal)));
             if(name.StartsWith("mw_window",StringComparison.Ordinal))glass.Add(Tuple.Create(m,m.HasColor("_Color")?m.GetColor("_Color"):Color.white));
             if(!description.bodyPaint&&!rim&&!trim)continue;
             painted.Add(new PaintSurface{material=m,color=m.HasColor("_Color")?m.GetColor("_Color"):Color.white,texture=m.HasTexture("_MainTex")?m.GetTexture("_MainTex"):null,
-                metal=m.HasFloat("_Metallic")?m.GetFloat("_Metallic"):description.metallic,gloss=m.HasFloat("_Glossiness")?m.GetFloat("_Glossiness"):description.smoothness,rim=rim,trim=trim,
+                metal=m.HasFloat("_Metallic")?m.GetFloat("_Metallic"):description.metallic,gloss=m.HasFloat("_Glossiness")?m.GetFloat("_Glossiness"):description.smoothness,rim=rim,trim=trim,carbon=carbon,
                 vinyl=description.bodyPaint&&!rim&&!trim&&(description.texture<0||!IsCarbon(data.textures[description.texture].name))});
         }
     }
@@ -178,14 +183,18 @@ public sealed class VehicleStyling : IDisposable {
         if(paint==lastPaint&&finish==lastFinish&&rim==lastRim&&vinyl==lastVinyl&&colour==lastVinylColor&&paintTrim==lastTrim)return;
         foreach(var surface in painted) {
             var material=surface.material;int choice=surface.rim?rim:surface.trim&&!paintTrim?0:paint;
-            var color=choice==0?surface.color:Plugin.PaintColors[choice];
+            var color=surface.carbon||choice==0?surface.color:Plugin.PaintColors[choice];
             if(surface.vinyl&&vinyl!=0&&paint==0)color=originalBodyColour;
             if(surface.vinyl&&vinyls.Texture!=null)color=Color.white;
             foreach(var property in new[]{"_Color","_BaseColor"})if(material.HasColor(property))material.SetColor(property,color);
             if(surface.rim)foreach(var property in new[]{"_MainTex","_BaseMap","_Albedo"})if(material.HasTexture(property))material.SetTexture(property,rim==0?surface.texture:Texture2D.whiteTexture);
             if(surface.trim)foreach(var property in new[]{"_MainTex","_BaseMap","_Albedo"})if(material.HasTexture(property))material.SetTexture(property,choice==0?surface.texture:Texture2D.whiteTexture);
             if(!surface.rim&&!surface.trim) {
-                float metal=finish==0?surface.metal:finish==2?.85f:.05f,gloss=finish==0?surface.gloss:finish==3?.15f:.9f;
+                float metal=surface.carbon||finish==0?surface.metal:finish==2?.85f:.05f,gloss=surface.carbon||finish==0?surface.gloss:finish==3?.15f:.9f;
+                if(surface.vinyl) {
+                    metal=Mathf.Lerp(metal,carbonMetal,vinyls.CarbonAmount);
+                    gloss=Mathf.Lerp(gloss,carbonGloss,vinyls.CarbonAmount);
+                }
                 if(material.HasFloat("_Metallic"))material.SetFloat("_Metallic",metal);
                 foreach(var property in new[]{"_Glossiness","_Smoothness","_GlossMapScale"})if(material.HasFloat(property))material.SetFloat(property,gloss);
                 foreach(var property in new[]{"_MainTex","_BaseMap","_Albedo"})if(material.HasTexture(property))material.SetTexture(property,surface.vinyl&&vinyls.Texture!=null?vinyls.Texture:vinyl==0?surface.texture:surface.vinyl?Texture2D.whiteTexture:surface.texture);

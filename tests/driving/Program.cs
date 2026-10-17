@@ -38,7 +38,12 @@ class DrivingTests {
         Check(HudMath.TurboNeedleAngle(float.NaN)==-75&&HudMath.TurboNeedleAngle(float.PositiveInfinity)==-75,"invalid pressure returns needle to zero");
         Check(HudMath.Unit(-1)==0&&HudMath.Unit(2)==1&&HudMath.Unit(float.NaN)==0,"nitro fill clamps depleted full and invalid tank levels");
         Check(HudMath.NitroPixelProgress(14,117)<.05f&&HudMath.NitroPixelProgress(160,45)>.9f,"NOS arc fills from lower left toward upper right");
-        var data=HudFile.Load(args[0]);Check(data.designs.Length==11&&data.nitro.rgba.Length==256*128*4,"all eleven original gauges and NOS atlas load");
+        Check(HudMath.MwNeedleAngle(0)==-115&&HudMath.MwNeedleAngle(4000)==0&&HudMath.MwNeedleAngle(8000)==115,"MW needle follows the authored 0, 4 and 8 markings");
+        var data=HudFile.Load(args[0]);Check(data.designs.Length==22&&data.nitro.rgba.Length==256*128*4,"eleven U2 and eleven native MW tachometers load");
+        Check(data.designs[11].kind=="mw-tach"&&data.designs[21].kind=="mw-tach"&&data.designs[11].lines.name=="8000_LINES_00","MW uses actual labeled tachometers rather than race meter arcs");
+        Check(data.designs[0].needlePivot<.9f&&data.designs[11].needlePivot<.9f,"native needle tails extend past their authored rotation pivots");
+        Check(data.mwNitro!=null&&data.mwNitro.name=="METER_BACKING2"&&data.mwNitro.width==256,"MW NOS loads its native meter artwork");
+        Check(HudMath.MwNitroPixelProgress(0,127,256,256)>.99f&&Math.Abs(HudMath.MwNitroPixelProgress(127,0,256,256)-.5f)<.01f&&HudMath.MwNitroPixelProgress(255,127,256,256)<.01f,"MW NOS depletes upper end first after the native 140 degree rotation");
         string temp=Path.Combine(Path.GetTempPath(),"nfvu2-hud-"+Guid.NewGuid().ToString("N")+".json");
         try {
             Check(data.designs[0].turboFill!=null&&data.designs[10].turboLines!=null,"original turbo artwork loads with all gauge styles");

@@ -18,6 +18,7 @@ internal sealed class VehicleCabinDriver:IDisposable {
     readonly Dictionary<string,bool> bools=new Dictionary<string,bool>();
     readonly Dictionary<string,Transform> bones;
     readonly Queue<Vector3> approach=new Queue<Vector3>();
+    readonly CabinApproach approachWatch=new CabinApproach();
     readonly List<Tuple<Renderer,bool>> equipment=new List<Tuple<Renderer,bool>>();
     readonly List<Tuple<SkinnedMeshRenderer,bool>> skins=new List<Tuple<SkinnedMeshRenderer,bool>>();
     Vector3 outside,exitWorld,standingLocal;
@@ -84,16 +85,18 @@ internal sealed class VehicleCabinDriver:IDisposable {
         if(Motion.Phase==CabinPhase.Approach) {
             if(!blocked&&approach.Count>0) {
                 var target=approach.Peek();var next=Vector3.MoveTowards(standingLocal,target,Mathf.Min(dt,.1f)*1.65f);
+                var distance=target-standingLocal;distance.y=0;
+                if(approachWatch.Step(dt,distance.magnitude,false)){ArriveAtDoor();return;}
                 var world=car.TransformPoint(next);
                 var ground=Physics.RaycastAll(world+Vector3.up*1.5f,Vector3.down,3,~0,QueryTriggerInteraction.Ignore)
                     .Where(h=>!h.collider.transform.IsChildOf(player)&&!h.collider.transform.IsChildOf(car)).OrderBy(h=>h.distance).ToArray();
-                if(ground.Length==0||ground[0].normal.y<.65f){Failed=true;return;}
+                if(ground.Length==0||ground[0].normal.y<.65f){ArriveAtDoor();return;}
                 world.y=ground[0].point.y+.06f;next=car.InverseTransformPoint(world);
-                if(!ClearCapsule(world)){Failed=true;return;}
+                if(!ClearCapsule(world)){ArriveAtDoor();return;}
                 var direction=target-standingLocal;direction.y=0;
                 if(direction.sqrMagnitude>.0001f)standingRotation=Quaternion.RotateTowards(standingRotation,Quaternion.LookRotation(direction),dt*360);
                 standingLocal=next;Float("forward_speed",1.65f);
-                var remaining=next-target;remaining.y=0;if(remaining.magnitude<.025f)approach.Dequeue();
+                var remaining=next-target;remaining.y=0;if(remaining.magnitude<.04f){approach.Dequeue();approachWatch.NextWaypoint();}
             }
             player.SetPositionAndRotation(car.TransformPoint(standingLocal),car.rotation*standingRotation);
             if(approach.Count==0)Motion.Arrive();return;
@@ -103,7 +106,22 @@ internal sealed class VehicleCabinDriver:IDisposable {
         var seatRoot=seat-new Vector3(0,.7f,0);
         player.SetPositionAndRotation(car.TransformPoint(Vector3.Lerp(outside,seatRoot,blend)),
             car.rotation*Quaternion.Slerp(Quaternion.Euler(0,Motion.Phase==CabinPhase.Exit||Motion.Phase==CabinPhase.Complete?-90:90,0),Quaternion.identity,blend));
-        if(blend>0) {
+        PoseSeat(blend,seat,dt,blocked,doors,Motion.CanDrive);
+    }
+    public void TickObserver(float dt,float blend,ShowroomState doors) {
+        if(disposed||visual==null||animator==null)return;
+        blend=float.IsNaN(blend)||float.IsInfinity(blend)?0:Mathf.Clamp01(blend);
+        controls.Step(dt,controlThrottle,controlBrake,controlHandbrake,controlGear,blend>.95f);interior.ApplyControls(controls);
+        Bool("attach_chair",blend>.12f);Bool("inWater",false);Bool("onGround",true);
+        Float("sideway_speed",0);Float("turn_speed",0);Float("forward_speed",0);
+        visual.localPosition=visualPosition;visual.localRotation=visualRotation;
+        visual.rotation=Quaternion.Slerp(visual.rotation,car.rotation*visualRotation,blend);
+        visual.localScale=visualScale*Mathf.Lerp(1,interior.DriverScale,blend);
+        PoseSeat(blend,interior.SeatPosition,dt,false,doors,blend>.95f);
+    }
+    void PoseSeat(float blend,Vector3 seat,float dt,bool blocked,ShowroomState doors,bool canDrive) {
+        if(blend<=0)return;
+
             // Align the actual pelvis, allowing for gender, equipment and the native chair pose.
             visual.position+= (car.TransformPoint(seat)-hips.position)*blend;
             if(bones.TryGetValue("Head",out var head)) {
@@ -112,9 +130,9 @@ internal sealed class VehicleCabinDriver:IDisposable {
                 visual.position-=car.up*CabinAppearance.RoofLowering(headHeight,scale,interior.HeadCeiling)*blend;
             }
             // Withdraw the resting arm before opening the door; never follow a scissor door upwards.
-            float restTarget=interior.SupportsWindowRest&&Motion.CanDrive&&Mathf.Abs(controlThrottle)<.05f&&Mathf.Abs(controlSteer)<.05f&&
+            float restTarget=interior.SupportsWindowRest&&canDrive&&Mathf.Abs(controlThrottle)<.05f&&Mathf.Abs(controlSteer)<.05f&&
                 doors!=null&&!doors.Open[1]&&doors.Progress[1]<.03f?1:0;
-            float poseDt=blocked&&!Motion.CanDrive?0:Mathf.Min(dt,.1f);
+            float poseDt=blocked&&!canDrive?0:Mathf.Min(dt,.1f);
             windowRest=Mathf.MoveTowards(windowRest,restTarget,poseDt*5);
             var sill=seat+new Vector3(-.426f,.47f,.33f);
             var leftPole=seat+Vector3.Lerp(new Vector3(-.25f,.2f,0),new Vector3(-.436f,.48f,-.03f),windowRest);
@@ -126,7 +144,20 @@ internal sealed class VehicleCabinDriver:IDisposable {
             AimHand("LeftHand","LeftHandMiddle1",Vector3.Lerp(interior.RightHandForward,car.forward,windowRest),blend);
             Limb("LeftUpLeg","LeftLeg","LeftFoot",interior.LeftFoot,seat+new Vector3(-.12f,.11f,.35f),blend);
             Limb("RightUpLeg","RightLeg","RightFoot",Vector3.Lerp(interior.RightFoot,interior.BrakeFoot,controls.Brake),seat+new Vector3(.085f,.11f,.35f),blend);
-        }
+
+    }
+    void ArriveAtDoor() {
+        // The path may cross rocks or a wall. Recheck the destination itself;
+        // never complete entry by placing the avatar in an occupied capsule.
+        var origin=car.TransformPoint(outside);
+        var hits=Physics.RaycastAll(origin+Vector3.up*1.5f,Vector3.down,3,~0,QueryTriggerInteraction.Ignore)
+            .Where(h=>!h.collider.transform.IsChildOf(player)&&!h.collider.transform.IsChildOf(car)).OrderBy(h=>h.distance).ToArray();
+        if(hits.Length==0||hits[0].normal.y<.65f){Failed=true;return;}
+        var foot=hits[0].point+Vector3.up*.06f;
+        if(!ClearCapsule(foot)){Failed=true;return;}
+        outside=standingLocal=car.InverseTransformPoint(foot);exitWorld=foot;approach.Clear();
+        player.SetPositionAndRotation(foot,car.rotation*Quaternion.Euler(0,90,0));
+        Float("forward_speed",0);Motion.Arrive();
     }
     void AimHand(string handName,string fingerName,Vector3 direction,float blend) {
         if(!bones.TryGetValue(handName,out var hand)||!bones.TryGetValue(fingerName,out var finger))return;

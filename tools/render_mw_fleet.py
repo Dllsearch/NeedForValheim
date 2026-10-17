@@ -26,14 +26,14 @@ for profile in profiles:
   key=(id(data),index)
   if key in materials:return materials[key]
   m=data['materials'][index];mat=bpy.data.materials.new(m['name']);mat.use_nodes=True;mat.diffuse_color=m['color'];shader=mat.node_tree.nodes.get('Principled BSDF');shader.inputs['Base Color'].default_value=m['color'];shader.inputs['Metallic'].default_value=m['metallic'];shader.inputs['Roughness'].default_value=1-m['smoothness']
-  if m.get('alphaMode')=='blend':shader.inputs['Alpha'].default_value=m['color'][3];mat.surface_render_method='DITHERED'
+  if m.get('alphaMode') in ('blend','mask'):shader.inputs['Alpha'].default_value=m['color'][3];mat.surface_render_method='DITHERED'
   if m['texture']>=0:
    tk=(id(data),m['texture']);t=data['textures'][m['texture']]
    if tk not in images:
     raw=base64.b64decode(t.get('rgba',t.get('rgbaDeflate')));raw=zlib.decompress(raw,-15) if 'rgbaDeflate' in t else raw
     image=bpy.data.images.new(t['name'],t['width'],t['height'],alpha=True);pixels=np.frombuffer(raw,np.uint8).reshape(t['height'],t['width'],4)[::-1].astype(np.float32)/255;image.pixels.foreach_set(pixels.ravel());images[tk]=image
    node=mat.node_tree.nodes.new('ShaderNodeTexImage');node.image=images[tk];mat.node_tree.links.new(node.outputs['Color'],shader.inputs['Base Color'])
-   if m.get('alphaMode')=='blend':mat.node_tree.links.new(node.outputs['Alpha'],shader.inputs['Alpha'])
+   if m.get('alphaMode') in ('blend','mask'):mat.node_tree.links.new(node.outputs['Alpha'],shader.inputs['Alpha'])
   materials[key]=mat;return mat
  for p,data in parts:
   mesh=bpy.data.meshes.new(p['name']);mesh.from_pydata([(v['x'],v['z'],v['y']) for v in p['vertices']],[],[p['indices'][i:i+3][::-1] for i in range(0,len(p['indices']),3)]);mesh.update();uv=mesh.uv_layers.new()

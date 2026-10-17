@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 from functools import lru_cache
 from export_car import SPECS, source_name, ASSETS, LOCAL, parse, pick, family, TexturePack, PAINT, RUBBER, LIP, CHROME, GLASS, DARK, CLEAR
-from vehicle_geometry import wheel_source_radius, badge_uv, badge_rows_uv, BADGE_OVERLAY
+from vehicle_geometry import wheel_source_radius, badge_uv, badge_rows_uv, BADGE_OVERLAY, painted_arch_width
 from nfs_formats import bin_hash
 
 CATEGORIES=('Bodykit','Front','Rear','Skirts','Hood','Spoiler','Rims')
@@ -58,19 +58,27 @@ def export(profile):
         if category:
             replacements.append(category+'|'+part['name'])
             if category in ('Front','Rear','Skirts'):replacements.append('Bodykit|'+part['name'])
-    def add(category,title,items):
+    def add(category,title,items,**metadata):
         if not items:return
         index=1+sum(o['category']==category for o in options)
-        options.append(dict(category=category,id=index,title=title))
+        options.append(dict(category=category,id=index,title=title,**metadata))
         for mesh,name,group,socket in items:selected.append((mesh,name,group,socket,category,index))
     def body_items(names):return [(pick(meshes,n),n,'body',None) for n in names]
+    stock_body=pick(meshes,car+'_KIT00_BODY')
+    axles=(profile['rig'].get('frontAxleZ'),-profile['rig'].get('rearAxleZ',0))
     for kit in ('KIT00','KITW01','KITW02','KITW03','KITW04','KITW05'):
         names=[n for n in families if n.startswith(f'{car}_{kit}_') and replacement_category(n)=='Bodykit']
         # SUVs contain KITW door-window placeholders without a widebody shell.
         # Advertising those as kits would hide the complete stock body/bumpers.
         if not any(n.endswith('_BODY') and len(pick(meshes,n)['indices'])>90 for n in names):continue
         if kit!='KIT00':names += [n for n in families if n.startswith(f'{car}_{kit}_') and replacement_category(n) in ('Front','Rear','Skirts')]
-        add('Bodykit','Standard body' if kit=='KIT00' else 'Widebody '+kit[-2:],body_items(names))
+        metadata={}
+        if kit!='KIT00':
+            shell=pick(meshes,car+'_'+kit+'_BODY')
+            offsets=[round(painted_arch_width(shell,axle)-painted_arch_width(stock_body,axle),5) for axle in axles]
+            if any(abs(value)>.3 for value in offsets):raise ValueError('Unsupported kit track delta: '+car+' '+kit)
+            metadata=dict(sourceKit=int(kit[-2:]),frontWheelOffset=offsets[0],rearWheelOffset=offsets[1])
+        add('Bodykit','Standard body' if kit=='KIT00' else 'Widebody '+kit[-2:],body_items(names),**metadata)
     for category,ending in (('Front','FRONT_BUM'),('Rear','REAR_BUM'),('Skirts','SKIRT')):
         for kit in range(31):
             names=[n for n in families if n.startswith(f'{car}_KIT{kit:02}_') and ending in n]

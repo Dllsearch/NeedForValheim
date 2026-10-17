@@ -31,17 +31,32 @@ public static class VehicleMaterials {
         } catch { UnityEngine.Object.Destroy(texture); throw; }
     }
     public static Material CreateGlowMaterial(Texture2D texture) {
-        var shader = Resources.FindObjectsOfTypeAll<Material>()
-            .Where(m => m != null && m.shader != null && m.shader.isSupported && m.HasTexture("_MainTex") &&
-                m.shader.name.IndexOf("additive", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                m.shader.name.IndexOf("particle", StringComparison.OrdinalIgnoreCase) >= 0)
-            .Select(m => m.shader).FirstOrDefault();
-        if (shader == null) foreach (var name in new[] { "Legacy Shaders/Particles/Additive", "Particles/Additive", "Unlit/Transparent", "Sprites/Default" }) {
-            var candidate = Shader.Find(name); if (candidate != null && candidate.isSupported) { shader = candidate; break; }
+        // A scene particle shader can require depth fading, custom vertex streams
+        // or effect-specific uniforms. Ground decals supply only mesh UV/color.
+        Shader shader = null;
+        foreach (var name in new[] { "Standard", "Sprites/Default", "Legacy Shaders/Particles/Additive", "Particles/Additive" }) {
+            var candidate = Shader.Find(name);
+            if (candidate != null && candidate.isSupported) { shader = candidate; break; }
         }
         if (shader == null) throw new InvalidOperationException("No supported textured glow shader loaded");
         var material = new Material(shader) { name = "Vehicle_NeonMask", renderQueue = 3000 };
         material.SetTexture("_MainTex", texture);
+        if (shader.name == "Standard") {
+            // Standard is already loaded for vehicle paint. Explicit premultiplied
+            // transparency avoids relying on optional particle/sprite shaders.
+            material.SetFloat("_Mode", 3);
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.DisableKeyword("_ALPHABLEND_ON");
+            material.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.SetFloat("_Glossiness", 0);
+            material.SetFloat("_Metallic", 0);
+            material.EnableKeyword("_EMISSION");
+            material.SetTexture("_EmissionMap", texture);
+            material.SetColor("_EmissionColor", Color.white);
+        }
         if (material.HasFloat("_ZWrite")) material.SetFloat("_ZWrite", 0);
         if (material.HasFloat("_Cull")) material.SetFloat("_Cull", 0);
         return material;
@@ -58,7 +73,7 @@ public static class VehicleMaterials {
         bool success=false;
         try {
             Shader wheelShader = null;
-            if (model.materials.Any(m => m.alphaMode=="blend"||m.bodyPaint||m.rimPaint||IsWheelMetal(m.name)||IsWheelRubber(m.name))) {
+            if (model.materials.Any(m => m.alphaMode=="blend"||m.alphaMode=="mask"||m.bodyPaint||m.rimPaint||IsWheelMetal(m.name)||IsWheelRubber(m.name))) {
                 wheelShader = Resources.FindObjectsOfTypeAll<Material>()
                     .Where(m => m != null && m.shader != null && m.shader.isSupported && m.shader.name == "Standard")
                     .Select(m => m.shader).FirstOrDefault() ?? Shader.Find("Standard");
@@ -98,6 +113,11 @@ public static class VehicleMaterials {
                 if(data.alphaMode=="blend") {
                     material.SetFloat("_Mode",3);material.SetInt("_SrcBlend",(int)UnityEngine.Rendering.BlendMode.SrcAlpha);material.SetInt("_DstBlend",(int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
                     material.SetInt("_ZWrite",0);material.DisableKeyword("_ALPHATEST_ON");material.EnableKeyword("_ALPHABLEND_ON");material.DisableKeyword("_ALPHAPREMULTIPLY_ON");material.renderQueue=3000;
+                }
+                if(data.alphaMode=="mask") {
+                    material.SetFloat("_Mode",1);material.SetFloat("_Cutoff",.5f);
+                    material.SetInt("_SrcBlend",(int)UnityEngine.Rendering.BlendMode.One);material.SetInt("_DstBlend",(int)UnityEngine.Rendering.BlendMode.Zero);
+                    material.SetInt("_ZWrite",1);material.EnableKeyword("_ALPHATEST_ON");material.DisableKeyword("_ALPHABLEND_ON");material.DisableKeyword("_ALPHAPREMULTIPLY_ON");material.renderQueue=2450;
                 }
 
                 // VehicleMesh supplies reverse faces with their own inward normals.

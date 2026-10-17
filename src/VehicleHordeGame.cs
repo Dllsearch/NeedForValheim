@@ -135,7 +135,7 @@ public partial class Plugin {
     }
     void TickHordeWeather(MonoBehaviour local) {
         if(hordeWeather==null)return;
-        if(local==null||Multiplayer()||!hordeWeather.IsCurrent){hordeWeather.Dispose();hordeWeather=null;return;}
+        if(local==null||(NetworkSessionActive||Multiplayer())||!hordeWeather.IsCurrent){hordeWeather.Dispose();hordeWeather=null;return;}
         // Continue the clear-day transition after the encounter and car are gone.
         hordeWeather.Tick(Time.deltaTime);
     }

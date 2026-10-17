@@ -1,5 +1,20 @@
 # Changelog
 
+## Local development - vehicle alignment and garage presentation
+
+- Correct complete split badge words, MW emblems and plates; preserve source
+  geometry, alpha and surface orientation. Align U2 bodies and per-axle hubs.
+- Preserve MW rotor alpha; adapt empty shared brake textures with original MW
+  rotor art and cast-metal calipers; omit unavailable decorative billboards.
+- Recover stalled entry paths at a revalidated free door capsule, with bounded
+  walking time and door positions derived from each fitted cabin.
+- Texture the buildable service bay; switch virtual U2 studio/MW warehouse
+  scenery with the frontend; keep the fullscreen backdrop opaque.
+- Add MW Race/Drag gauges with original local artwork and live telemetry;
+  keep gauges above the actual hint panel and fit long hint labels.
+- Add opt-in title-screen GUI/isolated PhysX checks. Screenshots require visual
+  review; this does not claim player-controlled driving acceptance.
+
 ## Local development — Unified vehicle pipeline
 
 - U2 badge overlays preserve source alpha and correct mirrored surface UVs,

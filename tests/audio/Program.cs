@@ -118,6 +118,9 @@ class AudioTests {
                 writer.WriteLine(string.Join(",",new[]{t,model.Rpm,model.Load,model.Level,model.ShiftGain,speed,(float)model.Gear,turbo.Charge,(float)turbo.BlowOff,turbo.ChargeGain,turbo.ChargePitch,turbo.BlowOffGain,turbo.Pressure}.Select(v=>v.ToString("R",CultureInfo.InvariantCulture))));
             }
         }
+        var observed=new EngineSoundModel();observed.Observe(.1f,true,4200,.7f,3,false);
+        Check(observed.Rpm==4200&&observed.Gear==3&&observed.Load==.7f&&observed.Level>0,"remote engine follows transmitted RPM load and gear without wheel physics");
+        observed.Observe(.1f,false,950,1,3,false);Check(observed.Load==0,"stopped remote engine cannot retain throttle load");
         Console.WriteLine(checks+" audio checks passed against the compiled plugin. Unity playback still requires an in-game check.");
     }
     static void CheckFinite(EngineSoundModel m){if(float.IsNaN(m.Rpm)||float.IsInfinity(m.Rpm)||m.Rpm<950||m.Rpm>6700||m.Gear==0)throw new Exception("Invalid engine sound state");}

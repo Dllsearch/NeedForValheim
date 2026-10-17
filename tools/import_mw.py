@@ -22,6 +22,8 @@ def verify(root,source):
  for profile in profiles:
   ident=profile['id'];provenance=json.loads((root/ident/'provenance.json').read_text());car=ident[3:].upper()
   if provenance['unresolvedTextures']:raise ValueError('Unresolved '+ident)
+  if not isinstance(profile['assets'].get('decalSlots'),list):
+   raise ValueError('Incomplete MW decal metadata for '+ident+'; run tools/export_mw_decals.py after the fleet export')
   if profile['assets'].get('decalFile') and not (root/profile['assets']['decalFile']).is_file():raise ValueError('Missing native decal geometry '+ident)
   if not (root/'decals/mw-logos.json').is_file():raise ValueError('Missing original decal artwork')
   if not (root/'styling'/(ident+'.json')).is_file():raise ValueError('Missing part catalog '+ident)

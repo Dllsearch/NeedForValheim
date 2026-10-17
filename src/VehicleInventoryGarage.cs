@@ -28,14 +28,17 @@ public partial class Plugin {
             var labelRect=label.GetComponent<RectTransform>();labelRect.anchorMin=Vector2.zero;labelRect.anchorMax=Vector2.one;labelRect.offsetMin=labelRect.offsetMax=Vector2.zero;
             var text=label.GetComponent<TextMeshProUGUI>();if(inventory.m_weight!=null)text.font=inventory.m_weight.font;text.fontSize=19;text.fontStyle=FontStyles.Bold;text.alignment=TextAlignmentOptions.Center;text.color=Color.white;text.raycastTarget=false;text.text="CARS  /  GARAGE";
             inventoryGarageButton.onClick.AddListener(()=>{
-                if(!CanUseVehicleMenu(LocalPlayer()))return;
+                if(!CanUseVehicleMenu(LocalPlayer())) {
+                    ShowVehicleWarning(ExperimentalNetwork?"Waiting for a compatible NFVU2 server connection. Check that the server mod is loaded.":"This client build supports single-player only. Activate the network client for multiplayer.");
+                    return;
+                }
                 inventoryGarageRequested=true;inventory.Hide();Logger.LogInfo("Inventory garage requested");
             });
         }
         // Place a topmost sibling in inventory coordinates, outside grid masks.
         inventoryGarageObject.transform.position=inventory.m_player.TransformPoint(new Vector3(inventory.m_player.rect.xMax-8,inventory.m_player.rect.yMax+8,0));
         inventoryGarageObject.transform.SetAsLastSibling();
-        inventoryGarageButton.interactable=CanUseVehicleMenu(LocalPlayer())&&!SpawnBusy;
+        inventoryGarageButton.interactable=LocalPlayer()!=null&&!SpawnBusy;
     }
     bool OpenRequestedInventoryGarage() {
         if(!inventoryGarageRequested)return false;

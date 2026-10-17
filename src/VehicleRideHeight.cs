@@ -16,7 +16,7 @@ public sealed class VehicleRideHeight {
         float next=float.IsNaN(centimetres)||float.IsInfinity(centimetres)?0:Math.Max(0,Math.Min(12,centimetres))*.01f;
         bool changed=false;
         for(int i=0;i<wheels.Length;i++) {
-            // Imported MW rig coordinates describe the hub at rest. A collider's
+            // Imported rig coordinates describe the hub at rest. A collider's
             // transform is the TOP of its travel, not the hub. Unity's sprung-mass
             // preload already supports gravity at targetPosition: do not subtract
             // mass*g/spring here. Re-evaluate after road/offroad/flight changes.

@@ -118,7 +118,7 @@ public sealed class VehicleAudio : IDisposable {
         source.dopplerLevel=.25f;source.spread=0;source.outputAudioMixerGroup=mixer;
         return source;
     }
-    public void Tick(bool driving,float throttle,bool braking,bool honking,bool blocked,bool terrain,float volume,bool burnout=false,bool parkedRunning=false,bool flying=false,bool turboInputAllowed=true) {
+    public void Tick(bool driving,float throttle,bool braking,bool honking,bool blocked,bool terrain,float volume,bool burnout=false,bool parkedRunning=false,bool flying=false,bool turboInputAllowed=true,EngineSoundSnapshot? remote=null) {
         if(disposed)return;
         if(blocked) {
             if(!paused){foreach(var source in sources)source.Pause();paused=true;}
@@ -130,9 +130,11 @@ public sealed class VehicleAudio : IDisposable {
         float dt=Mathf.Min(Time.unscaledDeltaTime,.1f);
         float forward=Vector3.Dot(body.linearVelocity,body.transform.forward),speed=body.linearVelocity.magnitude;
         float wheelRpm=flying?0:(Mathf.Abs(wheels[2].rpm)+Mathf.Abs(wheels[3].rpm))*.5f;
+        if(remote.HasValue){forward=remote.Value.ForwardSpeed;speed=remote.Value.Speed;wheelRpm=remote.Value.WheelRpm;}
         if(flying){forward=speed=throttle=0;braking=burnout=false;}
         if(!driving){forward=speed=wheelRpm=throttle=0;braking=honking=burnout=false;}
-        model.Step(dt,driving||parkedRunning,forward,wheelRpm,burnout?1:throttle,braking,terrain,burnout);
+        if(remote.HasValue)model.Observe(dt,driving||parkedRunning,remote.Value.Rpm,remote.Value.Load,remote.Value.Gear,remote.Value.Shifting);
+        else model.Step(dt,driving||parkedRunning,forward,wheelRpm,burnout?1:throttle,braking,terrain,burnout);
         turboModel.Step(dt,driving&&!flying&&turbo&&turboInputAllowed,model.Rpm,braking?0:Mathf.Max(0,throttle),model.IsShifting,model.Gear<0,model.Load);
         if(model.Level>.001f && !playing){foreach(var source in sources)if(source.loop&&!inactiveEngine.Contains(source))source.Play();playing=true;}
         else if(model.Level<=.001f && playing){foreach(var source in sources)source.Stop();playing=false;}
@@ -158,6 +160,7 @@ public sealed class VehicleAudio : IDisposable {
             if(!float.IsNaN(value)&&!float.IsInfinity(value))slip=Mathf.Max(slip,value);
         }
         float contact=grounded/4f;
+        if(remote.HasValue){contact=Mathf.Clamp01(remote.Value.Contact);slip=Mathf.Max(0,remote.Value.Slip);grounded=Mathf.RoundToInt(contact*4);}
         roadLevel=Mathf.MoveTowards(roadLevel,contact*Mathf.Clamp01((speed-1)/16),dt*3);
         float skidTarget=contact*Mathf.Clamp01((slip-.35f)/1.1f)*Mathf.Clamp01((speed-2)/5);
         if(burnout&&grounded>=3)skidTarget=Mathf.Max(skidTarget,Mathf.Clamp01((wheelRpm-30)/180));

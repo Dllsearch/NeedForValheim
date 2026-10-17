@@ -1,8 +1,8 @@
-import argparse,shutil
+import argparse,hashlib,json,shutil
 from project import BASE,LOCAL,OUTPUT,valheim_dir,bepinex_dir
 from build_support import standard_refs,compile_cs
 
-def build(compile_only=False):
+def build(compile_only=False,experimental_network=False):
     game=valheim_dir();managed=game/'valheim_Data/Managed'
     refs=standard_refs()
     for name in ('UnityEngine','UnityEngine.CoreModule','UnityEngine.ImageConversionModule','Unity.InputSystem','Unity.TextMeshPro','UnityEngine.UI','UnityEngine.UIModule','UnityEngine.AnimationModule','UnityEngine.PhysicsModule','UnityEngine.VehiclesModule','UnityEngine.InputLegacyModule','UnityEngine.IMGUIModule','UnityEngine.AudioModule','UnityEngine.ParticleSystemModule','UnityEngine.UnityWebRequestModule','UnityEngine.UnityWebRequestAudioModule','UnityEngine.TextRenderingModule','Newtonsoft.Json'):
@@ -22,8 +22,8 @@ def build(compile_only=False):
     catalog=LOCAL/'cars/cars.json'
     if not compile_only and not model.exists():raise SystemExit('Run tools/export_car.py 350z first to generate body.json.')
     if not compile_only and not catalog.exists():raise SystemExit('Run tools/build_catalog.py first to generate cars.json.')
-    output=OUTPUT/'mod/NeedForValheim.dll'
-    compile_cs(output,sorted((BASE/'src').glob('*.cs')),refs,audio,library=True)
+    output=OUTPUT/('network-client' if experimental_network else 'mod')/'NeedForValheim.dll'
+    compile_cs(output,sorted((BASE/'src').glob('*.cs')),refs,audio,library=True,defines=("NFVU2_EXPERIMENTAL_NETWORK",) if experimental_network else ())
     if compile_only:
         print('Compiled without embedded assets (not installable):',output)
         return output
@@ -32,9 +32,15 @@ def build(compile_only=False):
     # Long stereo songs and optional original turbo clips stay external.
     from mod_files import sync_optional_assets
     sync_optional_assets(LOCAL,output.parent)
+    (output.parent/'build-variant.json').write_text(json.dumps({
+        'variant':'network' if experimental_network else 'singleplayer',
+        'sha256':hashlib.sha256(output.read_bytes()).hexdigest()
+    },indent=2),encoding='utf-8')
     print('Built:',output)
     return output
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--compile-only',action='store_true',help='Check that src compiles; skip asset requirements.')
-    build(parser.parse_args().compile_only)
+    parser.add_argument("--experimental-network",action="store_true",help="Enable unfinished multiplayer prototype; not for gameplay installs.")
+    args=parser.parse_args()
+    build(args.compile_only,args.experimental_network)

@@ -10,7 +10,17 @@ public partial class Plugin {
     bool uiBuilding,uiPointerInRegion=true;
     bool keyboardMenuActive;
     int interfaceSettingsPage;
-    void ChangeMenuTab(int tab){if(tab!=menuTab)laserSettingsOpen=false;menuTab=tab;uiFocus=0;uiActivate=false;uiHorizontal=uiVertical=0;uiNavigation.SelectPane(uiNavigation.Sidebar);uiBounds.Clear();uiLastCount=0;if(tab==10)spawnModel.Value=FrontendProfile.id;if((tab==0||tab==1||tab==9)&&car!=null)SelectFrontendProfile(current.Profile);}
+    void ChangeMenuTab(int tab){
+        int previous=MenuRoot(menuTab);
+        if(tab!=menuTab)laserSettingsOpen=false;
+        if(tab==5){tab=14;workshopTab=2;wheelWorkshopTab=3;}
+        else if(tab==8||tab==9){vehiclePage=tab==8?1:2;tab=0;}
+        else if(tab==2||tab==3||tab==4||tab==12||tab==6||tab==7){showcasePage=Array.IndexOf(new[]{2,3,4,12,6,7},tab);tab=16;}
+        else if(tab==14&&previous!=14){workshopTab=0;wheelWorkshopTab=0;stylePage=0;}
+        menuTab=tab;uiFocus=0;uiActivate=false;uiHorizontal=uiVertical=0;uiNavigation.SelectPane(uiNavigation.Sidebar);uiBounds.Clear();uiLastCount=0;
+        if(tab==10)spawnModel.Value=FrontendProfile.id;
+        if((tab==0||tab==1||tab==9)&&car!=null)SelectFrontendProfile(current.Profile);
+    }
     void FocusMenuPane(bool sidebar){uiNavigation.SelectPane(sidebar);uiActivate=false;uiHorizontal=uiVertical=0;uiWaitNeutral=true;MenuSound(0);}
     void MoveMenuFocus(int direction) {
         if(uiNavigation.Sidebar) {
@@ -111,7 +121,8 @@ public partial class Plugin {
     void UiBox(Rect rect,string text,GUIStyle style=null){if(style==null)GUI.Box(rect,Tr(text));else GUI.Box(rect,Tr(text),style);}
     void UiBox(Rect rect,GUIContent text,GUIStyle style){GUI.Box(rect,text,style);}
     void DrawInterfaceSettings() {
-        interfaceSettingsPage=UiToolbar(new Rect(25,142,510,31),interfaceSettingsPage,new[]{"Interface","Driving camera","Showroom camera","Menu design"});
+        interfaceSettingsPage=UiToolbar(new Rect(25,142,510,31),interfaceSettingsPage,new[]{"Interface","Driving camera","Showroom camera","Menu design","Controls"});
+        if(interfaceSettingsPage==4){DrawDrivingControlsHelp();return;}
         if(interfaceSettingsPage==3){DrawFrontendDesignSettings();return;}
         if(interfaceSettingsPage==1) {
             UiLabel(new Rect(25,190,510,25),"Driving mouse speed  "+mouseSensitivity.Value.ToString("0.00"),labelStyle);

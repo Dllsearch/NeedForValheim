@@ -7,6 +7,8 @@ namespace NeedForValheim {
 public sealed class ModelData {
     public int schemaVersion; public string preset;
     public float wheelVisualLift, frontWheelVisualOffset, rearWheelVisualOffset;
+    public float previewHubHeight;
+    public bool suspensionHubAtRest;
     public ModelPart[] parts; public ModelMaterial[] materials; public ModelTexture[] textures;
     public ModelLight[] lights; public int neonTexture = -1;
     public ModelEffectEmitter[] effectEmitters;
@@ -58,6 +60,7 @@ public static class ModelFile {
         // exhaust catalogs optional, so a car ships with only the catalogs its models have.
         bool rich = model.schemaVersion >= 2;
         if (rich) {
+            if(!ValidCoordinate(model.previewHubHeight)||model.previewHubHeight<0||model.previewHubHeight>2)throw new InvalidDataException("Invalid preview hub height");
             foreach (var offset in new[] { model.wheelVisualLift, model.frontWheelVisualOffset, model.rearWheelVisualOffset })
                 if (!ValidCoordinate(offset) || Math.Abs(offset) > .2f) throw new InvalidDataException("Invalid visual wheel offset");
             if (model.materials == null || model.materials.Length == 0 || model.materials.Length > 512 || model.textures == null || model.textures.Length > 128)
@@ -82,7 +85,7 @@ public static class ModelFile {
                 }part.packedGeometry=null;
             }
             foreach (var material in model.materials) {
-                if (material == null || (material.alphaMode!=null&&material.alphaMode!="opaque"&&material.alphaMode!="blend") || material.color == null || material.color.Length != 4 || material.texture < -1 || material.texture >= model.textures.Length ||
+                if (material == null || (material.alphaMode!=null&&material.alphaMode!="opaque"&&material.alphaMode!="blend"&&material.alphaMode!="mask") || material.color == null || material.color.Length != 4 || material.texture < -1 || material.texture >= model.textures.Length ||
                     !Unit(material.metallic) || !Unit(material.smoothness)) throw new InvalidDataException("Invalid material");
                 foreach (var c in material.color) if (!Unit(c)) throw new InvalidDataException("Invalid material color");
             }

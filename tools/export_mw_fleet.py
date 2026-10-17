@@ -143,7 +143,7 @@ def export_car(source,row,out,audio_cache):
   assets=dict(modelFile=ident+'/'+ident+'.json',engineFolder=stagefolders[0],engineStageFolders=stagefolders,engineCoast=True,
    audioFolders=['audio/effects','audio/turbo',*sorted(set(stagefolders))]))
  write(out/ident/'profile.json',[profile])
- provenance=dict(exportVersion=4,car=car,sourceGame='Most Wanted (2005) PC',attributes=attrs,attributeFallback='BMWM3GTR' if fallback else None,
+ provenance=dict(exportVersion=8,car=car,sourceGame='Most Wanted (2005) PC',attributes=attrs,attributeFallback='BMWM3GTR' if fallback else None,
   wheelArchFits=fits,bodyLift=lift,tyreRadii=radii,tyreWidths=widths,options=options,engineBanks=stages,
   lightFallbacks=light_fallbacks,generatedMaterials=sorted(compiler.generated),adaptedMaterials=sorted(compiler.adapted),unresolvedTextures=sorted(compiler.unresolved),dependencies=sorted(compiler.dependencies),
   adaptation='Original axle/width/radius/mass/gears/RPM/banks; vertical body alignment fitted from arches. NFVU2 dynamics, synthetic reverse/horn and common road/skid. Source SKIN paint is generated at runtime in MW. Original decals/native rim variants also have runtime catalogs; LOD/damage states stay archived. Car-solid local translations are applied before chassis bounds.')
@@ -159,7 +159,7 @@ def main():
  for row in selected:
   try:
    ident='mw-'+row['car'].lower();cached=out/ident/'provenance.json'
-   if args.resume and cached.is_file() and json.loads(cached.read_text()).get('exportVersion')==4 and (out/ident/(ident+'.json')).is_file() and (out/'styling'/(ident+'.json')).is_file():
+   if args.resume and cached.is_file() and json.loads(cached.read_text()).get('exportVersion')==8 and (out/ident/(ident+'.json')).is_file() and (out/'styling'/(ident+'.json')).is_file():
     profile=json.loads((out/ident/'profile.json').read_text())[0];files=json.loads(cached.read_text())['dependencies']
     profiles.append(profile);dependencies.update(files);continue
    profile,files=export_car(source,row,out,audio);profiles.append(profile);dependencies.update(files)

@@ -20,17 +20,19 @@ namespace UnityEngine {
         public float x,y,z;public Vector3(float x,float y,float z){this.x=x;this.y=y;this.z=z;}
         public static Vector3 operator +(Vector3 a,Vector3 b)=>new Vector3(a.x+b.x,a.y+b.y,a.z+b.z);
     }
-    public struct Quaternion {public static Quaternion identity=>new Quaternion();public static Quaternion Euler(float x,float y,float z)=>identity;}
+    public struct Quaternion {public float x,y,z,w;public static Quaternion identity=>new Quaternion{w=1};public static Quaternion Euler(float x,float y,float z)=>identity;}
     public class Transform {
-        public Vector3 position,eulerAngles;public Quaternion rotation;
+        public Vector3 position,eulerAngles;public Quaternion rotation=Quaternion.identity;
         public Vector3 TransformPoint(Vector3 p)=>position+p;
         public void SetPositionAndRotation(Vector3 p,Quaternion q){position=p;rotation=q;}
     }
     public class Component:Object {public GameObject gameObject;public Transform transform=>gameObject.transform;}
+    public class MonoBehaviour:Component {public T GetComponent<T>() where T:Component=>gameObject.GetComponent<T>();}
     public class Renderer:Component {public bool enabled=true;}
     public class Collider:Component {public bool enabled=true;}
     public class GameObject:Object {
         public readonly Transform transform=new Transform();public readonly Dictionary<Type,Component> components=new Dictionary<Type,Component>();
+        public T AddComponent<T>() where T:Component,new()=>Add(new T());
         public T Add<T>(T c) where T:Component {c.gameObject=this;components.Add(typeof(T),c);return c;}
         public T GetComponent<T>() where T:Component=>components.TryGetValue(typeof(T),out var c)?(T)c:null;
         public T[] GetComponentsInChildren<T>(bool inactive) where T:Component=>components.Values.OfType<T>().ToArray();
@@ -61,6 +63,15 @@ public class Container:UnityEngine.Component {
 }
 public class ZDO {
     static int next;public readonly int m_uid=++next;public bool Persistent;public bool deleted;public List<Item> items;
+    public bool owner=true;public bool IsOwner()=>owner;
+    readonly Dictionary<string,object> values=new Dictionary<string,object>();
+    public string GetString(string key)=>values.TryGetValue(key,out var v)?(string)v:"";
+    public int GetInt(string key)=>values.TryGetValue(key,out var v)?(int)v:0;
+    public bool GetBool(string key)=>values.TryGetValue(key,out var v)&&(bool)v;
+    public UnityEngine.Vector3 GetVec3(string key,UnityEngine.Vector3 fallback)=>values.TryGetValue(key,out var v)?(UnityEngine.Vector3)v:fallback;
+    public UnityEngine.Quaternion GetQuaternion(string key,UnityEngine.Quaternion fallback)=>values.TryGetValue(key,out var v)?(UnityEngine.Quaternion)v:fallback;
+    public void Set(string key,object value)=>values[key]=value;
+    public void SetOwner(long id){owner=true;}
     UnityEngine.Vector3 pos;UnityEngine.Quaternion rot;
     public void SetPosition(UnityEngine.Vector3 p)=>pos=p;public UnityEngine.Vector3 GetPosition()=>pos;
     public void SetRotation(UnityEngine.Quaternion r)=>rot=r;public UnityEngine.Quaternion GetRotation()=>rot;
@@ -70,7 +81,7 @@ public class ZNetView:UnityEngine.Component {
     public bool IsValid()=>!destroyed&&!data.deleted;
     public void Destroy(){data.deleted=true;UnityEngine.Object.Destroy(gameObject);ZNetScene.instance.objects.Remove(data.m_uid);}
 }
-public class ZDOMan {public static ZDOMan instance=new ZDOMan();}
+public class ZDOMan {public static ZDOMan instance=new ZDOMan();public static long GetSessionID()=>1;}
 public class Player {public static Player m_localPlayer=new Player();}
 public class ZNetScene {
     public static ZNetScene instance=new ZNetScene();public readonly Dictionary<int,UnityEngine.GameObject> objects=new Dictionary<int,UnityEngine.GameObject>();public int created;

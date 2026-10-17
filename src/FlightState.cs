@@ -9,6 +9,14 @@ public sealed class FlightState {
     public bool Landing=>Phase==FlightPhase.Landing||Phase==FlightPhase.Unfolding;
     public bool CanPilot=>Phase==FlightPhase.Flying||Phase==FlightPhase.Landing;
     public float Blend=>Fold*Fold*(3-2*Fold);
+    public void Resume(bool landing,float blend) {
+        blend=float.IsNaN(blend)||float.IsInfinity(blend)?1:Math.Max(0,Math.Min(1,blend));
+        // Telemetry contains smoothed visual blend; recover its monotonic input.
+        float low=0,high=1;
+        for(int i=0;i<16;i++){float middle=(low+high)*.5f;if(middle*middle*(3-2*middle)<blend)low=middle;else high=middle;}
+        Fold=(low+high)*.5f;
+        Phase=landing?FlightPhase.Landing:blend>=.999f?FlightPhase.Flying:FlightPhase.Folding;
+    }
     public void Fly(){if(Phase!=FlightPhase.Flying)Phase=FlightPhase.Folding;}
     public void Land(){if(Active&&!Landing)Phase=FlightPhase.Landing;}
     public void Step(float dt,bool nearGround) {

@@ -23,7 +23,7 @@ public partial class Plugin {
         if(local==null)hordeResult=null;
         if(hordeOwner==null&&!hordeWave.Active&&horde.Count==0)return;
         if(local!=hordeOwner||hordeOwner==null||hordeOwner.IsDead()||hordeOwner.IsTeleporting()||!HordeGameUsable
-            ||hordeScene!=ZNetScene.instance||hordeManager!=ZDOMan.instance||Multiplayer())ClearHorde();
+            ||hordeScene!=ZNetScene.instance||hordeManager!=ZDOMan.instance||(NetworkSessionActive||Multiplayer()))ClearHorde();
     }
     void TickHorde(MonoBehaviour local) {
         try {
@@ -58,7 +58,7 @@ public partial class Plugin {
     }
     void StartHorde(Player local) {
         if(local==null||local.IsDead()||local.IsTeleporting())return;
-        if(Multiplayer()){ShowVehicleWarning("Use only in a local single-player test world.");return;}
+        if((NetworkSessionActive||Multiplayer())){ShowVehicleWarning("Use only in a local single-player test world.");return;}
         if(hordeWave.Active||CountHordeAlive()>0){ShowVehicleWarning("A horde is still active. Numpad 0 removes it.");return;}
         if(!driving||!current.Profile.capabilities.turret||Flying||!DriverInputReady||turret==null||!turret.ExplosiveAvailable){ShowVehicleWarning("Horde mode: start on the ground, seated in a vehicle with a loaded turret.");return;}
         ClearHorde();

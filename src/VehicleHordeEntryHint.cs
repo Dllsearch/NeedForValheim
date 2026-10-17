@@ -3,7 +3,7 @@ namespace NeedForValheim {
 public partial class Plugin {
     readonly Vector3[] hordeHintCorners=new Vector3[4];
     void DrawHordeEntryHint() {
-        if(!driving||!current.Profile.capabilities.turret||Flying||!DriverInputReady||Multiplayer()||turret==null||!turret.ExplosiveAvailable)return;
+        if(!driving||!current.Profile.capabilities.turret||Flying||!DriverInputReady||(NetworkSessionActive||Multiplayer())||turret==null||!turret.ExplosiveAvailable)return;
         var map=Minimap.instance;
         if(map==null||map.m_mode!=Minimap.MapMode.Small||map.m_mapImageSmall==null||!map.m_mapImageSmall.gameObject.activeInHierarchy)return;
         var rect=map.m_mapImageSmall.rectTransform;

@@ -2,6 +2,20 @@ using UnityEngine;
 namespace NeedForValheim {
 // All spawned-car resources are owned independently; player/camera remain with Plugin.
 internal sealed class VehicleRuntime {
+    public bool networkBackfire,networkObservedBackfire;
+    public bool networkDriving,networkClaimPending;
+    public int networkSequence;
+    public float networkClaimTime,networkPublishTime,networkWheelPhase;
+    public ZDO networkData;
+    public NetworkVehicleSettings networkSettings;
+    public VehicleRuntime networkPreviewOf;
+    public int networkSetupRevision;
+    public long networkSetupAcknowledgedVersion,networkSetupEditVersion;
+    public string networkSetupText;
+    public bool networkSetupInFlight;
+    public float networkSetupSendTime;
+    public Vector3 networkLastPosition;
+    public float networkSampleTime;
     public CarProfile Profile = CarCatalog.Nissan350Z();
     public bool Suv => Profile.IsSuv;
     public Transform[] spinners;

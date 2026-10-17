@@ -19,27 +19,31 @@ public partial class Plugin {
     string spawnStage,loadingName;
     float spawnProgress;
     bool spawnCommitted;
-    bool SpawnBusy=>spawnWork!=null;
+    bool SpawnBusy=>spawnWork!=null||networkSpawnPending;
     void RejectSpawn(string message) {
         status=workshopMessage=message;
         Logger.LogInfo("Spawn rejected for "+SelectedProfile.id+": "+message+" (fleet="+fleet.Count+", driving="+driving+", loading="+SpawnBusy+")");
         if(MessageHud.instance!=null)MessageHud.instance.ShowMessage(MessageHud.MessageType.Center,Tr(message),log:false);
     }
     void Spawn(MonoBehaviour local) {
+        if(NetworkSessionActive){RequestNetworkSpawn(local);return;}
         if(!CheckGaragePurchase(local,SelectedProfile))return;
         if(local==null||Multiplayer())return;
-        if(SpawnBusy){RejectSpawn("A vehicle is already loading. F8: cancel.");return;}
+        if(SpawnBusy){RejectSpawn("A vehicle is already loading. Use Cancel in the garage.");return;}
         if(driving){RejectSpawn("Exit before spawning.");return;}
         if(local is Player live&&live.IsDead())return;
-        if(fleet.Any(v=>v.Profile.id==SelectedProfile.id)){RejectSpawn("This car is already in your garage. Select it in My garage.");return;}
-        if(fleet.Count>=VehicleFleet<VehicleRuntime>.Capacity){RejectSpawn("Maximum four vehicles. Remove one first.");return;}
+        if(fleet.Any(v=>v.Profile.id==SelectedProfile.id)||SavedWorldProfile(SelectedProfile.id)){RejectSpawn("This car is already in your garage. Select it in My garage.");return;}
+        if(WorldVehicleCount>=VehicleFleet<VehicleRuntime>.Capacity){RejectSpawn("Maximum four vehicles. Remove one first.");return;}
         var profile=SelectedProfile;
         if(!FindSpawnPoint(local,profile,out var origin)){RejectSpawn("No clear space ahead. Find an open area.");return;}
         workshopMessage="";
         CaptureGarageStationSpawn(local);
         CloseVehicleMenu();
+        StartVehicleLoad(local,profile);
+    }
+    void StartVehicleLoad(MonoBehaviour local,CarProfile profile,ZDO networkRecord=null) {
         loadingName=profile.displayName;
-        loadingVehicle=new VehicleRuntime{Profile=profile};spawnOwner=local;spawnCommitted=false;
+        loadingVehicle=CreateNetworkRuntime(profile,networkRecord);spawnOwner=local;spawnCommitted=false;
         spawnCancellation=new CancellationTokenSource();spawnTimer=Stopwatch.StartNew();
         LoadStage("Reading files in the background",0);
         var folder=Path.GetDirectoryName(Info.Location);
@@ -52,11 +56,11 @@ public partial class Plugin {
     }
     void LoadStage(string label,float progress) {
         spawnStage=label;spawnProgress=progress;
-        status=loadingName+" loading \u2026 F8: cancel";
+        status=loadingName+" loading \u2026";
     }
     void TickSpawn(MonoBehaviour local) {
-        if(!SpawnBusy)return;
-        if(local==null||local!=spawnOwner||Multiplayer()||local is Player live&&(live.IsDead()||live.IsTeleporting())){CancelSpawn("Loading cancelled.");return;}
+        if(spawnWork==null)return;
+        if(local==null||local!=spawnOwner||(Multiplayer()&&loadingVehicle?.networkData==null)||(loadingVehicle?.networkData!=null&&(!NetworkObserversEnabled||!VehiclePersistence.IsVehicle(loadingVehicle.networkData)))||local is Player live&&(live.IsDead()||live.IsTeleporting())){CancelSpawn("Loading cancelled.");return;}
         var selected=current;
         try {
             current=loadingVehicle;
@@ -65,7 +69,7 @@ public partial class Plugin {
             selected=loadingVehicle;
             spawnWork=null;loadingVehicle=null;spawnOwner=null;spawnRead=null;
             spawnCancellation.Dispose();spawnCancellation=null;
-            SaveGarageRoster();
+            restoringVehicle=null;if(selected.networkData==null)SaveGarageRoster();
             FinishGarageStationSpawn(reopenGarage);
             if(reopenGarage){reopenGarage=false;current=selected;garageView=1;menuTab=10;SetVehicleMenu(true);}
         }catch(Exception error) {
@@ -74,14 +78,16 @@ public partial class Plugin {
         }finally {current=selected;}
     }
     void CancelSpawn(string message) {
-        if(!SpawnBusy)return;
+        if(spawnWork==null){networkSpawnPending=false;return;}
+        if(loadingVehicle?.networkData!=null)networkDeferred.Add(loadingVehicle.networkData.m_uid);
+        if(restoringVehicle!=null)deferredVehicles.Add(restoringVehicle.m_uid);
         spawnCancellation.Cancel();
         spawnWork.Dispose();spawnWork=null;
         var selected=current;
         try {if(loadingVehicle!=null&&!spawnCommitted){current=loadingVehicle;ReleaseVehicle();fleet.Remove(loadingVehicle);}}
         finally {
             FinishGarageStationSpawn(false);
-            current=selected;loadingVehicle=null;spawnOwner=null;spawnRead=null;
+            restoringVehicle=null;current=selected;loadingVehicle=null;spawnOwner=null;spawnRead=null;
             spawnCancellation.Dispose();spawnCancellation=null;
         }
         if(message!=null)status=message;
@@ -89,7 +95,7 @@ public partial class Plugin {
         garageRestore=null;
     }
     void DrawSpawnProgress() {
-        if(!SpawnBusy)return;
+        if(spawnWork==null){if(networkSpawnPending)UiBox(new Rect((Screen.width-360)*.5f,18,360,50),"Waiting for the vehicle server...");return;}
         float width=Mathf.Min(460,Screen.width-30),x=(Screen.width-width)*.5f;
         UiBox(new Rect(x,18,width,102),loadingName+" loading \u2026");
         UiLabel(new Rect(x+14,43,width-28,23),spawnStage);
@@ -101,7 +107,7 @@ public partial class Plugin {
             GUI.DrawTexture(new Rect(x+14+travel*(width-100),72,72,6),Texture2D.whiteTexture);
         }else GUI.DrawTexture(new Rect(x+14,72,(width-28)*spawnProgress,6),Texture2D.whiteTexture);
         GUI.color=color;
-        if(UiButton(new Rect(x+width-139,86,125,25),"Cancel ("+(padActive?ButtonName("B","Circle"):"F8")+")"))CancelSpawn("Loading cancelled.");
+        if(UiButton(new Rect(x+width-139,86,125,25),"Cancel"))CancelSpawn("Loading cancelled.");
     }
     IEnumerable<int> BuildVehicle(MonoBehaviour local) {
         // Give OnGUI a frame before the first Unity object allocation.
@@ -112,6 +118,7 @@ public partial class Plugin {
         var model=assets.Model;
         var profile=loadingVehicle.Profile;
         var rig=profile.rig;var caps=profile.capabilities;
+        if(restoringVehicle!=null)RestoreWorldBuild(restoringVehicle);
         Logger.LogInfo("Vehicle data ready after "+spawnTimer.Elapsed.TotalSeconds.ToString("0.00")+" s; "+model.parts.Length+" body parts.");
         car=new GameObject(profile.prefabName);car.SetActive(false);
         originalWheels=model.schemaVersion>=2;
@@ -152,7 +159,7 @@ public partial class Plugin {
         if(driftMode.Value&&caps.drift)handling.SetDriftMode();
         if(caps.suvTuning)SuvTuning.Configure(body,wheels);
         else if(profile.sourceGame==CarCatalog.MostWanted)MwChassisTuning.Configure(body,wheels);
-        current.rideHeight=new VehicleRideHeight(body,wheels,profile.sourceGame==CarCatalog.MostWanted);
+        current.rideHeight=new VehicleRideHeight(body,wheels,model.suspensionHubAtRest||profile.sourceGame==CarCatalog.MostWanted);
         current.rideHeight.Apply(lowering.Value);
         LoadStage("Gauges",.62f);
         if(assets.Hud!=null) {
@@ -205,13 +212,34 @@ public partial class Plugin {
         }
         TickWorkshop();
         yield return StagedWork.NextFrame;
-        // Player/world may have moved since F6. Resolve a free location again.
-        if(!FindSpawnPoint(local,profile,out var origin))throw new InvalidOperationException("No clear spawn location remains.");
-        car.transform.SetPositionAndRotation(origin,SpawnRotation(local));
-        current.parkPosition=origin;current.parkRotation=car.transform.rotation;current.parkSupportTime=Time.unscaledTime;
-        car.SetActive(true);
-        fleet.Add(current);CompleteGaragePurchase(local,profile);fleetOwner=local;spawnCommitted=true;
-        status=VehicleName+" ready. F7: enter | "+menuKey.Value+": vehicle menu | F8: remove";
+        Vector3 origin;Quaternion rotation;
+        var savedPose=current.networkData??restoringVehicle;
+        if(savedPose!=null){origin=VehiclePersistence.Location(savedPose);rotation=VehiclePersistence.Orientation(savedPose);}
+        else {
+            if(!FindSpawnPoint(local,profile,out origin))throw new InvalidOperationException("No clear spawn location remains.");
+            rotation=SpawnRotation(local);
+        }
+        car.transform.SetPositionAndRotation(origin,rotation);
+        current.parkPosition=origin;current.parkRotation=rotation;current.parkSupportTime=Time.unscaledTime;
+        if(current.networkData!=null) {
+            hasBeenDriven=VehiclePersistence.WasDriven(current.networkData);
+            body.isKinematic=true;current.parkingFrozen=true;
+            foreach(var wheel in wheels)wheel.enabled=false;
+            current.networkLastPosition=origin;current.networkSampleTime=Time.unscaledTime;
+        } else if(restoringVehicle!=null) {
+            current.storage=new VehicleStorage(car,profile,restoringVehicle);
+            hasBeenDriven=VehiclePersistence.WasDriven(restoringVehicle);
+            vehicleNitro?.State.RestoreCharge(restoringVehicle.GetFloat(VehicleMotionTelemetry.Prefix+"charge",1));
+            current.flight?.Nitro.RestoreCharge(restoringVehicle.GetFloat(VehicleMotionTelemetry.Prefix+"charge",1));
+            body.isKinematic=true;current.parkingFrozen=true;
+        } else {
+            CompleteGaragePurchase(local,profile);
+            current.storage=new VehicleStorage(car,profile,trunkLayout.Value);
+        }
+        // Publish the world anchor before committing the visible local vehicle.
+        SaveWorldVehicle();
+        car.SetActive(true);fleet.Add(current);fleetOwner=local;spawnCommitted=true;
+        status=VehicleName+" ready. Approach and use E to enter.";
         if(MessageHud.instance!=null)
             MessageHud.instance.ShowMessage(MessageHud.MessageType.Center,Tr("Spawned:")+" "+VehicleName,log:false);
     }

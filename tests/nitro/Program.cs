@@ -90,6 +90,11 @@ class NitroTests {
         float upgradedCharge=upgraded.Charge;
         for(int i=0;i<1000;i++)upgraded.Step(.02f,true,true,false,20,20,1,false,true,false);
         Check(upgraded.Charge==upgradedCharge,"upgraded NOS cannot refill through the menu");
+        var restored=new NitroState();restored.RestoreCharge(.2f);
+        Check(restored.Charge==.2f&&!restored.Boosting,"network driver handoff restores existing fuel without starting boost");
+        restored.RestoreCharge(0);restored.Step(.02f,true,false,true,20,20,1,false,true,false);
+        Check(restored.Charge==0&&!restored.Boosting,"empty handed-off tank cannot boost");
+        restored.RestoreCharge(float.NaN);Check(restored.Charge==0,"invalid handoff fuel fails depleted");
         VisualChecks.Run(Check);
         Console.WriteLine(checks+" nitro checks passed; actual acceleration, screen rendering and particles require a Unity test.");
     }

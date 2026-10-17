@@ -50,7 +50,7 @@ public partial class Plugin {
             garageBuilds[profile.id]=slots;
         }
     }
-    bool WorkshopParked=>!Flying&&!hordeWave.Active&&body!=null&&body.linearVelocity.magnitude<.5f&&(!driving||DriverInputReady)&&fleet.All(v=>v.Profile.id!=current.Profile.id||v.body==null||v.body.linearVelocity.magnitude<.5f&&!(v.flight!=null&&v.flight.State.Active));
+    bool WorkshopParked=>(!NetworkSessionActive||CanEditNetworkVehicle(current.networkPreviewOf??current))&&!Flying&&!hordeWave.Active&&body!=null&&body.linearVelocity.magnitude<.5f&&(!driving||DriverInputReady)&&(NetworkSessionActive||fleet.All(v=>v.Profile.id!=current.Profile.id||v.body==null||v.body.linearVelocity.magnitude<.5f&&!(v.flight!=null&&v.flight.State.Active)));
     void PreparePerformance() {
         ClampPaidPerformance();
         vehicleAudio?.SetEngineStage(PerformanceTuning.Stage(engineStage.Value));
@@ -105,7 +105,8 @@ public partial class Plugin {
         bool mw=current.Profile.sourceGame==CarCatalog.MostWanted;workshopTab=Math.Min(workshopTab,mw?5:3);
         workshopTab=UiToolbar(new Rect(25,140,510,30),workshopTab,mw?new[]{"Paint","Parts","Wheels","Vinyl","Glass","Decals"}:new[]{"Paint","Body parts","Wheels","Vinyl"});
         if(workshopTab==5){DrawDecalWorkshop();return;}
-        if(workshopTab==1||workshopTab==2){DrawPartsBrowser(workshopTab==2);return;}
+        if(workshopTab==2){DrawWheelWorkshop();return;}
+        if(workshopTab==1){DrawPartsBrowser(false);return;}
         GUI.enabled=WorkshopParked;
         if(workshopTab==0) {
             UiLabel(new Rect(25,185,510,28),"Body paint",labelStyle);
@@ -149,6 +150,7 @@ public partial class Plugin {
         UiLabel(new Rect(25,487,510,32),!supported?"Widebody uses integrated bumpers and skirts. Choose the standard bodykit first.":"Original "+(current.Profile.sourceGame==CarCatalog.MostWanted?"MW":"U2")+" geometry · factory restores the installed model.",mutedStyle);
     }
     IEnumerable<ConfigEntryBase> CurrentBuildSettings() {
+        if(current.networkSettings!=null){foreach(var entry in current.networkSettings.Entries)yield return entry;yield break;}
         foreach(var pair in vehicleSettings.Values)if(pair.TryGetValue(current.Profile.ConfigPrefix,out var entry))yield return entry;
         yield return RimSetting;
         foreach(var entry in CurrentDecalSettings())yield return entry;

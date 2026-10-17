@@ -2,6 +2,9 @@ using System;
 
 namespace NeedForValheim {
 // A gearbox for sound only. It never writes to the vehicle's physics.
+public struct EngineSoundSnapshot {
+    public float Rpm,Load,Speed,ForwardSpeed,WheelRpm,Contact,Slip;public int Gear;public bool Shifting;
+}
 public sealed class EngineSoundModel {
     public static readonly int[] Bands={1400,2100,2800,3500,4300,5100,5900,6500};
     public static readonly int[] SuvBands={1000,1500,2000,2500,3000,3600,4200,4782};
@@ -51,6 +54,12 @@ public sealed class EngineSoundModel {
         Rpm=Move(Rpm,target,dt*(target>Rpm?6000:9500));
         Load=Move(Load,input,dt*5);
         ShiftGain=Move(ShiftGain,shiftRemaining>0?.32f:1,dt*12);
+    }
+    public void Observe(float dt,bool running,float rpm,float load,int gear,bool shifting) {
+        dt=DrivingMath.Clamp(Safe(dt),0,.1f);Level=Move(Level,running?1:0,dt*3);
+        Rpm=DrivingMath.Clamp(Safe(rpm),minRpm,maxRpm);Load=running?DrivingMath.Clamp(Safe(load),0,1):0;
+        Gear=Math.Max(-1,Math.Min(ratios.Length-1,gear));shiftRemaining=shifting?.1f:0;
+        ShiftGain=Move(ShiftGain,shifting?.32f:1,dt*12);
     }
     // Equal-power blending: only the two surrounding recordings are audible.
     public static float BandGain(float rpm,int index)=>BandGain(rpm,index,Bands);

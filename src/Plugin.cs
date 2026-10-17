@@ -18,7 +18,7 @@ public partial class Plugin : BaseUnityPlugin {
     ConfigEntry<float> mouseSensitivity;
     MonoBehaviour player, gameCamera; Rigidbody playerBody; bool playerEnabled, cameraEnabled, playerKinematic;
     Renderer[] playerRenderers; bool[] renderStates; Collider[] playerColliders; bool[] colliderStates;
-    string status = "F6: spawn a vehicle | F7: enter | F9: garage";
+    string status = "";
     Vector3 lastExitPosition;
     VehicleCabinDriver cabinDriver;
     bool DriverInputReady=>cabinDriver==null||cabinDriver.Motion.CanDrive;
@@ -47,12 +47,14 @@ public partial class Plugin : BaseUnityPlugin {
         InitializeNitroVisuals();
         InitializeBoostInput();
         fleetMusic=new ValheimMusicDucking(message=>Logger.LogWarning(message));
-        ready=playerType!=null;Logger.LogInfo("NFVU2 loaded. Single-player, temporary vehicle only.");
+        ready=playerType!=null;Logger.LogInfo(ExperimentalNetwork?"NFVU2 loaded. Experimental network prototype enabled.":"NFVU2 loaded. Persistent single-player vehicles; multiplayer disabled.");
         }finally{Config.SaveOnConfigSet=autoSave;Config.Save();}
         var audit=Environment.GetEnvironmentVariable("NFVU2_MW_AUDIT_REPORT");if(!string.IsNullOrEmpty(audit))StartCoroutine(VehicleImportAudit.Run(this,vehicleCatalog,audit,message=>Logger.LogInfo(message)));
+        var visualAudit=Environment.GetEnvironmentVariable("NFVU2_VISUAL_AUDIT_REPORT");if(!string.IsNullOrEmpty(visualAudit))StartCoroutine(RunVisualAudit(visualAudit));
     }
     MonoBehaviour LocalPlayer() => playerType?.GetField("m_localPlayer",BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Static)?.GetValue(null) as MonoBehaviour;
     bool Multiplayer() {
+        if(NetworkObserversEnabled)return false;
         if(netType==null)return true;
         var single=netType.GetProperty("IsSinglePlayer",BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Static);
         if(single!=null)return !(bool)single.GetValue(null);
@@ -80,30 +82,38 @@ public partial class Plugin : BaseUnityPlugin {
         }return false;
     }
     void Update() {
+        if(visualAuditActive)return;
         if(!ready)return;
+        TickVehicleNetwork();
+        TickNetworkCargo();
         SampleControls();
         var local=LocalPlayer();
         TickInventoryGarage();
         TickHordeWeather(local);
         CheckHordeContext(local);
         if(local==null){CleanupAll();return;}
-        if((fleetOwner!=null && local!=fleetOwner) || (driving && local!=player) || (fleet.Count>0 && Multiplayer())){CleanupAll();return;}
-        if(SpawnBusy&&Application.isFocused&&!UIVisible()&&!menuOpen&&(Input.GetKeyDown(KeyCode.F8)||PadDown("back"))){CancelSpawn("Loading cancelled.");return;}
+        if((fleetOwner!=null && local!=fleetOwner) || (driving && local!=player) || (fleet.Count>0 && Multiplayer()&&!NetworkObserversEnabled)){CleanupAll();return;}
+        if(SpawnBusy&&Application.isFocused&&!UIVisible()&&!menuOpen&&PadDown("back")){CancelSpawn("Loading cancelled.");return;}
+        TickNetworkObservers(local);
+        TickWorldVehicles(local);
         TickSpawn(local);
+        if(driving&&local is Player livePlayer&&(livePlayer.IsDead()||livePlayer.IsTeleporting())) {
+            Exit(livePlayer.IsTeleporting()?(Vector3?)livePlayer.transform.position:null);return;
+        }
+        TickNetworkDriving();
+        TickNetworkSetups();
         TickGarageRestore(local);
-        if(driving&&local is Player livePlayer&&livePlayer.IsDead()){Exit();return;}
+
         if(!driving&&!menuOpen)SelectNearest(local);
         audioBlocked=UIVisible()||!Application.isFocused||Time.timeScale<=0;
         if(inventoryGarageRequested&&Application.isFocused&&OpenRequestedInventoryGarage()){BlockDrivingInput();return;}
         if(audioBlocked){CloseVehicleMenu();BlockDrivingInput();return;}
         try {
             if(menuOpen && !CanUseVehicleMenu(local))CloseVehicleMenu();
-            if((menuKey.Value.IsDown()||PadDown("menu")||driving&&!menuOpen&&Input.GetKeyDown(KeyCode.Tab)) && CanUseVehicleMenu(local)){SetVehicleMenu(!menuOpen);BlockDrivingInput();return;}
+            if((MenuShortcutDown||PadDown("menu")||driving&&!menuOpen&&Input.GetKeyDown(KeyCode.Tab)) && CanUseVehicleMenu(local)){SetVehicleMenu(!menuOpen);BlockDrivingInput();return;}
             if(menuOpen){TickControllerMenu();BlockDrivingInput(false);if(menuOpen)TickMenuCamera();return;}
             TickHorde(local);
             if(hordeWave.Active&&hordeWave.Choosing){BlockDrivingInput();TickHordePactInput();return;}
-            if(Input.GetKeyDown(KeyCode.F6)) { if(Multiplayer()){status="Use only in a local single-player test world.";return;} Spawn(local); }
-            if(Input.GetKeyDown(KeyCode.F8)){if(SpawnBusy)CancelSpawn("Loading cancelled.");else if(CanAccessCurrent(local))Cleanup();}
             TickControlActions(local);
             if(driving&&!DriverInputReady){BlockDrivingInput();return;}
             if(driving)ReadVehicleControls();
@@ -132,12 +142,13 @@ public partial class Plugin : BaseUnityPlugin {
     }
     void Enter(MonoBehaviour local) {
         if(Multiplayer())return;
-        if(SpawnBusy){status="Wait for loading or cancel with F8.";return;}
+        if(SpawnBusy){status="Wait for loading or use Cancel in the garage.";return;}
         if(Flying){status="Wait until the vehicle has landed.";return;}
         if(local is Player native&&(native.IsDead()||native.IsAttached()||native.IsTeleporting())){status="Finish your current action before entering.";return;}
         if(body.linearVelocity.magnitude>.5f){status="The vehicle must be stationary to enter.";return;}
         Vector3 outside=Vector3.zero;
         if(current.interior!=null&&!FindCabinExit(local,out outside)){ShowVehicleWarning("The driver door is blocked. Make some room.");return;}
+        if(current.networkData!=null&&!current.networkDriving){RequestNetworkDriver(local);return;}
         CloseVehicleMenu();
         player=local;playerBody=player.GetComponent<Rigidbody>();if(playerBody==null){player=null;return;}
         lastExitPosition=player.transform.position;playerEnabled=player.enabled;playerKinematic=playerBody.isKinematic;
@@ -158,9 +169,9 @@ public partial class Plugin : BaseUnityPlugin {
         showroom?.State.CloseAll();
         nitroInput.Reset();nitroHeld=false;
     }
-    void FixedUpdate() {ForEachVehicle(StepVehicle);}
+    void FixedUpdate() {hostCollisions?.FixedTick();ForEachVehicle(StepVehicle);}
     void StepVehicle() {
-        if(body==null||wheels==null)return;
+        if(body==null||wheels==null||(current.networkData!=null&&!current.networkDriving))return;
         if(UpdateParkedVehicle())return;
         PreparePerformance();
         if(!Flying)current.rideHeight?.Apply(lowering.Value);
@@ -187,9 +198,10 @@ public partial class Plugin : BaseUnityPlugin {
         }
         if(driving&&player!=null&&cabinDriver==null)player.transform.position=car.transform.TransformPoint(new Vector3(0,.8f,.3f));
     }
-    void LateUpdate() {ForEachVehicle(TickVehicle);TickVehicleWorldFeatures();if(driving)VehicleWorldStreaming.Follow(player);TickGarageFrontend();LateMenuCamera();TickNitroVisuals();UpdateGameCrosshair();UpdateVehicleHints();TickHordeRadar();fleetMusic?.Tick(driving&&!audioBlocked&&vehicleRadio!=null&&vehicleRadio.CabinAudible);}
+    void LateUpdate() {if(visualAuditActive){TickGarageFrontend();return;}ForEachVehicle(TickVehicle);TickVehicleWorldFeatures();if(driving)VehicleWorldStreaming.Follow(player);TickGarageFrontend();LateMenuCamera();TickNitroVisuals();UpdateGameCrosshair();UpdateVehicleHints();TickHordeRadar();fleetMusic?.Tick(driving&&!audioBlocked&&vehicleRadio!=null&&vehicleRadio.CabinAudible);}
     void TickVehicle() {
         if(car==null)return;
+        if(current.networkData!=null&&!current.networkDriving){TickNetworkObserver();return;}
         TickWorkshop();
         TickVehicleStorage();
         TickExhaustCustomization();
@@ -206,9 +218,15 @@ public partial class Plugin : BaseUnityPlugin {
             bool directionBrake=DrivingMath.DirectionBrake(Vector3.Dot(body.linearVelocity,car.transform.forward),throttle);
             cabinDriver.SetControls(directionBrake?0:throttle,directionBrake?1:brake,handbrakeHeld,vehicleAudio?.Gear??0,steer);
             cabinDriver.Tick(Time.deltaTime,audioBlocked||menuOpen||!Application.isFocused,showroom?.State);
+            if(cabinDriver.Motion.DoorTimedOut) {
+                Logger.LogWarning("Cabin door timed out during "+cabinDriver.Motion.Phase+"; speed="+body.linearVelocity.magnitude.ToString("0.00")+" m/s");
+                if(cabinDriver.Motion.Phase==CabinPhase.OpenExit)cabinDriver.Motion.CancelExit();
+                else Exit();
+                ShowVehicleWarning("The driver door is blocked. Park elsewhere.");return;
+            }
             if(cabinDriver.Failed){Exit();ShowVehicleWarning("Path to the driver door blocked.");return;}
             if(cabinDriver.Motion.Phase==CabinPhase.Complete){
-                if(!FindCabinExit(player,out var clearExit)){cabinDriver.Motion.CancelExit();ShowVehicleWarning("Exit has become blocked.");}
+                if(!FindCabinExit(player,out var clearExit,true)){cabinDriver.Motion.CancelExit();ShowVehicleWarning("Exit has become blocked.");}
                 else {cabinDriver.SetExitPosition(clearExit);Exit();return;}
             }
         } catch(Exception e){Logger.LogError("Cabin animation stopped: "+e);Exit();return;}
@@ -249,6 +267,7 @@ public partial class Plugin : BaseUnityPlugin {
         bool backfire=backfireState.Step(Time.deltaTime,!Flying&&!effectsBlocked,
             vehicleAudio!=null?vehicleAudio.Rpm:950,throttle,
             body!=null?Vector3.Dot(body.linearVelocity,body.transform.forward):0,backfireEnabled.Value);
+        current.networkBackfire|=backfire;
         // Exhaust follows actual boost/fuel consumption in either driving mode.
         // Wheel thrusters keep their separate hover loop; purge/backfire stay on the ground.
         bool boost=nitroEnabled.Value&&ActiveNitro!=null&&ActiveNitro.Boosting;
@@ -258,58 +277,95 @@ public partial class Plugin : BaseUnityPlugin {
         if(effectsAudio!=null)try {effectsAudio.Tick(boost,purge,backfire,effectsBlocked,soundVolume.Value);}
         catch(Exception e){effectsAudio.Dispose();effectsAudio=null;Logger.LogWarning("Vehicle effect sounds disabled: "+e);}
     }
-    bool FindCabinExit(MonoBehaviour local,out Vector3 position) {
-        // Grounded capsule beside the physical left door; never put the player inside a wall.
-        foreach(float z in new[]{-.12f,-.48f,.22f}) {
-            var origin=car.transform.TransformPoint(new Vector3(-1.3f,2.2f,z));
-            foreach(var hit in Physics.RaycastAll(origin,Vector3.down,5,~0,QueryTriggerInteraction.Ignore).OrderBy(h=>h.distance)) {
-                if(hit.collider.transform.IsChildOf(car.transform)||hit.collider.transform.IsChildOf(local.transform)||hit.normal.y<.65f)continue;
-                var foot=hit.point+Vector3.up*.06f;
-                bool occupied=Physics.OverlapCapsule(foot+Vector3.up*.32f,foot+Vector3.up*1.5f,.27f,~0,QueryTriggerInteraction.Ignore)
-                    .Any(c=>!c.transform.IsChildOf(local.transform));
-                if(occupied)break;position=foot;return true;
+    bool FindCabinExit(MonoBehaviour local,out Vector3 position,bool alternatives=false) {
+        float side=current.interior?.ExitSide??-Mathf.Max(1.3f,current.Profile.rig.boxSizeX*.5f+.4f);
+        float door=current.interior?.SeatPosition.z??-.12f;
+        foreach(float offset in new[]{0f,-.36f,.34f}) {
+            var origin=car.transform.TransformPoint(new Vector3(side,Mathf.Max(2.2f,current.Profile.rig.boxCenterY+current.Profile.rig.boxSizeY*.5f+.7f),door+offset));
+            if(FindExitSurface(local,origin,5,out position))return true;
+        }
+        if(alternatives) {
+            // World-up search still works when the chassis rests on its roof or
+            // its physical driver door faces into a rock. Never rotate gravity
+            // with the overturned vehicle.
+            float height=car.transform.position.y+Mathf.Max(3,current.Profile.rig.boxSizeY+1);
+            float yaw=car.transform.eulerAngles.y;
+            float near=Mathf.Max(1.8f,current.Profile.rig.boxSizeX*.5f+.6f);
+            foreach(float radius in new[]{near,near+1.2f,near+2.5f})for(int i=0;i<12;i++) {
+                var point=car.transform.position+Quaternion.Euler(0,yaw+i*30,0)*Vector3.left*radius;point.y=height;
+                if(FindExitSurface(local,point,12,out position))return true;
             }
         }
         position=Vector3.zero;return false;
     }
+    bool FindExitSurface(MonoBehaviour local,Vector3 origin,float distance,out Vector3 position) {
+        foreach(var hit in Physics.RaycastAll(origin,Vector3.down,distance,~0,QueryTriggerInteraction.Ignore).OrderBy(h=>h.distance)) {
+            var collider=hit.collider;
+            if(collider.transform.IsChildOf(car.transform)||collider.transform.IsChildOf(local.transform))continue;
+            // Do not search through an obstructing roof or platform to hidden ground.
+            if(hit.normal.y<.65f||collider.GetComponentInParent<Character>()!=null||hit.rigidbody!=null&&!hit.rigidbody.isKinematic)break;
+            var foot=hit.point+Vector3.up*.06f;
+            if(ZoneSystem.instance!=null&&(!ZoneSystem.instance.IsZoneLoaded(foot)||ZoneSystem.instance.IsLava(foot))||ZNetScene.instance!=null&&!ZNetScene.instance.IsAreaReady(foot))break;
+            if(foot.y<Floating.GetLiquidLevel(foot)+.1f)break;
+            bool occupied=Physics.OverlapCapsule(foot+Vector3.up*.32f,foot+Vector3.up*1.5f,.27f,~0,QueryTriggerInteraction.Ignore)
+                .Any(c=>!c.transform.IsChildOf(local.transform));
+            if(occupied)break;position=foot;return true;
+        }
+        position=Vector3.zero;return false;
+    }
+    bool UnspawnCurrent() {
+        if(car==null||SpawnBusy)return false;
+        if(current.networkData!=null){RequestNetworkRemoval(current);return true;}
+        if(driving) {
+            if(player==null||!FindCabinExit(player,out var safe,true)){ShowVehicleWarning("No safe ground nearby. The vehicle has not been removed.");return false;}
+            Exit(safe);
+        }
+        Cleanup();current=fleet.FirstOrDefault()??new VehicleRuntime();
+        workshopMessage="Vehicle unspawned. Cargo is retained in its chest.";return true;
+    }
     void RequestExit() {
-        if(Flying){status="Open F9, choose a ground mode and land to get out.";return;}
+        if(Flying){status="Open the vehicle menu, choose a ground mode and land to get out.";return;}
         if(cabinDriver==null){Exit();return;}
         if(!cabinDriver.Motion.CanDrive)return;
         if(body.linearVelocity.magnitude>.5f){status="Stop before exiting.";return;}
-        if(!FindCabinExit(player,out var destination)){ShowVehicleWarning("The driver door is blocked. Park elsewhere.");return;}
+        if(!FindCabinExit(player,out var destination,true)){ShowVehicleWarning("No safe ground nearby. The vehicle has not been removed.");return;}
+        if(car.transform.up.y<.65f){Exit(destination);return;}
         if(HordeVehicle)ClearHorde();
         cabinDriver.BeginExit(destination);BlockDrivingInput();
     }
-    void Exit() {
-        if(HordeVehicle)ClearHorde();
-        ReleaseCameraRumble(gameCamera);
-        exitAfterLanding=false;controlsGate.Block();
-        ClearNitroVisuals();
+    void Exit(Vector3? safeDestination=null) {
         bool animated=cabinDriver!=null&&cabinDriver.Motion.Phase==CabinPhase.Complete;
-        var animatedExit=animated?cabinDriver.ExitPosition:lastExitPosition;
-        bool hadCabin=cabinDriver!=null;
-        cabinDriver?.Dispose();cabinDriver=null;
-        current.interior?.SetDriverWindowOpen(false);
-        showroom?.State.CloseAll();
-        RestoreGameCrosshair();
-        CloseVehicleMenu();
-        driving=false;RestoreVehicleHints();throttle=steer=0;brake=1;honking=false;burnoutHeld=false;
-        current.flightVertical=0;current.flight?.Land();
-        vehicleImpact?.Step(null,false);
-        nitroHeld=false;nitroInput.Reset();vehicleNitro?.State.Stop();
-        orbitCamera?.End();
-        if(player!=null){player.transform.position=animatedExit;
-            if(hadCabin&&!animated&&car!=null&&FindCabinExit(player,out var emergency))player.transform.position=emergency;
-            else if(!hadCabin&&car!=null&&!Flying){var candidate=car.transform.TransformPoint(new Vector3(2.5f,2,0));if(Physics.Raycast(candidate,Vector3.down,out var hit,10,~0,QueryTriggerInteraction.Ignore))player.transform.position=hit.point+Vector3.up*.3f;}
-            player.transform.rotation=Quaternion.Euler(0,player.transform.eulerAngles.y,0);
-            for(int i=0;playerRenderers!=null&&i<playerRenderers.Length;i++)if(playerRenderers[i]!=null)playerRenderers[i].enabled=renderStates[i];
-            for(int i=0;playerColliders!=null&&i<playerColliders.Length;i++)if(playerColliders[i]!=null)playerColliders[i].enabled=colliderStates[i];
-            if(playerBody!=null){playerBody.isKinematic=playerKinematic;if(!playerKinematic){playerBody.linearVelocity=Vector3.zero;playerBody.angularVelocity=Vector3.zero;}}
-            VehicleExitSafety.Arm(player as Player,car);player.enabled=playerEnabled;}
-        if(gameCamera!=null)gameCamera.enabled=cameraEnabled;
-        VehicleWorldStreaming.Follow(player);
-        player=null;gameCamera=null;status="F6: spawn a vehicle | F7: enter | F9: garage";
+        Vector3 destination=safeDestination??(animated?cabinDriver.ExitPosition:lastExitPosition);
+        // Resolve while the car/colliders still exist. A visual cleanup failure
+        // must never strand the real player in disabled cabin state.
+        if(!safeDestination.HasValue&&!animated&&player!=null&&car!=null)
+            try {if(FindCabinExit(player,out var nearby,true))destination=nearby;}
+            catch(Exception error){Logger.LogWarning("Emergency exit search: "+error.Message);}
+        try {
+            if(HordeVehicle)ClearHorde();
+            ReleaseCameraRumble(gameCamera);exitAfterLanding=false;controlsGate.Block();
+            ClearNitroVisuals();
+            cabinDriver?.Dispose();
+            current.interior?.SetDriverWindowOpen(false);showroom?.State.CloseAll();
+            RestoreGameCrosshair();CloseVehicleMenu();
+            current.flightVertical=0;current.flight?.Land();vehicleImpact?.Step(null,false);
+            nitroInput.Reset();vehicleNitro?.State.Stop();orbitCamera?.End();
+        }catch(Exception error){Logger.LogWarning("Vehicle exit visual cleanup: "+error);}
+        finally {
+            cabinDriver=null;driving=false;exitAfterLanding=false;
+            StopNetworkDriving();
+            throttle=steer=0;brake=1;honking=burnoutHeld=nitroHeld=handbrakeHeld=turretHeld=false;
+            RestoreVehicleHints();
+            if(player!=null) {
+                player.transform.SetPositionAndRotation(destination,Quaternion.Euler(0,player.transform.eulerAngles.y,0));
+                for(int i=0;playerRenderers!=null&&i<playerRenderers.Length;i++)if(playerRenderers[i]!=null)playerRenderers[i].enabled=renderStates[i];
+                for(int i=0;playerColliders!=null&&i<playerColliders.Length;i++)if(playerColliders[i]!=null)playerColliders[i].enabled=colliderStates[i];
+                if(playerBody!=null){playerBody.isKinematic=playerKinematic;if(!playerKinematic){playerBody.linearVelocity=Vector3.zero;playerBody.angularVelocity=Vector3.zero;}}
+                player.enabled=playerEnabled;VehicleExitSafety.Arm(player as Player,car);
+            }
+            if(gameCamera!=null)gameCamera.enabled=cameraEnabled;
+            VehicleWorldStreaming.Follow(player);player=null;gameCamera=null;status="";
+        }
     }
     void Cleanup(){
         bool cargoLeft=current.storage!=null&&current.storage.Count!=0;
@@ -321,8 +377,10 @@ public partial class Plugin : BaseUnityPlugin {
         if(cargoLeft)ShowVehicleWarning("Cargo remains in a chest at the vehicle's location.");
     }
     void ReleaseVehicle(){
+        ReleaseRemoteCabin(current);
         ReleaseVehicleWorldFeatures();
-        current.storage?.Release();current.storage=null;
+        StopNetworkDriving();
+        current.storage?.Release(leavingGarage||restoringVehicle!=null&&current==loadingVehicle);current.storage=null;
         current.flight?.Dispose();current.flight=null;
         current.flightEffects?.Dispose();current.flightEffects=null;
         current.flightAudio?.Dispose();current.flightAudio=null;
@@ -354,6 +412,6 @@ public partial class Plugin : BaseUnityPlugin {
         status=message;
         if(MessageHud.instance!=null)MessageHud.instance.ShowMessage(MessageHud.MessageType.Center,Tr(message),log:false);
     }
-    void OnDestroy(){DisposeVehicleWorldFeatures();DisposeGarageStation();DisposeGarageFrontend();DisposeInventoryGarage();ReleaseCameraRumble(gameCamera);ReleaseCameraRumble(menuCamera);controlsHarmony?.UnpatchSelf();if(ControlsOwner==this)ControlsOwner=null;ClearNitroVisuals();CleanupAll();hordeWeather?.Dispose();hordeWeather=null;DisposeVehicleHints();fleetMusic?.Dispose();DisposeMenu();}
+    void OnDestroy(){DisposeRemoteCabins();hostCollisions?.Dispose();DisposeNetworkCargo();networkClient?.Reset("Vehicle plugin unloaded");DisposeVehicleWorldFeatures();DisposeGarageStation();DisposeGarageFrontend();DisposeInventoryGarage();ReleaseCameraRumble(gameCamera);ReleaseCameraRumble(menuCamera);controlsHarmony?.UnpatchSelf();if(ControlsOwner==this)ControlsOwner=null;ClearNitroVisuals();CleanupAll();hordeWeather?.Dispose();hordeWeather=null;DisposeVehicleHints();fleetMusic?.Dispose();DisposeMenu();}
 }
 }
