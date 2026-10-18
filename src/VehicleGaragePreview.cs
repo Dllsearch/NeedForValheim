@@ -20,6 +20,8 @@ public partial class Plugin {
     Light[] garageStageLights;
     bool garageDesignMw;
     readonly List<Material> garageSceneryMaterials=new List<Material>();
+    Renderer[] garageSceneryRenderers;
+    readonly List<Renderer> garageHiddenScenery=new List<Renderer>();
     StagedWork garagePreviewWork;
     CancellationTokenSource garagePreviewCancellation;
     Task<Tuple<ModelData,ModelData,ModelData,DecalArtworkCatalog>> garagePreviewRead;
@@ -139,6 +141,9 @@ public partial class Plugin {
             sign.transform.SetParent(parent.transform,false);sign.transform.localPosition=new Vector3(0,5.1f,8.25f);sign.transform.localScale=new Vector3(6,1.2f,1);sign.GetComponent<Renderer>().sharedMaterial=material;
         }
         if(menuAssets!=null){menuAssets.Frontend.TryGetValue("logo",out var u2Logo);Sign(garageU2Set,u2Logo);menuAssets.MwFrontend.TryGetValue("wordmark",out var mwLogo);Sign(garageMwSet,mwLogo);}
+        // Capture scenery before the preview car is created. Vehicle parts must
+        // never be hidden by the camera's scenery visibility pass.
+        garageSceneryRenderers=garageStage.GetComponentsInChildren<Renderer>(true);
         garageStageLights=new Light[3];
         for(int i=0;i<3;i++) {
             var lamp=new GameObject("Garage softbox");lamp.transform.SetParent(garageStage.transform,false);lamp.transform.localPosition=new Vector3(i==0?-4:i==1?4:0,5,i==2?-5:1);
@@ -148,7 +153,7 @@ public partial class Plugin {
         garageStageCamera=cameraObject.AddComponent<Camera>();garageStageCamera.cullingMask=1<<GarageLayer;garageStageCamera.clearFlags=CameraClearFlags.SolidColor;garageStageCamera.backgroundColor=new Color(.04f,.075f,.09f);garageStageCamera.fieldOfView=42;garageStageCamera.nearClipPlane=.1f;garageStageCamera.farClipPlane=70;
         garageStageCamera.useOcclusionCulling=false;
         garageStageCamera.renderingPath=RenderingPath.Forward;
-        garageFrame=new RenderTexture(1200,900,24){name="NFVU2 Garage Preview"};garageFrame.Create();garageStageCamera.targetTexture=garageFrame;
+        garageFrame=new RenderTexture((int)GaragePreviewRect.width,(int)GaragePreviewRect.height,24){name="NFVU2 Garage Preview"};garageFrame.Create();garageStageCamera.targetTexture=garageFrame;
         var reflection=new GameObject("Showroom reflections");reflection.transform.SetParent(garageStage.transform,false);reflection.transform.localPosition=Vector3.up*2;
         var probe=reflection.AddComponent<ReflectionProbe>();garageProbe=probe;probe.mode=UnityEngine.Rendering.ReflectionProbeMode.Realtime;probe.refreshMode=UnityEngine.Rendering.ReflectionProbeRefreshMode.ViaScripting;probe.cullingMask=1<<GarageLayer;probe.resolution=128;probe.size=new Vector3(28,12,28);probe.boxProjection=true;ApplyGarageDesign(true);
     }
@@ -169,6 +174,8 @@ public partial class Plugin {
     void SelectFrontendProfile(CarProfile profile,bool force=false) {
         int source=profile.sourceGame==CarCatalog.MostWanted?1:0;
         if(garageSource!=source){garageSource=source;garagePage=0;}
+        int index=Array.FindIndex(vehicleCatalog.ForSource(profile.sourceGame),p=>p.id==profile.id);
+        if(index>=0)garagePage=index/GaragePageSize;
         var target=NetworkSessionActive?(current.networkData!=null&&current.Profile.id==profile.id?current:fleet.FirstOrDefault(v=>v.Profile.id==profile.id&&OwnNetworkVehicle(v))):null;
         if(!force&&frontendProfile!=null&&frontendProfile.id==profile.id&&garagePreview?.networkPreviewOf==target)return;
         DisposeGarageCar();frontendProfile=profile;garageYaw=145;garagePitch=14;garageZoom=profile.capabilities.suvTuning?8.5f:7;garageFocusReady=false;
@@ -275,10 +282,34 @@ public partial class Plugin {
             var pivot=garageFocus;
             var offset=Quaternion.Euler(garagePitch,garageYaw,0)*Vector3.back*garageZoom*(wheelFocus?.45f:1);
             garageStageCamera.transform.SetPositionAndRotation(pivot+offset,Quaternion.LookRotation(-offset)*Quaternion.Euler(0,4,0));
+            UpdateGarageSceneryVisibility(pivot,wheelFocus);
+        }
+    }
+    void ClearGarageSceneryVisibility() {
+        foreach(var renderer in garageHiddenScenery)if(renderer!=null)renderer.forceRenderingOff=false;
+        garageHiddenScenery.Clear();
+    }
+    void UpdateGarageSceneryVisibility(Vector3 focus,bool wheelFocus) {
+        ClearGarageSceneryVisibility();
+        if(garageSceneryRenderers==null||garageStageCamera==null)return;
+        var camera=garageStageCamera.transform;
+        float width=wheelFocus?.22f:Mathf.Max(.65f,FrontendProfile.rig.boxSizeX*.4f);
+        float height=wheelFocus?.12f:.35f;
+        foreach(var renderer in garageSceneryRenderers) {
+            if(renderer==null||!renderer.enabled||renderer.forceRenderingOff||!renderer.gameObject.activeInHierarchy)continue;
+            var bounds=renderer.bounds;bounds.Expand(.08f);
+            for(int sample=0;sample<5;sample++) {
+                var point=focus+(sample==1?camera.right*width:sample==2?-camera.right*width:sample==3?Vector3.up*height:sample==4?-Vector3.up*height:Vector3.zero);
+                var direction=point-camera.position;float distance=direction.magnitude;
+                if(distance<.01f)continue;
+                if(bounds.IntersectRay(new Ray(camera.position,direction/distance),out var hit)&&hit<distance-.15f) {
+                    renderer.forceRenderingOff=true;garageHiddenScenery.Add(renderer);break;
+                }
+            }
         }
     }
     void GarageCameraInput(Vector2 degrees,float scroll) {garageYaw+=degrees.x;garagePitch=Mathf.Clamp(garagePitch-degrees.y,3,65);garageZoom=Mathf.Clamp(garageZoom-scroll*.5f,4,12);}
-    void EndGarageFrontend(){DisposeGarageCar();if(garageStage!=null)garageStage.SetActive(false);}
+    void EndGarageFrontend(){ClearGarageSceneryVisibility();DisposeGarageCar();if(garageStage!=null)garageStage.SetActive(false);}
     void DisposeGarageCar() {
         garagePreviewCancellation?.Cancel();garagePreviewWork?.Dispose();garagePreviewWork=null;
         garagePreviewCancellation?.Dispose();garagePreviewCancellation=null;garagePreviewRead=null;
@@ -290,6 +321,7 @@ public partial class Plugin {
         if(garageStageMaterial!=null)Destroy(garageStageMaterial);garageStageMaterial=null;
         foreach(var material in garageSceneryMaterials)if(material!=null)Destroy(material);garageSceneryMaterials.Clear();
         garageStageCamera=null;
+        ClearGarageSceneryVisibility();garageSceneryRenderers=null;
         garageU2Set=garageMwSet=null;garageProbe=null;garageStageLights=null;garageAccentMaterial=garageWallMaterial=null;
     }
 }

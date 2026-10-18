@@ -64,6 +64,21 @@ internal sealed class NetworkVehicleSettings {
         foreach(var entry in Entries)if(edited.Contains(entry)||!result.ContainsKey(Key(entry)))result[Key(entry)]=runtimeSaved.TryGetValue(entry,out var saved)?saved:entry.GetSerializedValue();
         return JsonConvert.SerializeObject(result);
     }
+    public bool Rebase(string serverSnapshot,string baselineSnapshot) {
+        var baseline=Parse(baselineSnapshot);var server=Parse(serverSnapshot);
+        var draft=Parse(Snapshot());var pending=new List<ConfigEntryBase>();
+        foreach(var entry in edited) {
+            string key=Key(entry);
+            if(draft.TryGetValue(key,out var value)&&(!baseline.TryGetValue(key,out var before)||before!=value)&&
+                (!server.TryGetValue(key,out var confirmed)||confirmed!=value)) {
+                server[key]=value;pending.Add(entry);
+            }
+        }
+        // Replace remains transactional and keeps runtime-only controls intact.
+        Replace(JsonConvert.SerializeObject(server));
+        foreach(var entry in pending)edited.Add(entry);
+        return pending.Count>0;
+    }
     public void Replace(string snapshot) {
         var next=Parse(snapshot);var entries=Entries.ToArray();var before=entries.Select(e=>e.GetSerializedValue()).ToArray();
         var oldValues=values;var oldEdited=edited.ToArray();

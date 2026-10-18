@@ -5,9 +5,10 @@ using UnityEngine;
 namespace NeedForValheim {
 public partial class Plugin {
     ConfigEntry<string> traxStation,traxDisabled,traxLast;
-    ConfigEntry<bool> traxU2,traxMW;
+    ConfigEntry<bool> traxU2,traxMW,radioAutoPlay;
     int traxPage;bool traxEditing;
     void InitializeRadioTrax(){
+        radioAutoPlay=Config.Bind("EA TRAX","AutoPlay",true,"Automatically start vehicle music on spawn or entry. Manual Play remains available when disabled.");
         traxStation=Config.Bind("EA TRAX","Station","mixed",new ConfigDescription("Radio station: u2, mw or mixed.",new AcceptableValueList<string>("u2","mw","mixed")));
         traxU2=Config.Bind("EA TRAX","Underground2",true,"Include Underground 2 music.");
         traxMW=Config.Bind("EA TRAX","MostWanted",true,"Include Most Wanted 2005 music.");
@@ -19,6 +20,7 @@ public partial class Plugin {
     void DrawRadioTraxMenu(){
         var options=RadioTrax.Current;
         radioEnabled.Value=UiToggle(new Rect(25,140,240,28),radioEnabled.Value,"Radio ON");
+        radioAutoPlay.Value=UiToggle(new Rect(25,171,240,20),radioAutoPlay.Value,"Autoplay on spawn / entry");
         UiLabel(new Rect(280,140,248,23),"VOLUME  "+Mathf.RoundToInt(radioVolume.Value*100)+" %",mutedStyle);
         radioVolume.Value=UiSlider(new Rect(280,168,245,14),radioVolume.Value,0,1);
         string[] stations={"u2","mw","mixed"};int selected=Array.IndexOf(stations,options.Station);
@@ -29,7 +31,7 @@ public partial class Plugin {
         traxEditing=UiToolbar(new Rect(25,262,510,28),traxEditing?1:0,new[]{"RADIO / PLAY","EA TRAX / ENABLE TRACKS"})==1;
         if(vehicleRadio==null||vehicleRadio.Count==0){UiLabel(new Rect(25,310,510,95),"No local soundtrack available. Import the U2 or MW music library.",labelStyle);return;}
         UiLabel(new Rect(25,300,510,45),vehicleRadio.CurrentTitle,labelStyle);
-        bool canPlay=(driving||ParkedRunning)&&radioEnabled.Value;
+        bool canPlay=(driving||ParkedRunning||current.networkData!=null&&current.networkData.GetLong(VehicleNetworkProtocol.Driver)!=0)&&radioEnabled.Value;
         GUI.enabled=canPlay;
         if(MenuButton(new Rect(25,346,157,29),"◀ PREVIOUS"))vehicleRadio.Previous();
         if(MenuButton(new Rect(197,346,157,29),vehicleRadio.Paused?"PLAY":"PAUSE"))vehicleRadio.TogglePause();

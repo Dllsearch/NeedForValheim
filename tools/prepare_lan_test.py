@@ -6,6 +6,47 @@ from project import LOCAL,OUTPUT
 from datetime import datetime
 
 
+def package_client(include_u2_assets=False):
+    source=OUTPUT/'network-client';stamp=json.loads((source/'build-variant.json').read_text(encoding='utf-8'))
+    if stamp.get('variant')!='network' or stamp.get('sha256')!=checksum(source/'NeedForValheim.dll'):
+        raise SystemExit('Rebuild the experimental client first.')
+    names={'NeedForValheim.dll'}
+    if include_u2_assets:
+        profiles=json.loads((source/'cars.json').read_text(encoding='utf-8-sig'))
+        u2=[p for p in profiles if p.get('sourceGame','u2')=='u2']
+        if len(u2)!=30:raise SystemExit('Expected the complete 30-car U2 catalog.')
+        names.add('cars.json')
+        for profile in u2:names.update((profile['assets']['modelFile'],'styling/'+profile['id']+'.json'))
+    for name in names:
+        path=(source/name).resolve()
+        if not path.is_relative_to(source.resolve()) or not path.is_file() or name!='NeedForValheim.dll' and path.suffix!='.json':
+            raise SystemExit('Invalid/missing client patch input: '+name)
+    archive=OUTPUT/('NFVU2-network-U2-update.zip' if include_u2_assets else 'NFVU2-network-client-patch.zip')
+    temporary=archive.with_suffix('.zip.tmp');prefix='BepInEx/plugins/NeedForValheim/'
+    digests={prefix+name:checksum(source/name) for name in sorted(names)}
+    required={} if include_u2_assets else {name:checksum(source/name) for name in ('cars.json','body.json')}
+    readme=('Experimental protocol3 client update. Requires the full NFVU2 client assets and BepInEx. '
+            'Close Valheim before updating. Back up every matching installed file listed in manifest.json, '
+            'then extract the BepInEx folder into the existing Valheim installation. Do not create a duplicate plugin. '
+            'Both clients need this variant. Server uses the separate asset-free server payload. '
+            'Settings, worlds, music and MW assets are not included. Multiplayer acceptance remains pending.\n')
+    if include_u2_assets:readme+='Includes all 30 updated U2 model and styling JSON files, including native neon and NOS purge markers. This is still an update, not a full client installation.\n'
+    with zipfile.ZipFile(temporary,'w',zipfile.ZIP_DEFLATED) as z:
+        for name in sorted(names):z.write(source/name,prefix+name)
+        z.writestr('manifest.json',json.dumps({'variant':'network-prototype','protocol':3,'dllSha256':stamp['sha256'],
+            'requiresFullClientAssets':True,'includesU2Assets':include_u2_assets,'requiresInstalledAssets':required,'files':digests},indent=2))
+        z.writestr('README.txt',readme)
+    with zipfile.ZipFile(temporary) as z:
+        if set(z.namelist())!=set(digests)|{'manifest.json','README.txt'}:raise RuntimeError('Unexpected client patch files')
+        for name,digest in digests.items():
+            with z.open(name) as stream:
+                if hashlib.file_digest(stream,'sha256').hexdigest()!=digest:raise RuntimeError('Packaged file checksum mismatch: '+name)
+    temporary.replace(archive)
+    archive.with_suffix('.zip.sha256').write_text(checksum(archive)+'  '+archive.name+'\n',encoding='ascii')
+    print('Client patch:',archive,'|',len(names),'payload files |',round(archive.stat().st_size/1048576,1),'MiB | SHA-256:',checksum(archive))
+    return archive
+
+
 def prepare(stage_only=False):
     lab=LOCAL/'server-lab'
     if not (lab/'valheim_server.exe').is_file():raise SystemExit('Prepare the isolated server lab first.')
@@ -45,13 +86,7 @@ def prepare(stage_only=False):
     (lab/'start_lan_test.cmd').write_text('@echo off\nsetlocal DisableDelayedExpansion\ncd /d "%~dp0"\nset SteamAppId=892970\nvalheim_server.exe '+command+'\npause\n',encoding='utf-8')
     password=args[args.index('-password')+1]
     (lab/'LAN_CONNECTION.txt').write_text('Private LAN test. Port2476, public0.\nHost connects to127.0.0.1:2476; laptop connects to host LAN IPv4:2476.\nPassword: '+password+'\nStop using Ctrl+C in the server console and wait for world save/shutdown.\nNo firewall rules were changed.\n',encoding='utf-8')
-    archive=OUTPUT/'NFVU2-network-client-patch.zip'
-    required={name:checksum(source/name) for name in ('cars.json','body.json')}
-    with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
-        z.write(source/'NeedForValheim.dll','BepInEx/plugins/NeedForValheim/NeedForValheim.dll')
-        z.writestr('manifest.json',json.dumps({'variant':'network-prototype','protocol':3,'dllSha256':stamp['sha256'],'requiresInstalledAssets':required},indent=2))
-        z.writestr('README.txt','Experimental protocol3 client DLL patch. Requires the full NFVU2 client assets and BepInEx. Close Valheim, back up the installed NeedForValheim.dll, then replace that same DLL. Do not install a second copy under another plugin folder. Both clients need this variant. Server uses the separate asset-free server payload. Settings and worlds are not included. Multiplayer acceptance remains pending.\n')
-    archive.with_suffix('.zip.sha256').write_text(checksum(archive)+'  '+archive.name+'\n',encoding='ascii')
+    archive=package_client()
     prune_backups(backup.parent)
     print('Prepared manual launcher:',lab/'start_lan_test.cmd')
     print('Private connection details:',lab/'LAN_CONNECTION.txt')
@@ -62,4 +97,10 @@ def prepare(stage_only=False):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--stage-only',action='store_true',help='Update stopped lab payload only; do not rewrite launcher, fixture or patch.')
-    prepare(parser.parse_args().stage_only)
+    parser.add_argument('--package-only',action='store_true',help='Package verified client build only; never touch the server lab or installed files.')
+    parser.add_argument('--include-u2-assets',action='store_true',help='With package-only: include all 30 current U2 model/styling JSON files, no music or MW assets.')
+    args=parser.parse_args()
+    if args.package_only and args.stage_only:parser.error('Choose package-only or stage-only')
+    if args.include_u2_assets and not args.package_only:parser.error('include-u2-assets requires package-only')
+    if args.package_only:package_client(args.include_u2_assets)
+    else:prepare(args.stage_only)

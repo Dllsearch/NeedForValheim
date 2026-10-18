@@ -7,6 +7,16 @@ class RadioTests {
     static void Check(bool ok,string name){if(!ok)throw new Exception(name);checks++;Console.WriteLine("PASS "+name);}
     static bool Near(float a,float b)=>Math.Abs(a-b)<.001f;
     static void Main(){
+        var outsideStart=new RadioCabinBlend();
+        Check(Near(outsideStart.Step(1f/60,false),1),"newly streamed outside radio starts fully spatial instead of briefly global");
+        var cabinStart=new RadioCabinBlend();Check(Near(cabinStart.Step(1f/60,true),0),"first seated playback starts in the cabin mix");
+        float previousBlend=0;bool smoothExit=true;
+        for(int frame=0;frame<30;frame++){float value=cabinStart.Step(1f/60,false);smoothExit&=value>=previousBlend&&value-previousBlend<=.051f;previousBlend=value;}
+        Check(smoothExit&&Near(previousBlend,1),"real exit crossfades continuously to the fully spatial mix");
+        Check(Near(cabinStart.Step(float.NaN,true),1)&&Near(cabinStart.Step(float.PositiveInfinity,true),1)&&Near(cabinStart.Step(-1,true),1),
+            "invalid frame times cannot poison the radio spatial blend");
+        for(int frame=0;frame<30;frame++)outsideStart.Step(1f/60,true);
+        Check(Near(outsideStart.Step(0,true),0),"entering an already playing outside radio reaches the cabin mix");
         var closed=RadioAcoustics.Evaluate(1,0,0,0);
         var left=RadioAcoustics.Evaluate(1,1,0,0);
         var right=RadioAcoustics.Evaluate(1,0,1,0);
@@ -51,6 +61,10 @@ class RadioTests {
         Check(state.Select(0)&&state.HasPlayable,"explicit selection retries a repaired file");
         state.TogglePause();state.Move(1);Check(state.Paused,"track navigation preserves user pause");
         state.TogglePause();Check(!state.Paused,"explicit play resumes");
+        state.StartSession(false);Check(state.Paused,"disabled autoplay starts a new vehicle session paused");
+        state.TogglePause();Check(!state.Paused,"manual play works with autoplay disabled");
+        state.StartSession(false);Check(state.Paused,"re-entry respects disabled autoplay after manual playback");
+        state.StartSession(true);Check(!state.Paused,"enabled autoplay starts the next session");
         Check(!state.Select(-1)&&!state.Select(3),"invalid menu selections are ignored");
         var starts=new System.Collections.Generic.HashSet<int>();bool shuffled=true,cycleBoundary=true;
         for(int seed=0;seed<64;seed++){

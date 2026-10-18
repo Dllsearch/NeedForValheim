@@ -100,6 +100,7 @@ public sealed class RadioPlaybackState {
         failed[Index]=true;Move(1);return true;
     }
     public bool IsCurrent(int revision) {return revision==Revision&&Index>=0;}
+    public void StartSession(bool autoPlay){Paused=!autoPlay;}
     public void TogglePause(){Paused=!Paused;}
 }
 }

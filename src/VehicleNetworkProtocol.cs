@@ -34,6 +34,7 @@ internal sealed class VehicleNetworkLeases {
     static bool Finite(double value)=>!double.IsNaN(value)&&!double.IsInfinity(value);
 }
 internal static class VehicleNetworkProtocol {
+    public const string SetupConflict="Vehicle setup changed on server. Refresh and try again";
     public const int Version=3,MaxPacket=140000;
     public const string Rpc="NFVU2.Vehicle.v1",ReplyRpc="NFVU2.Vehicle.v1.Reply";
     public static string InventoryHash(byte[] bytes) {

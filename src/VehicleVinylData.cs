@@ -35,7 +35,7 @@ public sealed class VinylCatalog {
 public struct VinylPoint {public float x,y,z,u,v,nx,ny,nz;}
 public static class VinylComposite {
     public const int Size=512;
-    public static void Blend(byte[] canvas,byte[] artwork,byte[] colors,bool fixedColors,float opacity){
+    public static void Blend(byte[] canvas,byte[] artwork,byte[] colors,bool fixedColors,float opacity,bool paintMask=false){
         if(canvas.Length!=artwork.Length||colors.Length!=9)throw new ArgumentException("Vinyl blend size");
         opacity=float.IsNaN(opacity)?1:Math.Max(0,Math.Min(1,opacity));
         for(int p=0;p<canvas.Length;p+=4){float a=artwork[p+3]/255f*opacity;if(a<=0)continue;
@@ -43,7 +43,7 @@ public static class VinylComposite {
             for(int ch=0;ch<3;ch++){
                 float tint=fixedColors?artwork[p+ch]:sum>0?(artwork[p]*colors[ch]+artwork[p+1]*colors[3+ch]+artwork[p+2]*colors[6+ch])/sum:colors[ch];
                 canvas[p+ch]=(byte)Math.Max(0,Math.Min(255,Math.Round(canvas[p+ch]*(1-a)+tint*a)));
-            }canvas[p+3]=255;
+            }canvas[p+3]=paintMask?(byte)Math.Round(canvas[p+3]*(1-a)):(byte)255;
         }
     }
     static float Edge(float ax,float ay,float bx,float by,float x,float y)=>(x-ax)*(by-ay)-(y-ay)*(bx-ax);

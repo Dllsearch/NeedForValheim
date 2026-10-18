@@ -12,6 +12,17 @@ public sealed class VehicleDashboard : IDisposable {
     Texture2D[] turboFaces,turboLines;
     Texture2D turboFallback;
     GUIStyle speedStyle,smallStyle,gearStyle,dialStyle;
+    public void DrawDesignPreview(Rect rect,int design,Color accent) {
+        if(faces==null||design<0||design>=faces.Length||faces[design]==null)return;
+        var color=GUI.color;
+        try {
+            bool mw=kinds[design]=="mw-tach";
+            GUI.color=mw?accent:Color.white;GUI.DrawTexture(rect,faces[design],ScaleMode.ScaleToFit,true);
+            GUI.color=accent;
+            var overlay=mw?rect:new Rect(rect.x+rect.width*12/280,rect.y+rect.height*12/280,rect.width*256/280,rect.height*256/280);
+            if(lines[design]!=null)GUI.DrawTexture(overlay,lines[design],ScaleMode.ScaleToFit,true);
+        }finally{GUI.color=color;}
+    }
     Texture2D Texture(ModelTexture data,byte[] pixels=null) {
         var result=new Texture2D(data.width,data.height,TextureFormat.RGBA32,false){name="Vehicle_HUD_"+data.name,wrapMode=TextureWrapMode.Clamp,filterMode=FilterMode.Bilinear};
         textures.Add(result);pixels=pixels??data.rgba;var flipped=new byte[pixels.Length];int row=data.width*4;

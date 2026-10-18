@@ -119,7 +119,13 @@ class AudioTests {
             }
         }
         var observed=new EngineSoundModel();observed.Observe(.1f,true,4200,.7f,3,false);
-        Check(observed.Rpm==4200&&observed.Gear==3&&observed.Load==.7f&&observed.Level>0,"remote engine follows transmitted RPM load and gear without wheel physics");
+        Check(observed.Rpm>950&&observed.Rpm<4200&&observed.Gear==3&&observed.Load>0&&observed.Load<.7f&&observed.Level>0,"remote engine approaches transmitted RPM and load without a pitch step");
+        for(int i=0;i<120;i++)observed.Observe(1f/60,true,4200,.7f,3,false);
+        Check(Math.Abs(observed.Rpm-4200)<1&&Math.Abs(observed.Load-.7f)<.001f,"remote engine converges to the transmitted state");
+        var a=new EngineSoundModel();var b=new EngineSoundModel();
+        for(int i=0;i<30;i++)a.Observe(1f/30,true,5500,.9f,4,false);
+        for(int i=0;i<144;i++)b.Observe(1f/144,true,5500,.9f,4,false);
+        Check(Math.Abs(a.Rpm-b.Rpm)<.1f,"remote pitch smoothing is independent of render frame rate");
         observed.Observe(.1f,false,950,1,3,false);Check(observed.Load==0,"stopped remote engine cannot retain throttle load");
         Console.WriteLine(checks+" audio checks passed against the compiled plugin. Unity playback still requires an in-game check.");
     }

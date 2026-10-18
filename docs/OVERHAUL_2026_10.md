@@ -3,6 +3,197 @@
 This is the full scope of the user-requested goal. Checks below are acceptance
 requirements, not claims that an implementation has passed.
 
+## Active execution checklist — 2026-10-17 follow-up
+
+This checklist extends the existing goal; it does not replace the original scope.
+Earlier implementation notes are historical evidence, not blanket completion.
+User resumed work after the English README update. Keep manual gameplay under
+user control and leave installed client/server files untouched while running.
+
+### Additional player feedback — paint system
+
+### Latest player acceptance and regressions
+
+- Scope clarification (2026-10-18): U2 interior/detail rollback is a server
+  synchronization defect, not a request to split that menu. The crowded style
+  picker report concerns tachometers. The requested UX overhaul applies to the
+  entire garage, not just interior controls. Animation capability guards are
+  defensive behavior, not an identified cause of either reported failure.
+- Whole-garage layout follow-up: replace the sidebar with eight top-level
+  categories; reserve a separate 950x630 preview and consistent right content
+  panel for every page. Preview rendering and mouse orbit/zoom use the same
+  bounds; the render target matches their aspect ratio. Gauge selection now
+  uses family tabs and eleven illustrated cards, with appearance settings on
+  a separate page. Car-lot entries use two wider columns. Navigation follows
+  the top-bar orientation; the footer distinguishes pending server edits from
+  acknowledged setup revisions. Runtime visual/controller acceptance is open.
+
+- Garage/UI follow-up (2026-10-18): body details now have Panels/Hinges/Engine/
+  Glass pages; trunk audio has Layout/Equipment/Lighting pages. Unsupported
+  panel animations are disabled, missing tracks are skipped safely, and hinge
+  changes retain the close-before-switch sequence. Body-part choices now use
+  two wider columns; paint finishes have two rows with enough room for shift
+  shade controls. Garage inspection temporarily hides scenery intersecting five
+  camera-to-car rays and restores it on orbit/close; preview-car renderers are
+  excluded from that cache. Both theme sets use the same rule. No game/server
+  installation or process is changed; native layout/occlusion acceptance is open.
+
+- MW arch root cause follow-up (2026-10-18): compared native material tables and
+  current exports of Cobalt SS, GTO and Mustang GT, including KIT01_BODY_A. All
+  reproduce BODY_PLAINNOTHING being incorrectly classified as body paint; vinyl
+  then replaces its black texture with the painted composite. Fixed both the
+  exporter and runtime loading of old MW descriptors, preventing paint/vinyl and
+  wetness from affecting these matte-black cavities. Exterior paint, chrome and
+  glass roles are retained. 302,809 MW fleet loader checks passed, with explicit
+  regression cases for all three cars. Both client builds passed. Real game
+  appearance remains pending; no installed files were overwritten. Evidence and
+  tool availability are recorded in `MODLOG.md` and `artifacts/mw-cavity-comparison.json`.
+
+- U2 NOS circle correction: 121 native inner-edge samples fit centre
+  (95.01085,113.09155), radius 70.26089, maximum error 0.16721 source pixels.
+  Replace anisotropic stretching with one uniform scale to radius 140 and the
+  shared tachometer centre (140,170). Fill slicing uses this measured centre too.
+  Previews 07/08/09/11 were inspected; 31 HUD/camera checks passed. Real IMGUI
+  acceptance remains open. Evidence: `artifacts/u2-nos-fit.json`,
+  `artifacts/hud-fit/u2-nos-reference-designs.png`, `artifacts/u2-nos-circle-tests.log`.
+
+- Confirmed: main server tuning now persists (paint, rims, bodykit, performance).
+  Pearl/Chameleon and the second shade also passed the user's check.
+- Still failing: painted/glossy arch interiors on Cobalt SS bodykit 1; H2 missing
+  inner tyre sidewalls; U2 NOS arc mismatch around 10–15 pixels. MW gauge behaviour
+  is accepted, with a smaller remaining alignment defect.
+- Audio preferences are partly accepted; borrowed-car checks remain open.
+  Overturned exit and two-client checks are still unverified.
+- New regressions: radio remains at cabin volume after exiting on a server;
+  U2 interior/trunk detail changes revert and door/trunk controls misbehave;
+  gauge selection labels overlap; styling/detail UX still needs work; some U2
+  garage inspection angles are obstructed by scene geometry. Explain cargo access.
+- Current fixes awaiting acceptance: observer radio now ticks outside the car,
+  restoring spatial audio and music ducking; observer showroom configuration now
+  applies updated interior choices. Logs confirmed trunk changes were rejected
+  because the dedicated-server cargo object was unloaded. The server now uses
+  native v108 inventory serialization for safe unloaded resizing; unknown versions,
+  unresolved item counts and over-capacity inventories reject without committing.
+  Gauge selection is split into game-family tabs and short numbered choices.
+  The geometry/HUD/scene/UX follow-ups above are newer pending fixes; none has
+  native acceptance merely because this implementation compiles.
+- H2 follow-up: its stock SPINNER_STYLE01 rubber really lacks the inner sidewall,
+  leaving a boundary near axial -0.17 m. Reversing existing faces cannot fill it.
+  The opt-in exporter adaptation mirrors 80 authored outer-sidewall triangles,
+  including UVs and normals, with corrected winding. Existing geometry, rolling
+  radius, width and handling stay unchanged. Repeated completion adds nothing;
+  6,873 asset-loader checks passed after re-export. Installed assets are untouched;
+  actual inner-tyre appearance still needs player acceptance.
+
+### Earlier feedback and implementation evidence
+
+- Local music volume is confirmed working by the user on a dedicated server with one client.
+- All network tuning changes still roll back in the tested build: paint, wheels, bodykit and performance. Keep this as an active defect; co-op testing is temporarily unavailable.
+- Regression coverage now submits exact paint shade 98, rim selection, bodykit and engine stage through the real serialized server command handler with the native cargo object absent. All four values persist exactly; a rejected capacity change leaves them intact. 156 integration checks passed (`artifacts/network-setup-fields-regression.log`). Native API doubles do not establish live client acknowledgement, Unity preview application or world disk persistence; user acceptance remains pending.
+- MW Cobalt SS with bodykit and paint still has glossy inner wheel arches. Prior generic liner correction is insufficient for this case; inspect the actual bodykit material/geometry path.
+- Source follow-up: the exported Cobalt bodykit catalog contains five DULL_PLASTIC and six BOTTOM geometry sections. The MW exporter now assigns these authored roles metallic 0 / smoothness 0.12, matching the pending runtime correction. Direct material compilation checks retain BODY_TOP paint, chrome and glass finishes. This identifies actual kit sections, but does not prove all visible arch faces use those roles; manual visual acceptance remains open.
+- Add an NFS-like paint palette with shade families rather than only the current basic colours. Include genuine view-dependent pearlescent and chameleon finishes, with clear UI controls and persistence/network synchronization; do not label ordinary metallic paint as either effect. Current UI only offers Original/Gloss/Metallic/Matte, so pearl/chameleon are currently absent.
+
+### Next implementation and acceptance order
+
+1. **Neon mounting and original asset fidelity — in progress.** Geometry-derived
+   tube mounts are built, but native in-game fit is unverified. Investigate source
+   attachment markers/material roles in the owned U2/MW assets; use them where
+   available, document fallback mounts where absent. Fix glossy wheel-arch
+   interiors and plastic-looking paint without flattening glass, carbon, rims
+   or lights. Assess feasible dedicated Unity vehicle shading; do not promise
+   that native NFS shader binaries can simply run in Unity.
+2. **Local audio preferences — implemented, gameplay acceptance open.** Add an accessible music autoplay switch
+   for spawn/entry. Local music/engine volume and playback preferences must be
+   editable independently of vehicle ownership, speed and setup synchronization.
+3. **Multiplayer customization — main tuning accepted; U2 interior regression open.** Own parked cars
+   must support tuning/styling and saved setup updates, including the showroom
+   path. Verify actual owner identity, proximity, preview targeting, revision
+   acknowledgement and driver/cargo constraints. Preserve foreign-car authority.
+4. **Observer lifecycle — open, user-reported failure.** Stream distant visuals
+   quietly; returning cars must retain logical identity and must not announce
+   a new user spawn or duplicate models/cargo. Check both sides of a race.
+5. **Remote motion and engine audio — open.** Existing interpolation is present
+   in code but does not meet player acceptance. Improve snapshot timing,
+   position/rotation/wheel presentation and continuous RPM/load transitions;
+   distinguish real teleports/recovery from normal packet jitter.
+6. **Offline-owner obstruction handling — implemented, gameplay acceptance open.** Permit an appropriate nearby
+   recovery/despawn action when the persistent owner is no longer connected.
+   Validate owner presence on the server; reject occupied/in-use vehicles and
+   preserve cargo, saved build and player control. Test reconnect/races so an
+   active owner's car cannot be stolen or deleted via stale presence state.
+7. **Remaining original acceptance — still open where listed below.** Run
+   targeted code/data validation, then request only the relevant manual cases.
+   Do not infer gameplay success from compilation or API doubles.
+
+### Current acceptance boundary after follow-up builds
+
+Current client source changes and generated U2 markers are prepared for later
+manual acceptance. The user is resting; do not request checks or operate their
+game/server in their absence. Network update SHA256:
+`9b2b2a990ea1515fa09b93c6eccd9bbaeec0e6e9f680c982b7f2fc8f66eca245`.
+All 62 archived payload files are checksum-verified against the network output.
+Both client variants were rebuilt for the latest garage/UI changes. A DLL-only
+update cannot supply updated H2 geometry or native marker JSON to older assets.
+
+The latest player report accepts main server tuning, Pearl/Chameleon and local
+volume changes, but reports U2 interior rollback and the visual defects above.
+The newer unloaded-cargo, observer radio, H2, NOS, MW cavity and garage/UI fixes
+await gameplay acceptance. Two-client testing is unavailable. When the user is
+ready, prioritize:
+
+1. Own-car setup editing and persistence; borrowed-car local volume/autoplay.
+2. Two-client race, zone exit/re-entry, visual/wheel/audio continuity.
+3. Offline-owner removal, reconnect, cargo protection and retained inventory.
+4. Native neon/bodykit/purge alignment, interior arch material and body finish.
+5. Remaining original stuck/overturned exit, HUD fit and vehicle geometry cases
+   listed in the table below.
+
+Custom car shading has progressed beyond compilation: Unity 6000.0.75f1 now
+builds and loads the bundle and renders three finish fixtures under Direct3D 11.
+Pearl and Chameleon produce measurable view-dependent differences. Client builds
+embed the verified bundle and expose finish IDs 4/5 plus Styling/ShiftColor;
+these keys use existing per-vehicle build/network snapshots. Runtime application
+is restricted to body paint, retaining original shaders for finishes 0–3 and
+excluding rims, trim and carbon. Real Valheim appearance, vinyl interaction and
+multiplayer presentation remain unverified. Both client builds, 24 configuration
+checks, 156 serialized integration checks and the palette checks passed.
+Details and rendered fixtures: `tools/car_shader/README.md` and
+`artifacts/car-shader/`. Installed client/server files were not replaced.
+
+Layered vinyl follow-up: composite alpha now optionally retains the uncovered
+body-paint weight, multiplying across transparent layers. The custom shader uses
+that weight to shift the baked paint contribution rather than multiply the entire
+vinyl image by another tint. Opaque artwork retains its source colours. Existing
+opaque Standard rendering uses RGB as before. 52,672 vinyl checks passed across
+26,308 original variants; both client builds and editor shader renders passed.
+Actual vinyl/body interaction under Valheim lighting remains unverified.
+The Unity graphics fixture additionally passed both finish modes with opaque
+artwork (zero shifted pixels above tolerance) and exposed composite paint
+(measurable changes). This validates the bundled shader's mask branch on the
+local GPU, not real vehicle UVs or Valheim lighting. Bundle SHA-256 stayed
+unchanged, so the existing client package remains current.
+No release-readiness or goal-completion claim follows from these builds.
+
+### Original-scope audit carried forward
+
+| Area | Current evidence and remaining acceptance |
+| --- | --- |
+| Badges, obstructed entry, MW kit track | Confirmed by user for inspected examples; preserve. |
+| H2/350Z preview grounding, H2 wheel backs | Implementation/export checks exist; confirm fitted variants in game. |
+| 3000GT/RX-7 underbody and U2 widebody track | Export/socket and track adaptations exist; verify reported models and kit transitions in game. |
+| Rock/overturned exit and seated Unspawn | Implemented with restoration and safety checks; explicit stuck/overturned gameplay acceptance remains. |
+| F-key removal and controls overlay | Code migration/help changes implemented; check persisted bindings and current HUD in game. |
+| U2/MW gauges | Common U2 NOS alignment and native MW artwork implemented; final visible fit/color/fill-direction acceptance remains. |
+| Full frontend, wheels, labels and capabilities | Main multiplayer tuning and new paint are user-confirmed. U2 interior editing and menu UX remain open regressions. |
+| Richer theme-specific garages | Props/scenes implemented; reference-quality layout/material acceptance remains open. |
+| Neon/exhaust/nitro previews | Implemented; neon mount report is an active regression. Verify world/preview/remote parity without resource consumption. |
+| Upstream review | Recorded comparison and adapted lifecycle/persistence work exist; no blind merge required. |
+| World persistence and multiplayer | Native save/reload fixture passed; real two-player testing reveals settings, streaming and smoothing defects. Full join/leave/reconnect, cargo UI and control handover remain acceptance gates. |
+| Headless server payload | Separate asset-free package/build checks passed; preserve compatibility while fixing real LAN behavior. |
+| Local-model task suggestions | Documented below; no delegation or external messaging has been requested. |
+| README | Updated in English with build variants and current reported limitations; maintain after behavior changes. |
+
 ## Confirmed by the user
 
 - Obstructed entry recovery teleports to the door successfully.
@@ -931,3 +1122,100 @@ restoration, topology, physics and multiplayer authority remain coupled work.
 - Native IL confirms ZoneSystem.Update uses CreateGhostZones around peer reference positions; IsAreaReady requires locally loaded zones/instances. Dedicated collision checks therefore rejected valid client-approved spawn pads.
 - Added explicit dedicated compile variant for placement: preserve upright/identity/distance/ownership/limit validation, delegate terrain/clearance to the existing client SpawnSupport checks. Listen-host physics stays unchanged. Same correction applies to recovery.
 - Dedicated package rebuilt against installed native server assemblies; archive verification and 132 serialized integration checks passed. No gameplay acceptance claimed. Prepared package only; running server not replaced. Existing restart_with_server_fix.cmd stages the latest verified payload after the user stops the server.
+
+### Player follow-up: underbody neon mounts
+- Replaced the universal y=0.08 tube/light mount with a mount 15 mm below the imported fixed body geometry; tube footprint follows body width/length. Optional catalog meshes, wheels and movable parts do not determine the mount. These are geometry-derived fallback mounts, not newly extracted native neon sockets.
+- Ground projection remains independently sampled in world space. Runtime, showroom and remote models use the same VehicleNeon.Create path.
+- Full experimental client build passed. Scanned all 76 exported models: every profile has usable fixed body bounds. Actual in-game fit remains for player verification; installed DLLs were not overwritten.
+- Remaining follow-up: source sockets/material fidelity and vehicle shaders; music autoplay; multiplayer settings/local volume; observer reload notifications and motion/audio smoothing; offline-owner obstruction recovery policy.
+
+### Local audio and autoplay follow-up
+- Radio Enabled/Volume and Audio Volume resolve to local per-model config entries, independently of network setup permissions. Shared vehicle setup revisions no longer control the listener's volume.
+- Added global EA TRAX/AutoPlay preference and visible Radio toggle. New radio sessions and each entry reset playback pause according to the preference; manual playback remains possible during a session.
+- Both complete client variants built; 47 radio state checks passed, including disabled autoplay, manual playback and re-entry. The initial test invocation used an older normal-build DLL; rebuilt that variant before obtaining the passing result. Installed files were not replaced; Unity playback/GUI acceptance remains open.
+
+### Network customization gate follow-up
+- Centralized local edit denial reasons, resolve showroom proxies to their actual vehicle, and use persistent world pose for proximity (matching the server rather than the interpolated visual).
+- Removed in-flight setup request from UI edit permissions. Existing version/debounce handling queues subsequent edits; dispatcher still waits for the active request. Server ownership/proximity/driver/speed/cargo/revision checks remain unchanged.
+- Performance/styling now show specific denial reasons instead of always asking the user to park. This is partial progress, not proof that the reported full editing failure is fixed. Experimental build and 20 settings/132 serialized integration checks passed; Unity frontend acceptance remains open. No installed files changed.
+
+### Observer streaming follow-up
+- Found that the second observer selection pass discarded already-loaded cars at the inner 160 m radius, bypassing the intended 180 m release threshold. Centralized the load/retain predicate, retaining existing visuals across 160-180 m and temporary native anchor unloading; new loads still need an anchor inside 160 m. Existing visuals retain priority within the eight-model budget to avoid slot churn.
+- Shared model loader now suppresses Spawned notifications for network observers and saved-world restoration; actual new single-player spawns retain the notification. No saved vehicle/cargo identity is deleted by these visual changes.
+- Seven new boundary/anchor cases and the existing 14 streaming/parking checks passed. Full experimental client built. Real two-client race/zone-boundary acceptance remains open; installed files untouched.
+
+### Remote motion and engine continuity
+- Added a bounded 16-pose observer buffer with 120 ms presentation delay, position interpolation and Quaternion.Slerp. Missing packets permit only 100 ms of extrapolation, then hold. Initial load, driver changes, large discontinuities and explicit recovery reset history.
+- Server stores accepted motion sequence and recovery epoch in optional ZDO metadata; no RPC layout/protocol version change. Older servers still trigger samples through changed pose/velocity, but lack explicit recovery reset metadata.
+- EngineSoundModel.Observe now exponentially approaches received RPM/load rather than assigning them per packet; discrete gear/shift state stays intact. Added convergence and frame-rate invariance checks. Wheel/flight telemetry still uses latest replicated samples and remains further presentation work.
+- Experimental client/server builds and package verification passed; 8 position-buffer cases, 91 audio checks and 132 serialized integration checks passed. Position tests use minimal vector doubles and do not validate native quaternion interpolation or real rendered/audio quality. Installed clients/server remain untouched.
+
+### Offline-owner obstruction removal
+- Existing Remove command now accepts a non-owner only within 10 m of the authenticated character, with no connected persistent owner, no driver marker/lease, speed below 0.5 m/s, no cargo lease/pending close and no open native container. Owner removal keeps its existing distant-roster behavior.
+- Server resolves presence from peer character ZDO player IDs and the local host; unresolved ready-peer identities conservatively block foreign removal during join/respawn. Requester-supplied ownership IDs are never accepted.
+- Current-car garage removal is available for foreign cars with the label REMOVE IF OWNER OFFLINE; seated Unspawn already routes through safe exit and the same server request. No ownership transfer is granted. Removal clears vehicle markers and retains the native chest/inventory and stored build bytes; it does not grant a recoverable foreign vehicle to the caller.
+- 146 serialized integration checks passed, including online owner, distance, unresolved join, driver, cargo and retained-data cases. Client/server builds and asset-free package checks passed; live reconnect/cargo/obstruction acceptance remains open. Installed files untouched.
+
+### Imported finish and inward body surfaces
+- Material audit found runtime paint hard-coded to metallic 0.72/smoothness 0.88, overriding the per-material import values. Removed that override; styling now captures the actual imported finish as its baseline. Import metallic/smoothness values are NFVU2 adaptations, not native NFS shader parameters.
+- Synthetic backfaces previously reused exterior paint and reflections. Painted body shells now have a separate inward triangle submesh and one shared dark nonmetallic rough liner material per vehicle. Exterior normals/UVs/material and glass/chrome/carbon/wheel behavior remain separate. The liner is an explicit runtime adaptation, not claimed as extracted source geometry/material. Both showroom and world use AddVisual; release destroys the extra material.
+- 14 mesh checks passed including split material slots and reversed winding; full experimental client built. Actual wheel-arch appearance and finish under Valheim lighting remain unverified. No installed files changed.
+- Native source fidelity remains open: MW geometry already retains effect identifiers, material names and socket tables; U2 spoiler/exhaust attachments are already used. Additional attachment/material-role extraction and dedicated vehicle shader work are not completed by this runtime correction.
+
+### Native attachment/material evidence inventory
+- Added read-only tools/audit_vehicle_sources.py for selected U2/MW car IDs. It extracts every authored marker matrix/hash/mesh and original material-name/key/effect/texture contracts, with source-file SHA256 and relative provenance. Metadata outputs stay ignored in artifacts/vehicle-source-audit; no original packages are copied or changed.
+- Ran on 350Z, H2 and MW BMWM3: 607/350/145 meshes, 1096/368/60 marker occurrences and 97/91/57 distinct material contracts. No NEON-named solids in these three geometry files. This does NOT prove unresolved markers lack neon semantics. Only already-established spoiler/roof/exhaust/light hashes receive role labels.
+- Existing exporter paths already use original spoiler/exhaust/roof markers where supported. Additional unresolved attachment identification and native shader-parameter reconstruction remain open. The runtime dark liner and geometry-fitted neon remain explicit adaptations.
+- Audit JSON hashes/matrix lengths checked. This is source-format evidence, not visual acceptance. No installed files changed.
+
+### Synchronized remote presentation channels
+- Extended each buffered pose with wheel local position/rotation/RPM, steering, fold, vectoring pitch/roll, thrust, engine RPM/load and throttle. Observer visuals and continuous engine/flight presentation now sample the same 120 ms timeline as the chassis rather than mixing delayed body motion with newest wheel/effect data.
+- Evaluation writes into a reused per-runtime presentation object; snapshots allocate only on received-state changes and history remains bounded. Packet stalls hold continuous presentation values; recovery/driver discontinuities reset history together. Boolean impulses still use live replicated events to avoid losing them. No wheel physics or handling values changed.
+- Experimental client built; 11 buffer/channel checks and 146 serialized integration checks passed. Tests cover numeric synchronization, packet gaps and reset but not Unity quaternion interpolation, high-RPM wheel aliasing or audible quality; actual two-client verification remains open. No installed files changed.
+
+### Concurrent setup draft preservation
+- Found server refresh/rejection replaced the entire local draft, discarding edits made after a request was sent. Added transactional Rebase: preserve actual local differences relative to the submitted/previous committed baseline, adopt other authoritative server values, and keep runtime-only control overrides out of saved settings.
+- Pending edits remain dirty across successive refreshes; unchanged drafts adopt server values normally. Dispatch still uses expected revisions and owner/nearby/stationary authority checks.
+- 24 settings checks using real BepInEx config passed, including late rejection, independent server updates, repeated refresh and no-pending behavior; 146 serialized integration checks and experimental client build passed. Real garage editing still needs player acceptance. Installed files untouched.
+
+### Current follow-up package and combined regression validation
+- Refreshed the previously stale laptop patch from the stamped current experimental client. Added prepare_lan_test.py --package-only so packaging never stages a live server, changes launchers or touches installed files. Reopened ZIP to verify exact three-file allowlist and DLL hash.
+- Current patch ZIP SHA256: 2b09bf7ce84dd1d1b64199bf38207593ae80dd60812add8e999a3d5a443191ed. Separate server archive remains required for offline-owner policy and explicit motion/recovery metadata.
+- Rebuilt normal client from the same current sources; focused mesh/audio/radio/streaming/settings/presentation/integration suites all passed. Full log artifacts/current-regressions.log. Native gameplay remains unverified. Added concise follow-up manual cases to NETWORK_TESTING.md; no installation or process action performed.
+
+### Native U2 neon endpoint discovery and implementation
+- Source search: CarToolkit author documentation https://nfs-tools.blogspot.com/p/nfs-cartoolkit.html describes marker-to-part binding. The community list https://nfsmodderscorner.blogspot.com/p/need-for-speed-underground-2.html supplied candidate FRONT/SIDE/REAR_NEON_*_START/END and NOS_PURGE_LEFT/RIGHT names; exact hashes and matrices were then verified directly in the owned local GEOMETRY.BIN files. Candidates were not treated as established labels without matching source records.
+- Corrected the previous search scope: native exterior neon endpoints live on bumper/skirt/widebody parts, not neon-named solids or the BASE alone. Local 350Z/HUMMER/MIATA stock and widebody source matrices confirm authored endpoint pairs.
+- Added optional per-part neonSegments to model data, finite/bounded validation and exporter support in generic U2, customization and the built-in 350Z preset assembler. Runtime mount components follow active selected parts; VehicleNeon resolves authored segments and restores geometry-based fallback when no markers are present. Ground projection remains independent. MW keeps its fallback unless genuine source endpoints become available.
+- Three pure marker extraction tests passed. Full U2 model/customization regeneration started; completion/build validation recorded below when finished. This change requires updated generated model JSON, not only a DLL patch. No installed files touched.
+- Shared modding knowledge CLI lookup was unavailable because its external cache directory was not writable; continued with public documentation and owned source bytes without installing tools or fetching attachments.
+
+- Native neon regeneration completed for all 30 U2 models and their customization catalogs: 180 baseline segments and 4985 catalog segments extracted from source marker pairs. Both full client variants built. Runtime model/catalog validation passed (1023 catalog checks, including full styling-loader validation); three marker helper tests passed. This is data/code validation, not in-game fit acceptance.
+- Refreshed client ZIP SHA256: f51c8f7401de7e31e0a64e5470a839d4ebb40e7d17671db917e7dae7db1fb68e. Its core-asset requirements now reflect regenerated body.json: existing old assets must be updated as well. The DLL-only patch is not sufficient to deploy native markers. Complete current payload is artifacts/mod or artifacts/network-client; no installed copies changed.
+
+### Native U2 NOS purge nozzles
+- Exact NOS_PURGE_LEFT/RIGHT name hashes match BASE marker matrices in owned U2 source files. Exporters now use authored positions and local-Z nozzle axes converted to Unity instead of approximate bumper/hood points. Built-in 350Z now has its two native nozzles rather than four invented positions. Particle timing/appearance remains the existing Unity adaptation.
+- Refreshed only effectEmitters metadata/provenance in all 30 generated U2 base models (60 source nozzles), preserving geometry/materials/neon/catalogs. Generic and built-in exporters reproduce the same contract on future exports. Direction vectors validated normalized. An initial metadata refresh stopped on optional source-name fields; reran using the canonical source_name resolver before final validation.
+- Five marker helper tests, 94 model checks and 11 nitro camera checks passed; both complete client variants rebuilt. Updated model test expectations from four adapted purge jets to two native nozzles and added source-coordinate/axis checks. No Unity visual acceptance or installed-file changes. Current data update still requires model JSON alongside the client DLL.
+
+### Deployable U2 data update without music/MW recopy
+- Added package-only --include-u2-assets mode to the existing LAN preparation helper. Produces NFVU2-network-U2-update.zip: 62 payload files (DLL, cars.json, 30 model JSONs and 30 styling catalogs), plus README/manifest. No settings/worlds/music/MW assets or original packages. Requires an existing full client installation.
+- Archive is written to a temporary path, reopened, exact allowlist verified and every payload SHA256 checked before atomic promotion. Installed/server paths and processes are never touched by package-only mode. The original DLL-only package mode also remains verified.
+- Current full U2 update: 199.3 MiB, SHA256 b9b82142da725bbbc345b9131f688d11f712cb958e35a8db526a1840c9334371. Python compilation and both packaging modes passed. Updated NETWORK_TESTING.md with backup/extraction boundaries for both clients. Gameplay acceptance still open.
+
+### Native-neon light footprint and current acceptance boundary
+- The four spot-light mount positions and ground-pool footprint now derive from the same active authored/fallback tube endpoints. Segment-length weighted left/right/front/rear centres handle asymmetric bumpers; the pool follows the source bounds instead of a universal 2.7 x 5.2 m rectangle.
+- Experimental build passed. All 30 U2 baseline endpoint sets cover all four light groups in the numerical data audit. Native lighting/projection remains unverified. Updated 62-file U2 package completed and verified: SHA256 5aaba19995b00cfb9361a010932bac63cdda0c06e211ddbe0ec25b5b43ba2e20. No installed copies touched.
+- User explicitly reports clients have not yet been updated. Do not infer current in-game acceptance from any previous screenshots or old installed versions. Multiplayer setup, race smoothing, offline-owner moderation and visual/HUD/exit acceptance remain pending manual tests of this build.
+- Dedicated vehicle shader feasibility: Unity executable was not found on PATH or in the conventional C:/Program Files/Unity/Hub/Editor and E:/Unity/Hub/Editor folders checked. This is a limited discovery result, not proof that no editor exists elsewhere. Current implementation uses fresh Standard materials with imported/adapted finishes; it does not contain a compiled custom car shader. Native NFS shader binaries have not been ported.
+
+### Player-tested rollback defect: unloaded native cargo dependency
+- User confirms local volume works but every setup category still rolls back on the dedicated server; two-client testing unavailable. Found Setup unconditionally required a loaded Container, inconsistent with dedicated Ghost-zone streaming. Ordinary setup now commits using persistent metadata when trunk layout is unchanged. Actual capacity changes still require loaded native inventory inspection; active cargo/ownership/proximity/revision protection remains.
+- Added regressions removing the native chest instance: ordinary paint/bodykit metadata commits and increments revision; capacity change is rejected. 151 integration checks pass. Dedicated server package rebuilt/verified. Client now logs setup rejection reasons and shows them in styling instead of hiding them behind the generic live-preview text.
+- Cobalt SS report remains visually unverified: source catalog contains explicit mw_bottom_body and BODY_DULL_PLASTIC surfaces at the old generic 0.08 metallic / 0.45 smoothness. Runtime now maps these explicit roles to nonmetallic 0.12 rough liner finish, separately from the synthetic reverse-face material. This is a targeted correction, not a claim that all arch geometry is fixed.
+- Added requested NFS shade palette and genuine pearl/chameleon finish tasks near the top. These finish types do not currently exist; existing Metallic is not pearl/chameleon. Client and server builds passed; no installed files replaced.
+
+### Paint family/shade selection
+- Added a body-only 14-family x 7-shade palette (98 choices plus Original). Existing base-colour IDs 0-14 remain exact; six additional shades per family append stable IDs. Existing rims/vinyl/window palettes are unchanged. UI separates family and shade with actual colour swatches, retaining finish and trim controls.
+- Expanded the existing per-vehicle Styling/Paint binding range; saved builds and network setup snapshots continue using the same integer key. Both plain body paint and vinyl compositing use the shade colour. These shade curves are NFVU2 adaptations, not recovered original NFS palette entries. Genuine pearlescent/chameleon shading remains unfinished and is not mislabeled as Metallic.
+- Palette tests cover all 98 unique selectable shades, round-trip family/shade mapping, legacy IDs and invalid saved IDs. Experimental build passed. Native menu appearance and saved/network gameplay behavior require manual acceptance. No installed files changed.

@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace NeedForValheim {
+public sealed class VehicleNeonMount : MonoBehaviour { public ModelNeonSegment[] Segments; }
 public sealed class VehicleNeon : IDisposable {
     const int Columns = 7, Rows = 13;
     static readonly string[] TintProperties = { "_Color", "_TintColor", "_BaseColor" };
@@ -14,6 +15,7 @@ public sealed class VehicleNeon : IDisposable {
     readonly bool[] grounded = new bool[Columns * Rows];
     readonly List<int> triangles = new List<int>();
     readonly int groundMask;
+    float mountY=.08f,halfWidth=.7f,halfLength=1.55f,poolX,poolZ,poolWidth=2.7f,poolLength=5.2f;
     GameObject projection;
     Mesh mesh;
     MeshRenderer renderer;
@@ -24,7 +26,9 @@ public sealed class VehicleNeon : IDisposable {
     public float? PreviewGroundY {get;set;}
     readonly Action<string> log;
     bool reportedGround;
-    float phase, sampleIn;
+    float phase, sampleIn,mountIn;
+    readonly List<Vector3[]> authoredSegments=new List<Vector3[]>();
+    readonly List<Vector3[]> fallbackSegments=new List<Vector3[]>();
     bool disposed;
     public bool Enabled { get; set; } = true;
     public bool Pulsing { get; set; }
@@ -37,6 +41,7 @@ public sealed class VehicleNeon : IDisposable {
     }
     public static VehicleNeon Create(GameObject car, ModelData model, Action<string> log) {
         var result = new VehicleNeon(car.transform, log);
+        result.FitUnderbody(model);
         try {
             {
                 result.texture = FallbackMask();
@@ -57,14 +62,16 @@ public sealed class VehicleNeon : IDisposable {
                     result.renderer.shadowCastingMode = ShadowCastingMode.Off; result.renderer.receiveShadows = false; result.renderer.enabled = false;
                     result.tubeMaterial=new Material(result.material){name="Vehicle neon tubes",mainTexture=Texture2D.whiteTexture};
                     if(result.tubeMaterial.HasTexture("_EmissionMap"))result.tubeMaterial.SetTexture("_EmissionMap",Texture2D.whiteTexture);
-                    foreach(var endpoints in new[]{new[]{new Vector3(-.7f,.08f,-1.35f),new Vector3(-.7f,.08f,1.35f)},new[]{new Vector3(.7f,.08f,-1.35f),new Vector3(.7f,.08f,1.35f)},new[]{new Vector3(-.65f,.08f,1.55f),new Vector3(.65f,.08f,1.55f)},new[]{new Vector3(-.65f,.08f,-1.55f),new Vector3(.65f,.08f,-1.55f)}}) {
+                    float x=result.halfWidth,z=result.halfLength,y=result.mountY;
+                    foreach(var endpoints in new[]{new[]{new Vector3(-x,y,-z*.87f),new Vector3(-x,y,z*.87f)},new[]{new Vector3(x,y,-z*.87f),new Vector3(x,y,z*.87f)},new[]{new Vector3(-x*.93f,y,z),new Vector3(x*.93f,y,z)},new[]{new Vector3(-x*.93f,y,-z),new Vector3(x*.93f,y,-z)}}) {
+                        result.fallbackSegments.Add(endpoints);
                         var tube=new GameObject("Vehicle neon tube").AddComponent<LineRenderer>();tube.transform.SetParent(car.transform,false);
                         tube.useWorldSpace=false;tube.positionCount=2;tube.SetPositions(endpoints);tube.widthMultiplier=.025f;
                         tube.sharedMaterial=result.tubeMaterial;tube.shadowCastingMode=ShadowCastingMode.Off;tube.receiveShadows=false;tube.enabled=false;result.tubes.Add(tube);
                     }
                 }
             }
-            foreach (var position in new[] { new Vector3(-.75f, .08f, 0), new Vector3(.75f, .08f, 0), new Vector3(0, .08f, 1.65f), new Vector3(0, .08f, -1.65f) }) {
+            foreach (var position in new[] { new Vector3(-result.halfWidth, result.mountY, 0), new Vector3(result.halfWidth, result.mountY, 0), new Vector3(0, result.mountY, result.halfLength), new Vector3(0, result.mountY, -result.halfLength) }) {
                 var obj = new GameObject("Vehicle_NeonLight"); obj.transform.SetParent(car.transform, false); obj.transform.localPosition = position;
                 obj.transform.localRotation = Quaternion.Euler(90, 0, 0);
                 var light = obj.AddComponent<Light>(); result.lights.Add(light);
@@ -74,8 +81,66 @@ public sealed class VehicleNeon : IDisposable {
             return result;
         } catch { result.Dispose(); throw; }
     }
+    void UpdateMounts() {
+        if(tubeMaterial==null)return;
+        authoredSegments.Clear();
+        foreach(var mount in car.GetComponentsInChildren<VehicleNeonMount>()) {
+            if(mount.Segments==null||!mount.gameObject.activeInHierarchy)continue;
+            foreach(var segment in mount.Segments) {
+                var a=segment.start;var b=segment.end;
+                authoredSegments.Add(new[]{car.InverseTransformPoint(mount.transform.TransformPoint(new Vector3(a.x,a.y,a.z))),car.InverseTransformPoint(mount.transform.TransformPoint(new Vector3(b.x,b.y,b.z)))});
+            }
+        }
+        if(authoredSegments.Count==0)authoredSegments.AddRange(fallbackSegments);
+        while(tubes.Count<authoredSegments.Count) {
+            var tube=new GameObject("Vehicle source neon tube").AddComponent<LineRenderer>();tube.transform.SetParent(car,false);
+            tube.useWorldSpace=false;tube.positionCount=2;tube.widthMultiplier=.025f;tube.sharedMaterial=tubeMaterial;
+            tube.shadowCastingMode=ShadowCastingMode.Off;tube.receiveShadows=false;tubes.Add(tube);
+        }
+        for(int i=0;i<tubes.Count;i++) {
+            tubes[i].gameObject.SetActive(i<authoredSegments.Count);
+            if(i<authoredSegments.Count)tubes[i].SetPositions(authoredSegments[i]);
+        }
+        // The light pool must follow the same fitted/source footprint as the
+        // visible tubes, including asymmetric bumpers and selected widebody.
+        float minX=float.PositiveInfinity,maxX=float.NegativeInfinity,minZ=float.PositiveInfinity,maxZ=float.NegativeInfinity;
+        foreach(var segment in authoredSegments)foreach(var point in segment) {
+            minX=Mathf.Min(minX,point.x);maxX=Mathf.Max(maxX,point.x);
+            minZ=Mathf.Min(minZ,point.z);maxZ=Mathf.Max(maxZ,point.z);
+        }
+        if(authoredSegments.Count==0)return;
+        poolX=(minX+maxX)*.5f;poolZ=(minZ+maxZ)*.5f;
+        poolWidth=Mathf.Max(.5f,maxX-minX+.7f);poolLength=Mathf.Max(1,maxZ-minZ+.7f);
+        var centres=new Vector3[4];var weights=new float[4];
+        foreach(var segment in authoredSegments) {
+            var midpoint=(segment[0]+segment[1])*.5f;
+            bool side=Mathf.Abs(midpoint.x-poolX)/Mathf.Max(.1f,maxX-minX)>Mathf.Abs(midpoint.z-poolZ)/Mathf.Max(.1f,maxZ-minZ);
+            int index=side?(midpoint.x<poolX?0:1):(midpoint.z>poolZ?2:3);
+            float weight=Mathf.Max(.01f,Vector3.Distance(segment[0],segment[1]));
+            centres[index]+=midpoint*weight;weights[index]+=weight;
+        }
+        for(int i=0;i<lights.Count;i++)if(weights[i]>0)lights[i].transform.localPosition=centres[i]/weights[i];
+    }
+    void FitUnderbody(ModelData model) {
+        // Source body vertices share the chassis coordinate space. The origin
+        // is not the floor (especially on MW cars); wheel bounds are unrelated.
+        // Ignore optional catalog meshes and movable hood/trunk/spoiler parts.
+        float bottom=float.PositiveInfinity,width=0,length=0;
+        if(model?.parts!=null)foreach(var part in model.parts) {
+            if(part==null||part.group!="body"||!string.IsNullOrEmpty(part.optionGroup)||!string.IsNullOrEmpty(part.movingPart)||part.vertices==null)continue;
+            foreach(var v in part.vertices) {
+                width=Mathf.Max(width,Mathf.Abs(v.x));length=Mathf.Max(length,Mathf.Abs(v.z));
+                bottom=Mathf.Min(bottom,v.y);
+            }
+        }
+        if(float.IsInfinity(bottom)||width<.3f||length<.5f)return;
+        mountY=bottom-.015f;
+        halfWidth=width*.78f;halfLength=length*.68f;
+    }
     public void Tick(bool driving, float deltaTime) {
         if (disposed || car == null) return;
+        mountIn-=Mathf.Max(0,deltaTime);
+        if(mountIn<=0){mountIn=.15f;UpdateMounts();}
         bool active = Enabled && driving;
         phase = (phase + Mathf.Clamp(deltaTime, 0, .2f) * 2.5f) % (Mathf.PI * 2);
         float intensity = Pulsing ? .25f + .75f * (.5f + .5f * Mathf.Sin(phase)) : 1;
@@ -100,7 +165,7 @@ public sealed class VehicleNeon : IDisposable {
         projection.transform.position = car.position;
         for (int row = 0; row < Rows; row++) for (int col = 0; col < Columns; col++) {
             int index = row * Columns + col;
-            var point = car.TransformPoint(new Vector3(((float)col / (Columns - 1) - .5f) * 2.7f, 0, ((float)row / (Rows - 1) - .5f) * 5.2f));
+            var point = car.TransformPoint(new Vector3(poolX+((float)col / (Columns - 1) - .5f) * poolWidth, 0, poolZ+((float)row / (Rows - 1) - .5f) * poolLength));
             var origin = point + Vector3.up * .9f;
             if(PreviewGroundY.HasValue){grounded[index]=true;vertices[index]=new Vector3(point.x,PreviewGroundY.Value+.025f,point.z)-car.position;continue;}
             int count = Physics.RaycastNonAlloc(origin, Vector3.down, hits, 2.4f, groundMask, QueryTriggerInteraction.Ignore);

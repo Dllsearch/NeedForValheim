@@ -52,7 +52,7 @@ public partial class Plugin {
     void DrawShowcaseMenu() {
         var pages=showroom!=null?new[]{2,3,4,12,6,7}:new[]{2,3,4,12};
         showcasePage=Mathf.Clamp(showcasePage,0,pages.Length-1);
-        showcasePage=UiToolbar(new Rect(25,142,510,30),showcasePage,pages.Select(p=>MenuNames[p]).ToArray());
+        showcasePage=UiToolbar(new Rect(25,142,510,34),showcasePage,pages.Select(p=>p==6?"Body":p==7?"Audio":p==12?"Exhaust":p==2?"Lights":p==3?"Neon":"Nitro").ToArray());
         GUI.BeginGroup(new Rect(0,43,560,517));
         try {switch(pages[showcasePage]){case 2:DrawLightsMenu();break;case 3:DrawNeonMenu();break;case 4:DrawNitroMenu();break;case 12:DrawExhaustMenu();break;case 6:DrawBodyMenu();break;case 7:DrawTrunkMenu();break;}}
         finally {GUI.EndGroup();}

@@ -268,6 +268,7 @@ SPECS['h2'] = dict(display='Hummer H2',short='H2',source='HUMMER',kit='KIT00',
     upShift=4100,downShift=1500,minRpm=1000,maxRpm=4782,rim=(26,22,28),clearance=(.22,.375),
     capabilities=dict(radio=True,flight=True,suvEngine=True,suvTuning=True),
     wheelPack='SPINNER',wheelFamily='SPINNER_STYLE01_26_34',spinner=True,
+    completeInnerTyre=True,
     brakeFamily='BRAKE_STYLE03',brakeScale=1.12,visualLift=.30,visualRadius=.4364,tyreWidth=.34,
     spinnerOffset=.185,paintMetallic=.25,chromeMetallic=.28,rubberColor=(.13,.13,.14),
     glassSmoothness=.9,paintWithoutTexture=True,chromeWithoutTexture=True,prefabName='H2_Local_Prototype',sectionNames='{name}_A_{section}_{role}',
@@ -536,6 +537,7 @@ def export(ident, output_root=LOCAL):
         return value - math.floor(value) if abs(value) > 100 else value
 
     for part, group, name, socket in selected:
+        first_part=len(parts)
         keys={s['materialKey'] for s in part['slices']}
         head_keys=keys.intersection(HEAD_LENS) or keys.intersection((0x54949afd,))
         tail_keys=keys.intersection(TAIL_LENS) or keys.intersection((0x12c9453c,))
@@ -587,6 +589,11 @@ def export(ident, output_root=LOCAL):
                     vertices=[vertex(v,group,socket=socket,exhaust_axes='SPOILER' not in name) for v in part['vertices']],
                     normals=[vertex(v,group,True,socket,exhaust_axes='SPOILER' not in name) for v in part['normals']],uv=coords,indices=triangles)))
 
+        if group=='body' and len(parts)>first_part:
+            from vehicle_markers import neon_segments
+            segments=neon_segments(part,lambda v:vertex(v,group,socket=socket))
+            if segments:parts[first_part]['neonSegments']=segments
+
     lights = []
     for (role, right), points in lamps.items():
         side = 1 if right else -1
@@ -604,6 +611,9 @@ def export(ident, output_root=LOCAL):
     from car_effects import nitro_emitters
     fallback=[vertex((socket[12],socket[13],socket[14]),'body') for socket in exhaust_mounts]
     model['effectEmitters']=nitro_emitters([p for p in parts if p.get('optionGroup')!='exhaust'],abs(front[1]),abs(front[0]),fallback)
+    from vehicle_markers import purge_emitters
+    native_purge=purge_emitters(pick(meshes,car+'_BASE'),lambda v:vertex(v,'body'),lambda v:vertex(v,'body',True))
+    if native_purge:model['effectEmitters']=[e for e in model['effectEmitters'] if e['role']!='purge']+native_purge
     if exhaust_variants:
         variants=[]
         for style,mesh in exhaust_variants:
@@ -616,6 +626,11 @@ def export(ident, output_root=LOCAL):
             variants.append(dict(style=style,emitters=emitters))
         model['exhaustVariants']=variants
         model['effectEmitters']=max(variants,key=lambda v:len(v['emitters']))['emitters']+[e for e in model['effectEmitters'] if e['role']!='exhaust']
+    if spec.get('completeInnerTyre'):
+        from tyre_sidewall import complete_inner_sidewall
+        for part in model['parts']:
+            if part['group']=='wheel' and materials[part['material']]['name'].startswith(f'{RUBBER:08x}_'):
+                complete_inner_sidewall(part)
     (out / f'{ident}.json').write_text(json.dumps(model, separators=(',', ':')), encoding='utf-8')
     rig = dict(trackWidth=round(abs(front[1]), 4), frontAxleZ=round(abs(front[0]), 4),
                rearAxleZ=round(abs(rear[0]), 4), wheelRadius=round(radius, 4),
@@ -647,7 +662,9 @@ def export(ident, output_root=LOCAL):
     (out / 'provenance.json').write_text(json.dumps(dict(
         body=body, wheel=wheel_family, brakes=brakes, wheelLocators=locators, bodyLift=lift,
         tyreRadius=radius, tyreWidth=tyre_width, brakeScale=brake_scale, rig=rig,
+        innerTyreSidewall='NFVU2 adaptation: mirror authored outer rubber sidewall when the inner side is absent' if spec.get('completeInnerTyre') else 'Original geometry',
         paint='Authored body colour; NFSU2 stores paint as a material tint, not a texture',
+        purgeMounts='Original BASE NOS_PURGE_LEFT/RIGHT matrices when present; positions and local-Z directions converted to Unity',
         excluded='Decals and body-kit variants use the separate customization catalog.'), indent=2),
         encoding='utf-8')
     print(f'{car}: {len(parts)} sections; {len(textures)} textures; locators {locators}')

@@ -58,7 +58,8 @@ class Program {
         var plate=model.parts.Single(p=>p.name=="NFVU2_license_plate_rectangle");
         Check(plate.indices.Length==6 && plate.vertices.All(v=>v.z < -2f) && model.textures[model.materials[plate.material].texture].name=="original_license_plate","original plate texture mounted on rear rectangle");
         Check(model.neonTexture>=0 && model.textures[model.neonTexture].name=="350Z_NEON","original vehicle-specific neon mask");
-        Check(model.effectEmitters.Count(e=>e.role=="exhaust")==4 && model.effectEmitters.Count(e=>e.role=="purge")==4,"four exhaust mouths and four purge jets exported");
+        Check(model.effectEmitters.Count(e=>e.role=="exhaust")==4 && model.effectEmitters.Count(e=>e.role=="purge")==2,"four exhaust mouths and two native purge nozzles exported");
+        Check(model.effectEmitters.Where(e=>e.role=="purge").All(e=>Math.Abs(e.position.z-.842f)<.01f&&Math.Abs(e.position.y-.822f)<.01f&&e.direction.y>.99f)&&model.effectEmitters.Where(e=>e.role=="purge").Any(e=>e.position.x<-.28f)&&model.effectEmitters.Where(e=>e.role=="purge").Any(e=>e.position.x>.28f),"350Z purge positions and nozzle axes match native BASE marker matrices");
         Check(model.effectEmitters.Where(e=>e.role=="exhaust").All(e=>e.position.z < -1.9f && e.direction.z < -.9f),"exhaust flames originate behind car and point rearward");
         Check(model.nitroFlameTexture>=0 && model.nitroPurgeTexture>=0 && model.textures[model.nitroFlameTexture].width==128 && model.textures[model.nitroPurgeTexture].width==128,"original nitrous particle atlases present");
         Check(model.materials.Any(m=>m.name.StartsWith("wheel_chrome_")) && model.materials.Any(m=>m.name.StartsWith("wheel_gold_")),"chrome lip and gold star use separate materials");

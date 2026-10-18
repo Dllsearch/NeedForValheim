@@ -18,6 +18,10 @@ class VinylTests {
         canvas=Base();VinylComposite.Blend(canvas,new byte[]{255,0,0,255},Colors,false,0);Check(canvas.SequenceEqual(Base()),"hidden layer is transparent");
         canvas=Base();VinylComposite.Blend(canvas,new byte[]{255,0,0,255},Colors,false,1);VinylComposite.Blend(canvas,new byte[]{0,0,255,255},Colors,false,1);Check(canvas.Take(3).SequenceEqual(Colors.Skip(6).Take(3)),"later vinyl layers cover earlier layers");
         Check(VinylCatalog.Unpack(Pack(new byte[]{1,2,3,4}),4).SequenceEqual(new byte[]{1,2,3,4}),"bounded Deflate roundtrip");
+        canvas=Base();VinylComposite.Blend(canvas,new byte[]{91,70,153,255},Colors,true,1,true);Check(canvas.SequenceEqual(new byte[]{91,70,153,0}),"opaque artwork removes paint contribution without changing artist colours");
+        canvas=Base();VinylComposite.Blend(canvas,new byte[]{255,0,0,128},Colors,false,1,true);Check(canvas[3]==127,"antialiased artwork retains uncovered paint weight");
+        VinylComposite.Blend(canvas,new byte[]{0,255,0,128},Colors,false,1,true);Check(canvas[3]==63,"overlapping translucent layers multiply remaining paint weight");
+        canvas=Base();VinylComposite.Blend(canvas,new byte[]{255,0,0,0},Colors,false,1,true);Check(canvas.SequenceEqual(Base()),"transparent artwork retains full paint contribution");
         foreach(var bytes in new[]{new byte[]{1,2,3},new byte[]{1,2,3,4,5}}){bool rejected=false;try{VinylCatalog.Unpack(Pack(bytes),4);}catch(InvalidDataException){rejected=true;}Check(rejected,"wrong decompressed size rejected");}
         var side=new[]{new VinylPoint{x=1,y=0,z=-1,u=0,v=0,nx=1},new VinylPoint{x=1,y=1,z=-1,u=1,v=0,nx=1},new VinylPoint{x=1,y=0,z=1,u=0,v=1,nx=1}};
         var stripes=VinylComposite.LegacyMask(2,new[]{side});Check(stripes.All(b=>b==0),"roof racing stripes do not become stretched side streaks");

@@ -124,8 +124,9 @@ internal sealed class VehicleNetworkServer {
                 var nativeRoot=ZNetScene.instance?.FindInstance(id);var container=nativeRoot!=null?nativeRoot.GetComponent<Container>():null;
                 if(container!=null&&container.IsInUse()){Reply(sender,request,false,"Close the cargo before recovery",id);return;}
                 data.Set("nfvu2_pose_v2",position);data.Set("nfvu2_rotation_v2",rotation);
-                data.SetPosition(position+rotation*new Vector3(0,.5f,-profile.rig.trunkApproachZ));data.SetRotation(rotation);
+                UpdateCargoPose(data,profile,position,rotation);
                 data.Set(VehicleNetworkProtocol.Driver,0L);data.Set(VehicleNetworkProtocol.DriverCharacter,ZDOID.None);
+                data.Set("nfvu2_motion_epoch",unchecked(data.GetInt("nfvu2_motion_epoch")+1));
                 data.Set(VehicleNetworkProtocol.Velocity,Vector3.zero);VehicleMotionTelemetry.StopEffects(data);
                 foreach(var field in new[]{"flying","landing"})data.Set(VehicleMotionTelemetry.Prefix+field,false);
                 foreach(var field in new[]{"fold","pitch","roll"})data.Set(VehicleMotionTelemetry.Prefix+field,0f);
@@ -148,7 +149,19 @@ internal sealed class VehicleNetworkServer {
                 if(data.GetZDOID(VehicleNetworkProtocol.DriverCharacter).Equals(characterId))ApplyMotion(data,sender,now,p);return;
             }
             if(command==VehicleNetworkProtocol.Command.Release) {
-                if(leases.HeldBy(key,sender,now)){if(p.GetPos()<p.Size()&&data.GetZDOID(VehicleNetworkProtocol.DriverCharacter).Equals(characterId)){try{ApplyMotion(data,sender,now,p);}catch(Exception error){log?.Invoke("Final motion ignored: "+error.GetType().Name);}}leases.Release(key,sender);data.Set(VehicleNetworkProtocol.Driver,0L);data.Set(VehicleNetworkProtocol.DriverCharacter,ZDOID.None);data.Set(VehicleNetworkProtocol.Velocity,Vector3.zero);VehicleMotionTelemetry.ReleaseEffects(data);}
+                if(leases.HeldBy(key,sender,now)) {
+                    bool finalMotion=false;
+                    if(p.GetPos()<p.Size()&&data.GetZDOID(VehicleNetworkProtocol.DriverCharacter).Equals(characterId)) {
+                        try{finalMotion=ApplyMotion(data,sender,now,p);}catch(Exception error){log?.Invoke("Final motion ignored: "+error.GetType().Name);}
+                    }
+                    if(!finalMotion) {
+                        var profile=catalog.Get(VehiclePersistence.Profile(data));
+                        bool keep=SavedKeepRunning(profile,ReadSetup(VehiclePersistence.Settings(data)));
+                        data.Set(VehicleMotionTelemetry.Prefix+"running",data.GetBool(VehicleMotionTelemetry.Prefix+"running")&&VehiclePersistence.WasDriven(data)&&keep);
+                    }
+                    leases.Release(key,sender);data.Set(VehicleNetworkProtocol.Driver,0L);data.Set(VehicleNetworkProtocol.DriverCharacter,ZDOID.None);
+                    data.Set(VehicleNetworkProtocol.Velocity,Vector3.zero);VehicleMotionTelemetry.ReleaseEffects(data);
+                }
                 Reply(sender,request,true,"Driver released",id);return;
             }
             if(command==VehicleNetworkProtocol.Command.Setup) {
@@ -156,13 +169,20 @@ internal sealed class VehicleNetworkServer {
                 bool allowed=!cargoLeases.Active(key,now)&&data.GetLong(VehicleNetworkProtocol.Creator)==player&&Vector3.Distance(character.GetPosition(),VehiclePersistence.Location(data))<=10&&
                     (!leases.Active(key,now)||leases.HeldBy(key,sender,now))&&data.GetVec3(VehicleNetworkProtocol.Velocity,Vector3.zero).magnitude<.5f;
                 if(!allowed){Reply(sender,request,false,"Park your own vehicle nearby before changing its setup",id);return;}
-                if(expected!=data.GetInt(VehicleNetworkProtocol.SetupRevision)){Reply(sender,request,false,"Vehicle setup changed on server. Refresh and try again",id);return;}
+                if(expected!=data.GetInt(VehicleNetworkProtocol.SetupRevision)){Reply(sender,request,false,VehicleNetworkProtocol.SetupConflict,id);return;}
                 var profile=catalog.Profiles.First(v=>v.id==VehiclePersistence.Profile(data));
                 var settings=ReadSetup(setup);
+                var previousSettings=ReadSetup(VehiclePersistence.Settings(data));
                 int layout=VehiclePersistence.Trunk(data);
                 if(settings.TryGetValue(profile.ConfigPrefix+"Showroom/TrunkLayout",out var next)&&(!int.TryParse(next,out layout)||layout<0||layout>3))throw new System.IO.InvalidDataException("Invalid trunk layout");
                 var root=ZNetScene.instance.FindInstance(id);var cargo=root!=null?root.GetComponent<Container>():null;
-                if(cargo==null||cargo.IsInUse()){Reply(sender,request,false,"Cargo is loading or in use. Close it before changing the setup",id);return;}
+                if(cargo!=null&&cargo.IsInUse()){Reply(sender,request,false,"Close cargo before changing the setup",id);return;}
+                // Remote dedicated-server zones need not instantiate the chest.
+                // Paint/parts/performance do not need native inventory access.
+                if(layout!=VehiclePersistence.Trunk(data)) {
+                    if(cargo==null) {
+                        if(!ResizeUnloadedCargo(data,profile,layout)){Reply(sender,request,false,"Remove excess cargo or load storage before changing its capacity",id);return;}
+                    }else {
                 typeof(Container).GetMethod("Load",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Public|System.Reflection.BindingFlags.Instance).Invoke(cargo,null);
                 var inventory=cargo.GetInventory();
                 if(!VehicleStorageRules.CanResize(profile,layout,inventory.NrOfItems(),false)){Reply(sender,request,false,"Remove excess cargo before changing the trunk layout",id);return;}
@@ -171,17 +191,27 @@ internal sealed class VehicleNetworkServer {
                     var items=inventory.GetAllItems();for(int i=0;i<items.Count;i++)items[i].m_gridPos=new Vector2i(i%inventory.GetWidth(),i/inventory.GetWidth());
                     cargo.m_height=rows;inventory.SetHeight(rows);inventory.m_onChanged?.Invoke();
                 }
+                }
+                }
                 settings[profile.ConfigPrefix+"Showroom/TrunkLayout"]=layout.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                if(SavedGroundMode(profile,settings)!=SavedGroundMode(profile,ReadSetup(VehiclePersistence.Settings(data))))
+                if(SavedGroundMode(profile,settings)!=SavedGroundMode(profile,previousSettings))
                     data.Set(VehicleMotionTelemetry.Prefix+"groundmode",SavedGroundMode(profile,settings));
+                if(data.GetLong(VehicleNetworkProtocol.Driver)==0&&SavedKeepRunning(profile,settings)!=SavedKeepRunning(profile,previousSettings))
+                    data.Set(VehicleMotionTelemetry.Prefix+"running",VehiclePersistence.WasDriven(data)&&SavedKeepRunning(profile,settings));
                 VehiclePersistence.UpdateSettings(data,JsonConvert.SerializeObject(settings),layout);
                 Reply(sender,request,true,"Vehicle setup saved",id);return;
             }
             if(command==VehicleNetworkProtocol.Command.Remove) {
                 var cargoRoot=ZNetScene.instance?.FindInstance(id);var container=cargoRoot!=null?cargoRoot.GetComponent<Container>():null;
-                bool ok=!cargoLeases.Active(key,now)&&data.GetLong(VehicleNetworkProtocol.Creator)==player&&!leases.Active(key,now)&&(container==null||!container.IsInUse());
+                long creator=data.GetLong(VehicleNetworkProtocol.Creator);
+                bool own=creator==player;
+                bool offlineNearby=!own&&creator!=0&&!OwnerConnected(creator)&&
+                    Vector3.Distance(character.GetPosition(),VehiclePersistence.Location(data))<=10&&
+                    data.GetVec3(VehicleNetworkProtocol.Velocity,Vector3.zero).magnitude<.5f;
+                bool ok=(own||offlineNearby)&&!cargoLeases.Active(key,now)&&!cargoClosing.ContainsKey(id)&&
+                    !leases.Active(key,now)&&data.GetLong(VehicleNetworkProtocol.Driver)==0&&(container==null||!container.IsInUse());
                 if(ok){VehiclePersistence.Forget(data);data.Set(VehicleNetworkProtocol.Driver,0L);data.Set(VehicleNetworkProtocol.DriverCharacter,ZDOID.None);}
-                Reply(sender,request,ok,ok?"Vehicle removed; cargo retained":"Only the owner can remove a parked vehicle",id);return;
+                Reply(sender,request,ok,ok?"Vehicle removed; cargo retained":"Remove your parked vehicle, or a nearby vacant vehicle whose owner is offline",id);return;
             }
             Reply(sender,request,false,"Unknown vehicle command",id);
         }catch(Exception error){log?.Invoke("Rejected malformed vehicle RPC: "+error.GetType().Name);}
@@ -202,6 +232,7 @@ internal sealed class VehicleNetworkServer {
         if(data==null){UnityEngine.Object.Destroy(root);Reply(sender,request,false,"World anchor unavailable",ZDOID.None);return;}
         try {
             data.Set(VehicleNetworkProtocol.Creator,player);VehiclePersistence.Save(data,profileId,root.transform,layout,false,setup);
+            UpdateCargoPose(data,profile,position,rotation);
             data.Set(VehicleMotionTelemetry.Prefix+"groundmode",SavedGroundMode(profile,settings));
             data.SetOwner(ZDOMan.GetSessionID());records.Add(data.m_uid);
             hide?.Invoke(root.GetComponent<Container>());
@@ -218,23 +249,70 @@ internal sealed class VehicleNetworkServer {
         if(!Pose(position,rotation)||!Finite(velocity.x)||!Finite(velocity.y)||!Finite(velocity.z)||!Finite(steering)||!Finite(wheel)||Mathf.Abs(steering)>90||Mathf.Abs(wheel)>1000000)return false;
         if(!leases.Accept(key,sender,sequence,now,Vector3.Distance(position,VehiclePersistence.Location(data)),velocity.magnitude))return false;
         telemetry.Store(data);
+        data.Set("nfvu2_motion_sequence",sequence);
         data.Set("nfvu2_pose_v2",position);data.Set("nfvu2_rotation_v2",rotation);
         var profile=catalog.Profiles.First(v=>v.id==VehiclePersistence.Profile(data));
-        var cargo=position+rotation*new Vector3(0,.5f,-profile.rig.trunkApproachZ);
-        if(ZoneSystem.instance!=null&&ZoneSystem.instance.GetGroundHeight(cargo,out var ground))cargo.y=ground+.15f;
-        data.SetPosition(cargo);data.SetRotation(Quaternion.Euler(0,rotation.eulerAngles.y,0));
+        UpdateCargoPose(data,profile,position,rotation);
         data.Set(VehicleNetworkProtocol.Velocity,velocity);data.Set(VehicleNetworkProtocol.Steering,steering);data.Set(VehicleNetworkProtocol.Wheels,wheel);data.Set(VehicleNetworkProtocol.Boost,boost);data.Set("nfvu2_driven_v2",true);
         return true;
+    }
+    static void UpdateCargoPose(ZDO data,CarProfile profile,Vector3 position,Quaternion rotation) {
+        var cargo=position+rotation*new Vector3(0,.5f,-profile.rig.trunkApproachZ);
+        if(ZoneSystem.instance!=null&&ZoneSystem.instance.GetGroundHeight(cargo,out var ground))cargo.y=ground+.15f;
+        var facing=Quaternion.Euler(0,rotation.eulerAngles.y,0);
+        data.SetPosition(cargo);data.SetRotation(facing);
+        // Keep loaded native interaction/ward checks at the current anchor,
+        // rather than relying on a later scene reload to move the chest.
+        var root=ZNetScene.instance?.FindInstance(data.m_uid);
+        if(root!=null)root.transform.SetPositionAndRotation(cargo,facing);
     }
     public bool AllowsNativeCargoOpen(Container container,long sender,long player) {
         var data=container?.GetComponent<ZNetView>()?.GetZDO();var peer=ZNet.instance?.GetPeer(sender);
         bool identity=Host(sender)?Player.m_localPlayer.GetPlayerID()==player:peer!=null&&peer.IsReady()&&world?.GetZDO(peer.m_characterID)?.GetLong(ZDOVars.s_playerID,0L)==player;
         return world==ZDOMan.instance&&data!=null&&identity&&VehiclePersistence.IsVehicle(data)&&cargoLeases.HeldBy(data.m_uid.ToString(),sender,Time.realtimeSinceStartupAsDouble);
     }
+    bool OwnerConnected(long player) {
+        if(Player.m_localPlayer!=null&&Player.m_localPlayer.GetPlayerID()==player)return true;
+        foreach(var peer in ZNet.instance.GetPeers()) {
+            if(!peer.IsReady())continue;
+            var character=world.GetZDO(peer.m_characterID);
+            // Do not grant foreign removal while a joining/respawning peer's
+            // identity is temporarily unavailable. Never trust requester IDs.
+            if(character==null||character.GetLong(ZDOVars.s_playerID,0L)==0)return true;
+            if(character.GetLong(ZDOVars.s_playerID,0L)==player)return true;
+        }
+        return false;
+    }
     bool DriverCharacterMatches(ZDO data,long peer) {
         var actor=Host(peer)?ZNet.instance.LocalPlayerCharacterID:ZNet.instance.GetPeer(peer)?.m_characterID??ZDOID.None;
         return !actor.Equals(ZDOID.None)&&data.GetZDOID(VehicleNetworkProtocol.DriverCharacter).Equals(actor)&&world.GetZDO(actor)!=null;
     }
+    static bool ResizeUnloadedCargo(ZDO data,CarProfile profile,int layout) {
+        var bytes=data.GetByteArray(ZDOVars.s_items,null);
+        if(bytes==null||bytes.Length==0)return true;
+        byte[] resized;
+        try {
+        // Match the owned game's Inventory v108 contract. Fail closed for
+        // unknown versions and unresolved items rather than losing cargo.
+        var header=new ZPackage(bytes);
+        if(header.ReadInt()!=108)return false;
+        int expected=header.ReadUShort();
+        if(!VehicleStorageRules.CanResize(profile,layout,expected,false))return false;
+        var inventory=new Inventory("Vehicle",null,VehicleStorageRules.Width(profile),VehicleStorageRules.Rows(profile,VehiclePersistence.Trunk(data)));
+        inventory.Load(new ZPackage(bytes));
+        if(inventory.NrOfItems()!=expected)return false;
+        var items=inventory.GetAllItems();
+        for(int i=0;i<items.Count;i++)items[i].m_gridPos=new Vector2i(i%inventory.GetWidth(),i/inventory.GetWidth());
+        inventory.SetHeight(VehicleStorageRules.Rows(profile,layout));
+        var saved=new ZPackage();inventory.Save(saved);
+        resized=saved.GetArray();
+        }catch(Exception){return false;}
+        // Parsing/serialization failures reject the request with the original
+        // bytes intact instead of falling out of Receive without a reply.
+        data.Set(ZDOVars.s_items,resized);return true;
+    }
+    static bool SavedKeepRunning(CarProfile profile,Dictionary<string,string> settings)=>
+        !settings.TryGetValue(profile.ConfigPrefix+"Vehicle/KeepRunningAfterExit",out var value)||!bool.TryParse(value,out var keep)||keep;
     static int SavedGroundMode(CarProfile profile,Dictionary<string,string> settings) {
         bool terrain=true,drift=false;
         if(settings.TryGetValue(profile.ConfigPrefix+"Driving/TerrainMode",out var road)&&bool.TryParse(road,out var t))terrain=t;

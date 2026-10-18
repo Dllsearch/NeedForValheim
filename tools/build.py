@@ -7,6 +7,7 @@ def build(compile_only=False,experimental_network=False):
     refs=standard_refs()
     for name in ('UnityEngine','UnityEngine.CoreModule','UnityEngine.ImageConversionModule','Unity.InputSystem','Unity.TextMeshPro','UnityEngine.UI','UnityEngine.UIModule','UnityEngine.AnimationModule','UnityEngine.PhysicsModule','UnityEngine.VehiclesModule','UnityEngine.InputLegacyModule','UnityEngine.IMGUIModule','UnityEngine.AudioModule','UnityEngine.ParticleSystemModule','UnityEngine.UnityWebRequestModule','UnityEngine.UnityWebRequestAudioModule','UnityEngine.TextRenderingModule','Newtonsoft.Json'):
         refs.append(managed/(name+'.dll'))
+    refs.append(managed/'UnityEngine.AssetBundleModule.dll')
     loader=bepinex_dir()
     refs.append(loader/'core/BepInEx.dll')
     refs.append(loader/'core/0Harmony.dll')
@@ -23,7 +24,15 @@ def build(compile_only=False,experimental_network=False):
     if not compile_only and not model.exists():raise SystemExit('Run tools/export_car.py 350z first to generate body.json.')
     if not compile_only and not catalog.exists():raise SystemExit('Run tools/build_catalog.py first to generate cars.json.')
     output=OUTPUT/('network-client' if experimental_network else 'mod')/'NeedForValheim.dll'
-    compile_cs(output,sorted((BASE/'src').glob('*.cs')),refs,audio,library=True,defines=("NFVU2_EXPERIMENTAL_NETWORK",) if experimental_network else ())
+    shader=OUTPUT/'car-shader/nfvu2-car-shaders'
+    verified=OUTPUT/'car-shader/verified-build.json'
+    embedded=[]
+    if shader.exists() and verified.exists():
+        record=json.loads(verified.read_text(encoding='utf-8'))
+        if hashlib.sha256(shader.read_bytes()).hexdigest()!=record['sha256']:
+            raise SystemExit('Vehicle shader bundle checksum mismatch; rebuild it.')
+        embedded=[(shader,'NeedForValheim.CarShaders')]
+    compile_cs(output,sorted((BASE/'src').glob('*.cs')),refs,audio,library=True,defines=("NFVU2_EXPERIMENTAL_NETWORK",) if experimental_network else (),named_resources=embedded)
     if compile_only:
         print('Compiled without embedded assets (not installable):',output)
         return output

@@ -25,8 +25,9 @@ public sealed class VehicleRadio : IDisposable {
     public IReadOnlyList<RadioTrack> Tracks=>Array.AsReadOnly(tracks);
     Action<string> log;
     int loadedRevision=-1,loadingRevision=-1;
-    bool disposed,sourcePaused,started;
-    float gain,startedAt,outsideBlend;
+    bool disposed,sourcePaused,started,sessionInitialized,wasDriving;
+    float gain,startedAt;
+    readonly RadioCabinBlend cabinBlend=new RadioCabinBlend();
     RadioBassTap bassTap;
     readonly BassMotion bassMotion=new BassMotion();
     int bassSequence;float bassStale;
@@ -67,7 +68,9 @@ public sealed class VehicleRadio : IDisposable {
     }
     void ApplyTrax(){if(traxRevision==trax.Revision)return;traxRevision=trax.Revision;if(state.SetEligible(tracks.Select(trax.Allows).ToArray()))Invalidate();}
     public void Tick(bool driving,bool blocked,float volume,bool enabled=true,bool parkedRunning=false,
-                     float leftDoorOpen=0,float rightDoorOpen=0,float hatchOpen=0) {
+                     float leftDoorOpen=0,float rightDoorOpen=0,float hatchOpen=0,bool autoPlay=true) {
+        if(!sessionInitialized||driving&&!wasDriving){state?.StartSession(autoPlay);sessionInitialized=true;}
+        wasDriving=driving;
         UpdatePlayback(driving,blocked,volume,enabled,parkedRunning,leftDoorOpen,rightDoorOpen,hatchOpen);
         CabinAudible=!disposed&&driving&&source!=null&&source.isPlaying&&source.volume>.001f&&!blocked;
         if(!disposed)musicDucking?.Tick(CabinAudible);
@@ -88,7 +91,7 @@ public sealed class VehicleRadio : IDisposable {
         // voices may be virtualized under load; the cabin's music must not be.
         source.priority=driving?0:128;
         float dt=Mathf.Min(Time.unscaledDeltaTime,.1f);
-        outsideBlend=Mathf.MoveTowards(outsideBlend,driving?0:1,dt*3);
+        float outsideBlend=cabinBlend.Step(dt,driving);
         source.spatialBlend=outsideBlend;
         var acoustics=RadioAcoustics.Evaluate(outsideBlend,leftDoorOpen,rightDoorOpen,hatchOpen);
         root.transform.localPosition=new Vector3(acoustics.X,acoustics.Y,acoustics.Z);

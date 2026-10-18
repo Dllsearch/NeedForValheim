@@ -14,6 +14,13 @@ public class ZNet {
 class StreamingTests {
     static void Check(bool value,string label){if(!value)throw new Exception(label);Console.WriteLine("PASS "+label);}
     static void Main() {
+        Check(VehicleWorldStreaming.KeepObserver(159,false,true),"nearby native anchor permits initial observer load");
+        Check(!VehicleWorldStreaming.KeepObserver(161,false,true),"new observer waits outside the inner radius");
+        Check(VehicleWorldStreaming.KeepObserver(170,true,true),"existing observer survives the hysteresis band");
+        Check(VehicleWorldStreaming.KeepObserver(170,true,false),"temporary native anchor unloading does not flicker an existing visual");
+        Check(!VehicleWorldStreaming.KeepObserver(181,true,true),"distant visual releases outside the outer radius");
+        Check(!VehicleWorldStreaming.KeepObserver(150,false,false),"new visual waits for the native anchor");
+        Check(!VehicleWorldStreaming.KeepObserver(float.NaN,true,true),"invalid distance cannot retain a visual");
         var driver=new MonoBehaviour{enabled=false};var net=new ZNet();ZNet.instance=net;
         for(int i=0;i<1000;i++) {
             driver.transform.position=new Vector3(i*4,1+i*.1f,-i*3);

@@ -57,7 +57,9 @@ public sealed class EngineSoundModel {
     }
     public void Observe(float dt,bool running,float rpm,float load,int gear,bool shifting) {
         dt=DrivingMath.Clamp(Safe(dt),0,.1f);Level=Move(Level,running?1:0,dt*3);
-        Rpm=DrivingMath.Clamp(Safe(rpm),minRpm,maxRpm);Load=running?DrivingMath.Clamp(Safe(load),0,1):0;
+        float blend=1-(float)Math.Exp(-dt*12);
+        Rpm+=(DrivingMath.Clamp(Safe(rpm),minRpm,maxRpm)-Rpm)*blend;
+        Load=running?Load+(DrivingMath.Clamp(Safe(load),0,1)-Load)*blend:0;
         Gear=Math.Max(-1,Math.Min(ratios.Length-1,gear));shiftRemaining=shifting?.1f:0;
         ShiftGain=Move(ShiftGain,shifting?.32f:1,dt*12);
     }

@@ -18,7 +18,7 @@ namespace UnityEngine {
   public static Vector3 operator *(Quaternion q,Vector3 p){double a=q.eulerAngles.y*Math.PI/180;return new Vector3((float)(p.x*Math.Cos(a)+p.z*Math.Sin(a)),p.y,(float)(p.z*Math.Cos(a)-p.x*Math.Sin(a)));}
  }
  public static class Mathf {public static float Abs(float v)=>Math.Abs(v);}
- public class Transform {public Vector3 position;public Quaternion rotation=Quaternion.identity;}
+ public class Transform {public Vector3 position;public Quaternion rotation=Quaternion.identity;public void SetPositionAndRotation(Vector3 p,Quaternion q){position=p;rotation=q;}}
  public class Component {public GameObject gameObject;public Transform transform=>gameObject.transform;public T GetComponent<T>() where T:Component=>gameObject.GetComponent<T>();}
  public class GameObject {
   public Transform transform=new Transform();public Dictionary<Type,Component> parts=new Dictionary<Type,Component>();
@@ -44,6 +44,7 @@ public class ZDO {
  public void Set(string key,object value){values[key]=value;}public string GetString(string key)=>values.TryGetValue(key,out var v)?(string)v:"";
  public float GetFloat(string key,float fallback=0)=>values.TryGetValue(key,out var v)?(float)v:fallback;
  public void Set(int key,long value)=>values["native:"+key]=value;
+ public void Set(int key,byte[] value){inventoryBytes=value;}
  public long GetLong(int key,long fallback)=>values.TryGetValue("native:"+key,out var value)?(long)value:fallback;
  public ZDOID GetZDOID(string key)=>values.TryGetValue(key,out var v)?(ZDOID)v:ZDOID.None;
  public int GetInt(string key)=>values.TryGetValue(key,out var v)?(int)v:0;public long GetLong(string key)=>values.TryGetValue(key,out var v)?(long)v:0;
@@ -69,6 +70,9 @@ public class ZNetView:UnityEngine.Component {public ZDO data;public ZDO GetZDO()
 public struct Vector2i {public int x,y;public Vector2i(int x,int y){this.x=x;this.y=y;}}
 public class CargoItem {public Vector2i m_gridPos;}
 public class Inventory {
+ public Inventory(){}public Inventory(string name,object icon,int width,int height){rows=height;}
+ public void Load(ZPackage package){if(package.ReadInt()!=108)throw new System.IO.InvalidDataException();int count=package.ReadUShort();items.Clear();for(int i=0;i<count;i++)items.Add(new CargoItem());}
+ public void Save(ZPackage package){package.Write(108);package.Write((ushort)items.Count);}
  public int rows=4;public List<CargoItem> items=new List<CargoItem>();public Action m_onChanged;
  public int NrOfItems()=>items.Count;public int GetHeight()=>rows;public void SetHeight(int value){rows=value;}public int GetWidth()=>6;public List<CargoItem> GetAllItems()=>items;
 }
@@ -88,6 +92,7 @@ public class ZNet {
  public static ZNet instance;public static bool IsSinglePlayer;public long uid;public bool server,dedicated=true;public ZDOID LocalPlayerCharacterID;
  public Dictionary<long,ZNetPeer> peers=new Dictionary<long,ZNetPeer>();public ZNetPeer serverPeer;
  public static long GetUID()=>instance.uid;public bool IsServer()=>server;public bool IsDedicated()=>dedicated;
+ public System.Collections.Generic.List<ZNetPeer> GetPeers()=>new System.Collections.Generic.List<ZNetPeer>(peers.Values);
  public ZNetPeer GetPeer(long uid)=>peers.TryGetValue(uid,out var p)?p:null;public ZNetPeer GetServerPeer()=>serverPeer;
 }
 public class ZRoutedRpc {
@@ -106,6 +111,7 @@ public class ZPackage {
  public void Write(byte v)=>writer.Write(v);public void Write(int v)=>writer.Write(v);public void Write(long v)=>writer.Write(v);public void Write(bool v)=>writer.Write(v);public void Write(float v)=>writer.Write(v);public void Write(string v)=>writer.Write(v);public void Write(ZDOID v)=>writer.Write(v.Value);
  public void Write(UnityEngine.Vector3 v){Write(v.x);Write(v.y);Write(v.z);}public void Write(UnityEngine.Quaternion v){Write(v.x);Write(v.y);Write(v.z);Write(v.w);}
  public long ReadLong()=>reader.ReadInt64();
+ public ushort ReadUShort()=>reader.ReadUInt16();public void Write(ushort value)=>writer.Write(value);
  public byte ReadByte()=>reader.ReadByte();public int ReadInt()=>reader.ReadInt32();public bool ReadBool()=>reader.ReadBoolean();public float ReadSingle()=>reader.ReadSingle();public string ReadString()=>reader.ReadString();public ZDOID ReadZDOID()=>new ZDOID(reader.ReadInt64());
  public UnityEngine.Vector3 ReadVector3()=>new UnityEngine.Vector3(ReadSingle(),ReadSingle(),ReadSingle());
  public UnityEngine.Quaternion ReadQuaternion()=>new UnityEngine.Quaternion{x=ReadSingle(),y=ReadSingle(),z=ReadSingle(),w=ReadSingle()};

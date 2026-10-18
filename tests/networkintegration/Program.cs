@@ -23,8 +23,12 @@ class Program {
   Wait();var result=Send(client,VehicleNetworkProtocol.Command.Spawn,ZDOID.None,p=>{p.Write(profile);p.Write("{}");p.Write(position);p.Write(Quaternion.identity);});
   Check(result.Item1,"server accepts available nearby catalog profile");return ZDOMan.instance.GetZDO(result.Item2);
  }
+ static void MotionPayload(ZPackage p,int sequence,Vector3 position,float speed=10,bool running=true) {
+  p.Write(sequence);p.Write(position);p.Write(Quaternion.identity);p.Write(new Vector3(speed,0,0));p.Write(12f);p.Write(90f);p.Write(true);
+  new VehicleMotionTelemetry{Rpm=4500,Load=.8f,Charge=.5f,Gear=3,Running=running}.Write(p);
+ }
  static void State((ZNet,VehicleNetworkClient) c,ZDOID id,int sequence,Vector3 position,float speed=10) {
-  Send(c,VehicleNetworkProtocol.Command.State,id,p=>{p.Write(sequence);p.Write(position);p.Write(Quaternion.identity);p.Write(new Vector3(speed,0,0));p.Write(12f);p.Write(90f);p.Write(true);new VehicleMotionTelemetry{Rpm=4500,Load=.8f,Charge=.5f,Gear=3,Running=true}.Write(p);});
+  Send(c,VehicleNetworkProtocol.Command.State,id,p=>MotionPayload(p,sequence,position,speed));
  }
  static void Main(string[] args) {
   var catalog=CarCatalog.Load(args[0]);server=new ZNet{uid=10,server=true};ZRoutedRpc.instance.endpoints[10]=server;int hidden=0;
@@ -34,6 +38,9 @@ class Program {
   Check(first.Item2.Ready,"native player-ID peer cache is not required for protocol readiness");
   var car=Spawn(first,"350z",new Vector3(1,1,0));
   Check(car!=null&&car.Persistent&&car.GetLong(VehicleNetworkProtocol.Creator)==2200&&hidden==1,"spawn creates one persistent server-owned cargo identity");
+  Check(Math.Abs(car.GetPosition().z+catalog.Get("350z").rig.trunkApproachZ)<.001f&&VehiclePersistence.Location(car).z==0&&
+   Math.Abs(ZNetScene.instance.FindInstance(car.m_uid).transform.position.z-car.GetPosition().z)<.001f,
+   "fresh 350Z cargo starts at its rear access point without moving the saved vehicle pose");
   Wait();Check(Send(first,VehicleNetworkProtocol.Command.Setup,car.m_uid,p=>{p.Write(0);p.Write("{\"Styling/Paint\":\"3\",\"Showroom/TrunkLayout\":\"0\",\"Driving/TerrainMode\":\"false\"}");}).Item1,"parked owner can publish setup");
   Check(car.GetInt(VehicleNetworkProtocol.SetupRevision)==1&&VehiclePersistence.Settings(car).Contains("Styling/Paint"),"server stores snapshot with a new revision");
   Check(car.GetInt(VehicleMotionTelemetry.Prefix+"groundmode")==1,"explicit parked road-mode setup becomes the next driver handover mode");
@@ -45,6 +52,9 @@ class Program {
   Wait(.1);State(first,car.m_uid,0,new Vector3(2,1,0));
   Check(VehiclePersistence.Location(car).x==2&&car.GetBool(VehicleNetworkProtocol.Boost),"holder state reaches pose and effect metadata through both production handlers");
   Check(car.GetPosition().y==.15f&&car.GetPosition().z<0,"cargo anchor follows grounded trunk while car pose stays exact");
+  Check(ZNetScene.instance.FindInstance(car.m_uid).transform.position.x==car.GetPosition().x&&
+   ZNetScene.instance.FindInstance(car.m_uid).transform.position.z==car.GetPosition().z,
+   "loaded native cargo object follows accepted vehicle motion as well as its persistent record");
   Wait(.1);State(second,car.m_uid,0,new Vector3(5,1,0));Check(VehiclePersistence.Location(car).x==2,"foreign state cannot move an occupied car");
   Wait(.1);State(first,car.m_uid,0,new Vector3(6,1,0));Check(VehiclePersistence.Location(car).x==2,"duplicate state sequence cannot move the car");
   Wait(.1);State(first,car.m_uid,1,new Vector3(1000,1,0));Check(VehiclePersistence.Location(car).x==2,"teleport packet rejected before persistent pose writes");
@@ -98,6 +108,9 @@ class Program {
   var settingsBeforeRecovery=VehiclePersistence.Settings(car);var chargeBeforeRecovery=car.GetFloat(VehicleMotionTelemetry.Prefix+"charge");var itemsBeforeRecovery=car.inventoryBytes;
   Wait();Check(Send(first,VehicleNetworkProtocol.Command.Recover,car.m_uid,p=>{p.Write(new Vector3(2,1,0));p.Write(Quaternion.identity);}).Item1,"owner recovers the vacant vehicle at validated nearby ground");
   Check(VehiclePersistence.Location(car).x==2&&!car.GetBool(VehicleMotionTelemetry.Prefix+"flying")&&car.GetFloat(VehicleMotionTelemetry.Prefix+"fold")==0,"recovery grounds the original persistent vehicle");
+  Check(ZNetScene.instance.FindInstance(car.m_uid).transform.position.x==car.GetPosition().x&&
+   ZNetScene.instance.FindInstance(car.m_uid).transform.position.z==car.GetPosition().z,
+   "recovery immediately moves loaded native cargo to its rear access point");
   Check(VehiclePersistence.Settings(car)==settingsBeforeRecovery&&car.GetFloat(VehicleMotionTelemetry.Prefix+"charge")==chargeBeforeRecovery&&car.inventoryBytes.SequenceEqual(itemsBeforeRecovery),"recovery preserves setup fuel and native inventory bytes without a new identity");
   car.cargoStacks=3;Wait();Check(Send(first,VehicleNetworkProtocol.Command.Remove,car.m_uid).Item1,"creator can remove the vacant car");
   Check(!VehiclePersistence.IsVehicle(car)&&!car.deleted&&car.cargoStacks==3,"removal retains original cargo record and inventory");
@@ -128,6 +141,105 @@ class Program {
   Wait();Check(Send(rejoined,VehicleNetworkProtocol.Command.Release,owned[0].m_uid).Item1,"rejoined driver can release");
   Check(Send(rejoined,VehicleNetworkProtocol.Command.Remove,owned[0].m_uid).Item1,"deletion ownership survives peer UID change");
   Check(rejoined.Item2.OwnedVehicles.Count==3&&rejoined.Item2.WasRemoved(owned[0].m_uid),"successful removal immediately updates roster and suppresses stale visual respawn");
+  var editable=owned[2];var editableRoot=ZNetScene.instance.roots[editable.m_uid];ZNetScene.instance.roots.Remove(editable.m_uid);
+  var editableProfile=catalog.Profiles.First(v=>v.id==VehiclePersistence.Profile(editable));string editPrefix=editableProfile.ConfigPrefix;
+  var requestedSetup=new Dictionary<string,string>{{editPrefix+"Styling/Paint","98"},{editPrefix+"Parts/Bodykit","1"},{editPrefix+"Parts/Rims","8"},{editPrefix+"Performance/Engine","3"}};
+  string requestedText=Newtonsoft.Json.JsonConvert.SerializeObject(requestedSetup);
+  Wait();Check(Send(rejoined,VehicleNetworkProtocol.Command.Setup,editable.m_uid,p=>{p.Write(0);p.Write(requestedText);}).Item1,"dedicated server accepts ordinary setup while native cargo object is unloaded");
+  var storedSetup=Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string,string>>(VehiclePersistence.Settings(editable));
+  foreach(var field in requestedSetup)Check(storedSetup.TryGetValue(field.Key,out var stored)&&stored==field.Value,"unloaded-cargo setup preserves exact field "+field.Key);
+  Check(editable.GetInt(VehicleNetworkProtocol.SetupRevision)==1,"unloaded-cargo setup advances revision once");
+  var unknownCargo=new ZPackage();unknownCargo.Write(107);editable.inventoryBytes=unknownCargo.GetArray();
+  Wait();Check(!Send(rejoined,VehicleNetworkProtocol.Command.Setup,editable.m_uid,p=>{p.Write(1);p.Write("{\""+editPrefix+"Showroom/TrunkLayout\":\"2\"}");}).Item1,"unloaded cargo with unknown serialization version blocks capacity changes");
+  Check(VehiclePersistence.Settings(editable)==Newtonsoft.Json.JsonConvert.SerializeObject(storedSetup),"rejected unloaded capacity edit preserves all committed tuning fields");
+  var truncatedCargo=new ZPackage();truncatedCargo.Write(108);editable.inventoryBytes=truncatedCargo.GetArray();
+  Wait();Check(!Send(rejoined,VehicleNetworkProtocol.Command.Setup,editable.m_uid,p=>{p.Write(1);p.Write("{\""+editPrefix+"Showroom/TrunkLayout\":\"2\"}");}).Item1&&
+   editable.inventoryBytes.SequenceEqual(truncatedCargo.GetArray())&&editable.GetInt(VehicleNetworkProtocol.SetupRevision)==1,
+   "truncated unloaded cargo returns an explicit rejection without changing inventory or setup revision");
+  var fullCargo=new ZPackage();fullCargo.Write(108);fullCargo.Write((ushort)25);editable.inventoryBytes=fullCargo.GetArray();
+  Wait();Check(!Send(rejoined,VehicleNetworkProtocol.Command.Setup,editable.m_uid,p=>{p.Write(1);p.Write("{\""+editPrefix+"Showroom/TrunkLayout\":\"2\"}");}).Item1&&editable.inventoryBytes.SequenceEqual(fullCargo.GetArray()),"unloaded overfull cargo rejects resize without changing item bytes");
+  var smallCargo=new ZPackage();smallCargo.Write(108);smallCargo.Write((ushort)3);editable.inventoryBytes=smallCargo.GetArray();
+  storedSetup[editPrefix+"Showroom/TrunkLayout"]="2";
+  Wait();Check(Send(rejoined,VehicleNetworkProtocol.Command.Setup,editable.m_uid,p=>{p.Write(1);p.Write(Newtonsoft.Json.JsonConvert.SerializeObject(storedSetup));}).Item1,"unloaded native inventory can resize to a safe trunk layout");
+  Check(editable.GetInt(VehicleNetworkProtocol.SetupRevision)==2&&VehiclePersistence.Trunk(editable)==2&&new ZPackage(editable.inventoryBytes).ReadInt()==108,"unloaded trunk resize commits native serialization and setup together");
+  var interiorFields=new Dictionary<string,string>{{editPrefix+"Showroom/EngineStyle","2"},{editPrefix+"Showroom/DoorStyle","1"},
+   {editPrefix+"Cabin/WindowTint","0.75"},{editPrefix+"Showroom/NeonEnabled","true"},{editPrefix+"Showroom/NeonColor","Purple"}};
+  for(int slot=1;slot<=6;slot++)interiorFields[editPrefix+"Showroom/AudioSlot"+slot]=(slot+5).ToString();
+  foreach(var field in interiorFields)storedSetup[field.Key]=field.Value;
+  var retainedInteriorCargo=(byte[])editable.inventoryBytes.Clone();
+  Wait();Check(Send(rejoined,VehicleNetworkProtocol.Command.Setup,editable.m_uid,p=>{p.Write(2);p.Write(Newtonsoft.Json.JsonConvert.SerializeObject(storedSetup));}).Item1,
+   "unloaded dedicated-server cargo permits all U2 interior fields without changing capacity");
+  var savedInterior=Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string,string>>(VehiclePersistence.Settings(editable));
+  foreach(var field in interiorFields)Check(savedInterior.TryGetValue(field.Key,out var value)&&value==field.Value,"server retains exact interior field "+field.Key);
+  Check(editable.inventoryBytes.SequenceEqual(retainedInteriorCargo)&&editable.GetInt(VehicleNetworkProtocol.SetupRevision)==3,
+   "interior-only setup leaves serialized cargo unchanged and advances revision exactly once");
+  ZNetScene.instance.roots[editable.m_uid]=editableRoot;
+  var abandoned=owned[1];
+  Wait();Check(!Send(second,VehicleNetworkProtocol.Command.Remove,abandoned.m_uid).Item1,"online owner protects even a vacant nearby car");
+  server.peers[55].ready=false;
+  var visitorCharacter=ZDOMan.instance.GetZDO(server.peers[33].m_characterID);
+  visitorCharacter.SetPosition(new Vector3(100,0,0));
+  Wait();Check(!Send(second,VehicleNetworkProtocol.Command.Remove,abandoned.m_uid).Item1,"offline-owner removal requires nearby authenticated character");
+  visitorCharacter.SetPosition(Vector3.zero);
+  var joining=Client(66,6600,Vector3.zero);var joiningCharacter=server.peers[66].m_characterID;
+  server.peers[66].m_characterID=ZDOID.None;
+  Wait();Check(!Send(second,VehicleNetworkProtocol.Command.Remove,abandoned.m_uid).Item1,"unknown joining identity prevents a premature offline-owner decision");
+  server.peers[66].m_characterID=joiningCharacter;
+  Wait();abandoned.Set(VehicleNetworkProtocol.Driver,999L);
+  Check(!Send(second,VehicleNetworkProtocol.Command.Remove,abandoned.m_uid).Item1,"offline-owner cleanup cannot remove a vehicle with a driver marker");
+  abandoned.Set(VehicleNetworkProtocol.Driver,0L);
+  var abandonedCargo=ZNetScene.instance.FindInstance(abandoned.m_uid).GetComponent<Container>();
+  abandonedCargo.busy=true;
+  Wait();Check(!Send(second,VehicleNetworkProtocol.Command.Remove,abandoned.m_uid).Item1,"open native cargo prevents offline-owner removal");
+  abandonedCargo.busy=false;
+  var retainedSetup=abandoned.GetString("nfvu2_build_v2");var retainedCargo=abandoned.inventoryBytes;
+  Wait();Check(Send(second,VehicleNetworkProtocol.Command.Remove,abandoned.m_uid).Item1,"nearby player can remove a vacant offline-owner obstruction");
+  Check(!VehiclePersistence.IsVehicle(abandoned)&&!abandoned.deleted&&abandoned.GetString("nfvu2_build_v2")==retainedSetup&&abandoned.inventoryBytes.SequenceEqual(retainedCargo),"offline-owner removal retains native cargo record and saved setup");
+  var cargoVisitor=Client(77,7700,Vector3.zero);
+  var longProfile=catalog.Profiles.Where(p=>p.sourceGame==CarCatalog.MostWanted).OrderByDescending(p=>p.rig.boxSizeZ).First();
+  var longCar=Spawn(cargoVisitor,longProfile.id,new Vector3(2,1,1));
+  Check(VehiclePersistence.Location(longCar).z==1&&Math.Abs(longCar.GetPosition().z-(1-longProfile.rig.trunkApproachZ))<.001f,
+   "fresh "+longProfile.id+" separates original chassis pose from rear cargo position");
+  var cargoCharacter=ZDOMan.instance.GetZDO(server.peers[77].m_characterID);
+  cargoCharacter.SetPosition(longCar.GetPosition()+new Vector3(0,0,-3));
+  Check(Vector3.Distance(cargoCharacter.GetPosition(),VehiclePersistence.Location(longCar))>4,
+   "long-car cargo regression approaches from outside the former centre-based access radius");
+  Wait();Check(Send(cargoVisitor,VehicleNetworkProtocol.Command.CargoOpen,longCar.m_uid).Item1,
+   "fresh long MW vehicle grants owned rear cargo access before its first drive");
+  Check(NativeOpen(ZNetScene.instance.FindInstance(longCar.m_uid).GetComponent<Container>(),77,7700),
+   "rear cargo grant also permits the native container interaction");
+  Wait();Check(Send(cargoVisitor,VehicleNetworkProtocol.Command.CargoClose,longCar.m_uid,p=>p.Write("")).Item1,
+   "fresh long-car cargo closes its lease normally");
+  var radioStock=Spawn(cargoVisitor,"350z",new Vector3(1,1,0));
+  foreach(var radioCar in new[]{radioStock,longCar}) {
+   var radioProfile=catalog.Get(VehiclePersistence.Profile(radioCar));string keepKey=radioProfile.ConfigPrefix+"Vehicle/KeepRunningAfterExit";
+   var radioSettings=Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string,string>>(VehiclePersistence.Settings(radioCar));
+   cargoCharacter.SetPosition(VehiclePersistence.Location(radioCar));radioCar.Set("nfvu2_driven_v2",true);radioCar.Set(VehicleMotionTelemetry.Prefix+"running",true);
+   int revision=radioCar.GetInt(VehicleNetworkProtocol.SetupRevision);
+   radioSettings[keepKey]="false";Wait();Check(Send(cargoVisitor,VehicleNetworkProtocol.Command.Setup,radioCar.m_uid,p=>{p.Write(revision++);p.Write(Newtonsoft.Json.JsonConvert.SerializeObject(radioSettings));}).Item1&&
+    !radioCar.GetBool(VehicleMotionTelemetry.Prefix+"running"),radioProfile.id+" parked-running switch stops replicated engine/radio state");
+   radioSettings[keepKey]="true";Wait();Check(Send(cargoVisitor,VehicleNetworkProtocol.Command.Setup,radioCar.m_uid,p=>{p.Write(revision++);p.Write(Newtonsoft.Json.JsonConvert.SerializeObject(radioSettings));}).Item1&&
+    radioCar.GetBool(VehicleMotionTelemetry.Prefix+"running"),radioProfile.id+" parked-running switch restarts a previously driven car");
+   radioCar.Set(VehicleMotionTelemetry.Prefix+"running",false);radioSettings[radioProfile.ConfigPrefix+"Styling/Paint"]="4";
+   Wait();Check(Send(cargoVisitor,VehicleNetworkProtocol.Command.Setup,radioCar.m_uid,p=>{p.Write(revision++);p.Write(Newtonsoft.Json.JsonConvert.SerializeObject(radioSettings));}).Item1&&
+    !radioCar.GetBool(VehicleMotionTelemetry.Prefix+"running"),radioProfile.id+" unrelated paint edits do not restart a stopped engine/radio");
+   radioCar.Set("nfvu2_driven_v2",false);radioSettings[keepKey]="false";
+   Wait();Send(cargoVisitor,VehicleNetworkProtocol.Command.Setup,radioCar.m_uid,p=>{p.Write(revision++);p.Write(Newtonsoft.Json.JsonConvert.SerializeObject(radioSettings));});
+   radioSettings[keepKey]="true";Wait();Check(Send(cargoVisitor,VehicleNetworkProtocol.Command.Setup,radioCar.m_uid,p=>{p.Write(revision++);p.Write(Newtonsoft.Json.JsonConvert.SerializeObject(radioSettings));}).Item1&&
+    !radioCar.GetBool(VehicleMotionTelemetry.Prefix+"running"),radioProfile.id+" parked preference does not start a car that has never been driven");
+   radioCar.Set("nfvu2_driven_v2",true);radioCar.Set(VehicleMotionTelemetry.Prefix+"running",true);
+   Wait();Check(Send(cargoVisitor,VehicleNetworkProtocol.Command.Claim,radioCar.m_uid).Item1,"radio fixture obtains an authenticated driver lease");
+   radioSettings[keepKey]="false";
+   Wait();Check(Send(cargoVisitor,VehicleNetworkProtocol.Command.Setup,radioCar.m_uid,p=>{p.Write(revision++);p.Write(Newtonsoft.Json.JsonConvert.SerializeObject(radioSettings));}).Item1&&
+    radioCar.GetBool(VehicleMotionTelemetry.Prefix+"running"),radioProfile.id+" parked preference does not stop an occupied vehicle");
+   Wait();Check(Send(cargoVisitor,VehicleNetworkProtocol.Command.Release,radioCar.m_uid,p=>MotionPayload(p,0,VehiclePersistence.Location(radioCar),0,false)).Item1&&
+    !radioCar.GetBool(VehicleMotionTelemetry.Prefix+"running")&&radioCar.GetLong(VehicleNetworkProtocol.Driver)==0,
+    radioProfile.id+" final exit sample stops observer audio after changing the parked preference while seated");
+   Wait();Check(Send(cargoVisitor,VehicleNetworkProtocol.Command.Claim,radioCar.m_uid).Item1,"radio fallback fixture reacquires the driver lease");
+   Wait(.1);State(cargoVisitor,radioCar.m_uid,0,VehiclePersistence.Location(radioCar),0);
+   Wait();Check(Send(cargoVisitor,VehicleNetworkProtocol.Command.Release,radioCar.m_uid).Item1&&!radioCar.GetBool(VehicleMotionTelemetry.Prefix+"running"),
+    radioProfile.id+" release without a final motion packet still respects the saved engine-off preference");
+  }
   Console.WriteLine(checks+" serialized client/server integration checks passed with native API doubles. No Unity scene, sockets, disk world save or avatar control executed.");
  }
 }

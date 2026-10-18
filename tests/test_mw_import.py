@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 from mw_geometry import parse
 from mw_wheel_fit import fit_arch
-from export_mw_car import SPECS, source_folder
+from mw_source import Source
 from mod_files import optional_assets, payload_files, sync_optional_assets
 from project import LOCAL
 
@@ -77,8 +77,9 @@ class MWImport(unittest.TestCase):
                 self.read_fixture(**args)
 
     def test_source_folder_rejects_traversal(self):
-        with self.assertRaises(ValueError):
-            source_folder(Path('.'), '../350Z')
+        source=Source.__new__(Source);source.root=Path('.')
+        for folder in ('../350Z',r'..\350Z','C:350Z','.','..',''):
+            with self.subTest(folder=folder),self.assertRaises(ValueError):source.meshes(folder)
 
     def test_catalog_payload_includes_only_generated_mw_model(self):
         with tempfile.TemporaryDirectory() as folder:

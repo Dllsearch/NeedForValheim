@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.IO;
 using NeedForValheim;
 class Program {
     static int checks;
@@ -37,6 +38,7 @@ class Program {
             float correction=CabinAppearance.RoofLowering(height,CabinAppearance.DriverScale);
             Check(correction>=0&&height+.18f*CabinAppearance.DriverScale-correction<=CabinAppearance.HeadCeiling+.00001f,"head clearance at measured bone height "+height);
         }
+        if(!File.Exists(args[0])){Console.WriteLine(checks+" cabin state checks passed; SKIP optional detailed-cabin asset checks: import not present. No Unity runtime.");return;}
         var model=ModelFile.Load(args[0]);
         Check(model.preset=="LOCAL_BEAMNG_350Z_CABIN"&&model.parts.Length>20,"runtime validates actual imported cabin");
         Check(model.parts.Any(p=>p.name.StartsWith("Cabin_Nis350Z_seat_FL_"))&&model.parts.Any(p=>p.name.StartsWith("Cabin_Nis350Z_seat_FR_")),"both seats present");

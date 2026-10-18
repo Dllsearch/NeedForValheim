@@ -87,7 +87,14 @@ public partial class Plugin {
         if(TryGarageStationSpawnAnchor(local,out var origin,out var yaw))return FindSpawnPoint(origin,yaw,profile,out result,true);
         return FindSpawnPoint(local.transform.position,SpawnRotation(local),profile,out result);
     }
+    const int GaragePageSize=6;
     int garagePage,garageView,garageSource;
+    void SelectGaragePage(CarProfile[] profiles,int page) {
+        if(profiles.Length==0)return;
+        garagePage=Mathf.Clamp(page,0,(profiles.Length-1)/GaragePageSize);
+        var profile=profiles[garagePage*GaragePageSize];
+        spawnModel.Value=profile.id;SelectFrontendProfile(profile);
+    }
     bool reopenGarage;
     void DrawGarageMenu() {
         garageView=UiToolbar(new Rect(25,141,510,31),garageView,new[]{"Car lot","My garage · "+WorldVehicleCount+" / 4"});
@@ -97,14 +104,15 @@ public partial class Plugin {
         var profiles=vehicleCatalog.ForSource(garageSource==0?CarCatalog.Underground2:CarCatalog.MostWanted);
         if(profiles.Length==0){UiLabel(new Rect(25,224,510,90),"No cars imported from this game yet.",labelStyle);return;}
         if(!profiles.Any(p=>p.id==spawnModel.Value)){spawnModel.Value=profiles[0].id;SelectFrontendProfile(profiles[0]);}
-        garagePage=Mathf.Clamp(garagePage,0,(profiles.Length-1)/9);
-        var page=profiles.Skip(garagePage*9).Take(9).ToArray();
+        const int pageSize=GaragePageSize;
+        garagePage=Mathf.Clamp(garagePage,0,(profiles.Length-1)/pageSize);
+        var page=profiles.Skip(garagePage*pageSize).Take(pageSize).ToArray();
         int selected=Array.FindIndex(page,p=>p.id==spawnModel.Value);
-        int next=UiGrid(new Rect(25,215,510,106),selected,page.Select(p=>p.displayName).ToArray(),3);
+        int next=UiGrid(new Rect(25,215,510,106),selected,page.Select(p=>p.displayName).ToArray(),2);
         if(next>=0&&next!=selected){spawnModel.Value=page[next].id;SelectFrontendProfile(page[next]);}
-        GUI.enabled=garagePage>0;if(MenuButton(new Rect(25,332,120,28),"‹ Previous"))garagePage--;GUI.enabled=true;
-        UiLabel(new Rect(162,334,230,26),(garageSource==0?"NFSU2":"NFSMW")+" CARS   "+(garagePage+1)+" / "+((profiles.Length+8)/9),labelStyle);
-        GUI.enabled=(garagePage+1)*9<profiles.Length;if(MenuButton(new Rect(410,332,120,28),"Next ›"))garagePage++;GUI.enabled=true;
+        GUI.enabled=garagePage>0;if(MenuButton(new Rect(25,332,120,28),"‹ Previous"))SelectGaragePage(profiles,garagePage-1);GUI.enabled=true;
+        UiLabel(new Rect(162,334,230,26),(garageSource==0?"NFSU2":"NFSMW")+" CARS   "+(garagePage+1)+" / "+((profiles.Length+pageSize-1)/pageSize),labelStyle);
+        GUI.enabled=(garagePage+1)*pageSize<profiles.Length;if(MenuButton(new Rect(410,332,120,28),"Next ›"))SelectGaragePage(profiles,garagePage+1);GUI.enabled=true;
         var profile=SelectedProfile;
         UiLabel(new Rect(25,375,510,32),profile.displayName,titleStyle);
         UiLabel(new Rect(25,412,510,43),Mathf.RoundToInt(profile.rig.mass)+" kg · "+profile.sound.gearRatios.Length+" gears · "+profile.rig.rimNominal+" inch rims\n"+(profile.capabilities.drift?"Road / off-road / drift":"Road / off-road")+(profile.capabilities.flight?" / flight":""),mutedStyle);
@@ -165,8 +173,8 @@ public partial class Plugin {
         }
         GUI.enabled=CanAccessCurrent(local)&&(!driving||DriverInputReady);
         if(MenuButton(new Rect(25,449,245,35),driving?"EXIT CAR":"DRIVE")){CloseVehicleMenu();if(driving)RequestExit();else Enter(local);return;}
-        GUI.enabled=car!=null&&GarageCanPark&&!SpawnBusy&&!HordeVehicle&&(!NetworkSessionActive||OwnNetworkVehicle(current));
-        if(MenuButton(new Rect(285,449,245,35),"REMOVE FROM GARAGE")){RemoveGarageCar(current);return;}
+        GUI.enabled=car!=null&&GarageCanPark&&!SpawnBusy&&!HordeVehicle;
+        if(MenuButton(new Rect(285,449,245,35),NetworkSessionActive&&!OwnNetworkVehicle(current)?"REMOVE IF OWNER OFFLINE":"REMOVE FROM GARAGE")){RemoveGarageCar(current);return;}
         GUI.enabled=true;
         if(NetworkSessionActive)UiLabel(new Rect(25,491,510,30),"Network sandbox / four owned cars per player / server enforces limits",mutedStyle);
         else {GUI.enabled=!SpawnBusy&&!NetworkSessionActive;garageCoinEconomy.Value=UiToggle(new Rect(25,491,510,30),garageCoinEconomy.Value,"Prototype economy: 1 Coin per car / new upgrade level");GUI.enabled=true; }

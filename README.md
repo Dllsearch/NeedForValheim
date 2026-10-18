@@ -37,8 +37,17 @@ nearby world areas; unloading a visual is separate from deleting its saved car.
   spoilers, roof scoops, brakes, rims, vinyls and decals. Wheel design, diameter,
   colour and fitment share one customization flow; MW rim diameter is separate
   from rim design.
+- Body paint uses 14 colour families with seven shades each (98 colour/shade
+  choices plus Original), preserving existing saved base-colour IDs. These are
+  NFVU2 shade adaptations, not an extracted original NFS paint table. Builds with
+  the optional verified car-shader bundle also offer Pearl and Chameleon with
+  a separate shift colour/shade. These view-dependent Unity adaptations have
+  passed editor rendering checks; vehicle appearance remains under testing.
 - Paint, carbon finishes, window tint, neon, exhaust and nitro effects, plus
-  capability-dependent door/trunk controls and garage effect previews.
+  capability-dependent door/trunk controls and garage effect previews. U2 neon
+  uses authored bumper/skirt/bodykit endpoint markers from updated exports;
+  older data and unsupported models retain a geometry-fitted fallback. U2 NOS
+  purge nozzles also use original BASE marker positions and orientations.
 - Buildable **Hammer → Crafting → NFS Garage** service bay. Current prototype
   prices are 10 Wood for the station and 1 Coin for a car or a new upgrade level.
 - Recovery/removal actions for parked world vehicles, with player restoration
@@ -129,19 +138,45 @@ Build/install boundaries and manual test steps are in
 
 Recent player testing has reported the following unresolved problems:
 
-- Multiplayer customization can be blocked even for the owner's car; local
-  audio controls, including music volume, can also become unavailable.
+- Main server tuning (paint, wheels, bodykits and performance), Pearl/Chameleon
+  and local music volume passed the player's latest check. U2 interior details
+  still reverted in that build. The current source reapplies observer showroom
+  settings, resizes unloaded server cargo, and retains drafts for revision-conflict
+  or transport retries. Invalid serialized cargo gets an explicit rejection with
+  its original bytes retained. Freshly spawned cargo now uses the same rear anchor
+  as driven/recovered cargo. Gameplay acceptance of these follow-ups is open.
 - Remote cars visibly unload/reload when leaving and re-entering view, with
   inappropriate spawn notifications. Motion and engine pitch changes can jerk;
-  the existing observer smoothing needs further work.
-- Removing another player's blocking car is restricted even when its owner is
-  offline. An offline-owner recovery/removal policy is still needed.
-- Neon tubes can sit too far below the chassis, particularly visible in flight.
-  Wheel-arch interiors and some body finishes appear excessively glossy or
-  plastic. More faithful source attachment/material metadata and car-specific
-  shading remain work to investigate, not completed features.
-- A dedicated music autoplay toggle for spawning/entering a vehicle is requested
-  and is not yet implemented.
+  the latest observer buffer adapts to packet spacing and reconciles late
+  extrapolation errors. Gap/stop/turn replays pass, but real two-client streaming,
+  smoothness and engine-pitch acceptance remain open.
+- The current source allows nearby removal of a vacant, stationary car whose
+  owner is offline, preserving its native cargo chest. The server rejects active
+  owners, drivers, open cargo and uncertain joining identities. This policy still
+  needs real reconnect and obstruction testing.
+- Neon mounting, H2 inner tyre sidewalls and U2 NOS alignment still need visual
+  acceptance. Pending fixes include completed H2 sidewall geometry and a uniform
+  NOS circle fit. The MW arch investigation found BODY_PLAINNOTHING incorrectly
+  registered for paint/vinyl on Cobalt SS, GTO and Mustang GT; old exported models
+  are corrected on loading. This has passed fleet data checks, not gameplay.
+- Radio / EA TRAX now includes **Autoplay on spawn / entry**. Disabled autoplay
+  starts the session paused; manual Play remains available. Local radio and
+  engine-volume preferences are separated from network vehicle ownership in
+  the current source build. Borrowed-car checks remain pending. A newer observer
+  fix restores spatial radio mixing after exit; actual distance falloff needs
+  another gameplay check. New observer radios start spatial immediately. Parked
+  engine/radio switching now updates the server running flag, including release
+  without a final motion sample; unrelated styling changes do not restart it.
+- Styling uses wider body-part choices and separate body-detail pages for
+  panels, hinges, engine and glass. Trunk audio has layout, equipment and lighting
+  pages. The whole garage now uses top-level categories above a dedicated car
+  preview and a consistent right settings panel. Gauge selection uses illustrated
+  cards and a separate appearance page. The preview hides scenery between the
+  camera and car during inspection. These layout and camera changes still need
+  in-game visual acceptance; they do not establish server interior synchronization.
+  A subsequent frame-context fix preserves parked-car selection/removal; catalog
+  paging keeps the preview and purchase target visible, and directional menu
+  navigation follows grid rows and columns. Native workflow acceptance is open.
 
 Additional vehicle, HUD, garage and network acceptance remains open. Imported
 parts and animations vary by vehicle; not every source car provides every menu
@@ -151,6 +186,10 @@ vehicle shader system.
 The detailed overhaul scope and validation history are tracked in
 [Overhaul status](docs/OVERHAUL_2026_10.md). Player reports take precedence over
 an earlier build or test passing; managed tests do not execute Unity gameplay.
+The current requirement-by-requirement evidence and open native acceptance gates
+are listed in [Quality acceptance](docs/QUALITY_ACCEPTANCE.md). A full automated
+run has passed; three Python checks and donor-cabin asset checks remain explicitly
+unavailable where their optional input/tool is absent.
 
 ## Development
 

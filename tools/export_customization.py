@@ -133,6 +133,7 @@ def export(profile):
         materials.append(dict(name=f'{key:08x}_{group}_{index}',color=colour,metallic=metal,smoothness=smooth,texture=tex,bodyPaint=key==PAINT and group=='body',alphaMode='blend' if badge else 'opaque',rimPaint=group=='wheel' and key!=RUBBER and key not in GLASS and key not in DARK))
         return index
     for mesh,name,group,socket,category,index in selected:
+        first_part=len(parts)
         radial=radius/wheel_source_radius(mesh) if group=='wheel' else 1
         axial=[mesh['vertices'][i][1] for s in mesh['slices'] if s['materialKey']==RUBBER for i in s['indices']] if group=='wheel' else []
         axial_scale=width/(max(axial)-min(axial)) if axial else 1
@@ -167,6 +168,10 @@ def export(profile):
             moving='hood' if category=='Hood' else 'trunk' if category=='Spoiler' else 'leftDoor' if 'DOOR_LEFT' in name or 'PANEL_LEFT' in name else 'rightDoor' if 'DOOR_RIGHT' in name or 'PANEL_RIGH' in name else ''
             parts.append(dict(name=f'Garage_{category}_{index}_{name}_{number}',group=group,material=material(key,texture(section['textureKey']),group,is_badge),movingPart=moving,optionGroup='styling',option=f'{category}:{index}',
                 vertices=[convert(mesh['vertices'][i]) for i in used],normals=[convert(mesh['normals'][i],True) for i in used],uv=[coords[i] for i in used],indices=[remap[i] for i in ids]))
+        if group=='body' and len(parts)>first_part:
+            from vehicle_markers import neon_segments
+            segments=neon_segments(mesh,convert)
+            if segments:parts[first_part]['neonSegments']=segments
     options=[o for o in options if any(p['option']==f'{o["category"]}:{o["id"]}' for p in parts)]
     output=LOCAL/'styling';output.mkdir(exist_ok=True)
     target=output/(profile['id']+'.json')

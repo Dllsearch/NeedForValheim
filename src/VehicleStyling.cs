@@ -30,9 +30,10 @@ public sealed class VehicleStyling : IDisposable {
     int paintRevision;
     float carbonMetal=.08f,carbonGloss=.45f;
     int lastPaint=-1,lastFinish=-1,lastRim=-1,lastVinyl=-1,lastVinylColor=-1;
+    int lastShift=-1;
     bool lastTrim;
     readonly bool factoryWide;
-    sealed class PaintSurface {public Material material;public Color color;public Texture texture;public float metal,gloss;public bool rim,trim,vinyl,carbon;}
+    sealed class PaintSurface {public Material material;public Shader shader;public Color color;public Texture texture;public float metal,gloss;public bool rim,trim,vinyl,carbon;}
     public Material[] Materials=>materials;
     public bool Busy=>pending!=null;
     public bool HasCatalog=>catalog!=null;
@@ -78,7 +79,7 @@ public sealed class VehicleStyling : IDisposable {
             bool trim=data.parts.Any(p=>p.material==i&&p.group=="body")&&(name.StartsWith("wheel_chrome_",StringComparison.Ordinal)||new[]{"fd102a92_","54949afd_","2e65e067_","22719fa9_"}.Any(prefix=>name.StartsWith(prefix,StringComparison.Ordinal)));
             if(name.StartsWith("mw_window",StringComparison.Ordinal))glass.Add(Tuple.Create(m,m.HasColor("_Color")?m.GetColor("_Color"):Color.white));
             if(!description.bodyPaint&&!rim&&!trim)continue;
-            painted.Add(new PaintSurface{material=m,color=m.HasColor("_Color")?m.GetColor("_Color"):Color.white,texture=m.HasTexture("_MainTex")?m.GetTexture("_MainTex"):null,
+            painted.Add(new PaintSurface{material=m,shader=m.shader,color=m.HasColor("_Color")?m.GetColor("_Color"):Color.white,texture=m.HasTexture("_MainTex")?m.GetTexture("_MainTex"):null,
                 metal=m.HasFloat("_Metallic")?m.GetFloat("_Metallic"):description.metallic,gloss=m.HasFloat("_Glossiness")?m.GetFloat("_Glossiness"):description.smoothness,rim=rim,trim=trim,carbon=carbon,
                 vinyl=description.bodyPaint&&!rim&&!trim&&(description.texture<0||!IsCarbon(data.textures[description.texture].name))});
         }
@@ -104,7 +105,7 @@ public sealed class VehicleStyling : IDisposable {
         if(bodykit==1&&target==0&&(category=="Front"||category=="Rear"||category=="Skirts"))target=1;
         return Options(category).Any(o=>o.id==target)?target:0;
     }
-    public void Tick(Dictionary<string,int> desired,int paint,int finish,int rim,int vinyl,int colour,bool paintTrim,VinylLayerState[] layers=null) {
+    public void Tick(Dictionary<string,int> desired,int paint,int finish,int rim,int vinyl,int colour,bool paintTrim,VinylLayerState[] layers=null,int shift=12) {
         if(catalog!=null) {
             if(pending!=null&&Target(desired,pendingCategory)!=pendingId){pending.Dispose();pending=null;}
             if(pending==null)foreach(var pair in desired) {
@@ -120,10 +121,10 @@ public sealed class VehicleStyling : IDisposable {
         }
         layers=layers??new[]{new VinylLayerState{design=vinyl,primary=colour}};
         if(vinyls.Tick())lastPaint=-1;
-        var baseColour=paint==0?originalBodyColour:Plugin.PaintColors[Mathf.Clamp(paint,0,Plugin.PaintPaletteSize-1)];
+        var baseColour=paint==0?originalBodyColour:Plugin.BodyPaintColor(paint);
         var previous=vinyls.Texture;vinyls.Request(layers,baseColour,paintRevision,VinylGeometry);
         if(previous!=vinyls.Texture)lastPaint=-1;
-        ApplyPaint(paint,finish,rim,vinyl,colour,paintTrim);
+        ApplyPaint(paint,finish,rim,vinyl,colour,paintTrim,shift);
     }
     Color OriginalBodyColour(){
         var surface=painted.FirstOrDefault(s=>s.vinyl);if(surface==null)return Color.white;
@@ -178,12 +179,21 @@ public sealed class VehicleStyling : IDisposable {
             foreach(var node in pair.Value)node.SetActive(show);
         }
     }
-    void ApplyPaint(int paint,int finish,int rim,int vinyl,int colour,bool paintTrim) {
-        paint=Mathf.Clamp(paint,0,Plugin.PaintPaletteSize-1);rim=Mathf.Clamp(rim,0,Plugin.PaintPaletteSize-1);colour=Mathf.Clamp(colour,0,Plugin.PaintPaletteSize-1);
-        if(paint==lastPaint&&finish==lastFinish&&rim==lastRim&&vinyl==lastVinyl&&colour==lastVinylColor&&paintTrim==lastTrim)return;
+    void ApplyPaint(int paint,int finish,int rim,int vinyl,int colour,bool paintTrim,int shift) {
+        paint=Mathf.Clamp(paint,0,Plugin.BodyPaintPaletteSize-1);rim=Mathf.Clamp(rim,0,Plugin.PaintPaletteSize-1);colour=Mathf.Clamp(colour,0,Plugin.PaintPaletteSize-1);
+        if(paint==lastPaint&&finish==lastFinish&&rim==lastRim&&vinyl==lastVinyl&&colour==lastVinylColor&&paintTrim==lastTrim&&shift==lastShift)return;
         foreach(var surface in painted) {
             var material=surface.material;int choice=surface.rim?rim:surface.trim&&!paintTrim?0:paint;
-            var color=surface.carbon||choice==0?surface.color:Plugin.PaintColors[choice];
+            bool custom=finish>=4&&!surface.carbon&&!surface.rim&&!surface.trim;
+            var targetShader=custom?VehiclePaintShader.Get()??surface.shader:surface.shader;
+            if(material.shader!=targetShader)material.shader=targetShader;
+            if(material.HasFloat("_FinishMode"))material.SetFloat("_FinishMode",custom?finish-3:0);
+            var shiftColour=Plugin.BodyPaintColor(shift);
+            if(material.HasColor("_ShiftColor"))material.SetColor("_ShiftColor",shiftColour);
+            if(material.HasColor("_PearlColor"))material.SetColor("_PearlColor",shiftColour);
+            if(material.HasFloat("_CompositePaint"))material.SetFloat("_CompositePaint",surface.vinyl&&vinyls.Texture!=null?1:0);
+            if(material.HasColor("_PaintBaseColor"))material.SetColor("_PaintBaseColor",paint==0?originalBodyColour:Plugin.BodyPaintColor(paint));
+            var color=surface.carbon||choice==0?surface.color:surface.rim?Plugin.PaintColors[choice]:Plugin.BodyPaintColor(choice);
             if(surface.vinyl&&vinyl!=0&&paint==0)color=originalBodyColour;
             if(surface.vinyl&&vinyls.Texture!=null)color=Color.white;
             foreach(var property in new[]{"_Color","_BaseColor"})if(material.HasColor(property))material.SetColor(property,color);
@@ -200,7 +210,7 @@ public sealed class VehicleStyling : IDisposable {
                 foreach(var property in new[]{"_MainTex","_BaseMap","_Albedo"})if(material.HasTexture(property))material.SetTexture(property,surface.vinyl&&vinyls.Texture!=null?vinyls.Texture:vinyl==0?surface.texture:surface.vinyl?Texture2D.whiteTexture:surface.texture);
             }
         }
-        lastPaint=paint;lastFinish=finish;lastRim=rim;lastVinyl=vinyl;lastVinylColor=colour;lastTrim=paintTrim;
+        lastPaint=paint;lastFinish=finish;lastRim=rim;lastVinyl=vinyl;lastVinylColor=colour;lastTrim=paintTrim;lastShift=shift;
     }
     public void Dispose() {
         pending?.Dispose();pending=null;

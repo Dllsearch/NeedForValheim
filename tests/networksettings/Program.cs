@@ -40,6 +40,40 @@ class Program {
   guarded.Replace("{}");Check(guardedPaint.Value==7&&!guarded.Snapshot().Contains("7"),"runtime controls survive a default-server refresh without becoming persisted");
   var transient=new NetworkVehicleSettings("{}");var transientPaint=transient.Get(source);transient.SetRuntime(transientPaint,7);
   Check(transientPaint.Value==7&&transient.Version==0&&!transient.Snapshot().Contains("7"),"runtime controls preserve default snapshot values when a key was absent");
+  var queued=new NetworkVehicleSettings("{\"miata.Styling/Paint\":\"2\",\"server/untouched\":\"old\"}");
+  var queuedPaint=queued.Get(source);queuedPaint.Value=4;string sent=queued.Snapshot();queuedPaint.Value=8;
+  Check(queued.Rebase("{\"miata.Styling/Paint\":\"3\",\"server/untouched\":\"new\"}",sent)&&queuedPaint.Value==8,"late server rejection preserves edits made after the submitted draft");
+  Check(queued.Snapshot().Contains("new")&&!queued.Snapshot().Contains("old"),"rebase adopts independent server changes");
+  Check(queued.Rebase("{\"miata.Styling/Paint\":\"5\"}","{\"miata.Styling/Paint\":\"3\"}")&&queuedPaint.Value==8,"pending draft survives successive server refreshes");
+  Check(!queued.Rebase("{\"miata.Styling/Paint\":\"6\"}",queued.Snapshot())&&queuedPaint.Value==6,"refresh with no newer local edits adopts the authoritative value");
+  foreach(string prefix in new[]{"","miata."}) {
+   var layoutSource=original.Bind(prefix+"Showroom","TrunkLayout",0,new ConfigDescription("Layout",new AcceptableValueRange<int>(0,3)));
+   var audioSource=original.Bind(prefix+"Showroom","AudioSlot1",1,new ConfigDescription("Equipment",new AcceptableValueRange<int>(0,12)));
+   var engineSource=original.Bind(prefix+"Showroom","EngineStyle",0,new ConfigDescription("Engine",new AcceptableValueRange<int>(0,2)));
+   var hingeSource=original.Bind(prefix+"Showroom","DoorStyle",0,new ConfigDescription("Hinges",new AcceptableValueRange<int>(0,2)));
+   var tintSource=original.Bind(prefix+"Cabin","WindowTint",.16f,new ConfigDescription("Tint",new AcceptableValueRange<float>(0,1)));
+   var details=new NetworkVehicleSettings("{}");
+   var layout=details.Get(layoutSource);var equipment=details.Get(audioSource);var engine=details.Get(engineSource);var hinges=details.Get(hingeSource);var tint=details.Get(tintSource);
+   string acknowledged=details.Snapshot();
+   layout.Value=2;equipment.Value=9;engine.Value=2;hinges.Value=1;tint.Value=.75f;
+   string submission=details.Snapshot();
+   Check(details.Rebase("{\"server/independent\":\"changed\"}",acknowledged)&&layout.Value==2&&equipment.Value==9&&engine.Value==2&&hinges.Value==1&&tint.Value==.75f,
+    prefix+"revision conflict retains all submitted U2 interior changes against the acknowledged baseline");
+   Check(details.Snapshot().Contains("server/independent"),prefix+"conflict retry retains independent authoritative fields");
+   submission=details.Snapshot();equipment.Value=12;tint.Value=.4f;
+   Check(details.Rebase(submission,submission)&&equipment.Value==12&&tint.Value==.4f&&layout.Value==2,
+    prefix+"acknowledgement retains interior edits made while the previous request was in flight");
+   string latest=details.Snapshot();
+   Check(!details.Rebase(latest,submission)&&equipment.Value==12&&tint.Value==.4f,
+    prefix+"late replicated server confirmation clears matching pending edits without a redundant save");
+   var reopened=new NetworkVehicleSettings(latest);
+   Check(reopened.Get(layoutSource).Value==2&&reopened.Get(audioSource).Value==12&&reopened.Get(engineSource).Value==2&&reopened.Get(hingeSource).Value==1&&reopened.Get(tintSource).Value==.4f,
+    prefix+"reconstructed instance restores the exact acknowledged U2 interior snapshot");
+   var refused=new NetworkVehicleSettings(acknowledged);var refusedLayout=refused.Get(layoutSource);var refusedAudio=refused.Get(audioSource);
+   refusedLayout.Value=3;string rejected=refused.Snapshot();refusedAudio.Value=6;
+   Check(refused.Rebase(acknowledged,rejected)&&refusedLayout.Value==0&&refusedAudio.Value==6,
+    prefix+"hard capacity rejection drops the refused layout but retains later equipment edits");
+  }
   Console.WriteLine(checks+" settings isolation checks passed using the real BepInEx configuration assembly; no Unity scene executed.");
  }
 }

@@ -1,4 +1,4 @@
-import argparse,shutil,subprocess,sys
+import argparse,os,shutil,subprocess,sys
 from pathlib import Path
 from project import BASE,LOCAL,OUTPUT,valheim_dir,bepinex_dir
 from build import build
@@ -7,18 +7,26 @@ from build_support import compile_cs,test_refs,runtime_config
 def main():
     suites=['model','mesh','handling','audio','radio','nitro','impact','showroom','driving','turret','targeting','terrain','blast','fleet','vehicle_assets','menu','cabin','flight','loading','lighting','controls','hotbar','rumble','nitroview','horde','hordehull','hordecorpses','turretfireaudio','hordeweather','horderadar','hordeelements','storage','carprofile','streaming']
     parser=argparse.ArgumentParser();parser.add_argument('--skip-build',action='store_true');parser.add_argument('--handling-only',action='store_true')
-    suites.extend(('wheelsize','mw','garageprogression','surface','mapmarkers','vehicle_safety','cabin_entry','network','networksettings','networkintegration'))
+    suites.extend(('wheelsize','mw','garageprogression','surface','mapmarkers','vehicle_safety','cabin_entry','network','networksettings','networkintegration','remote_motion','paintpalette','frontend'))
     parser.add_argument('--suite',action='append',choices=suites,help='Run only these C# suites; repeat to combine.')
     parser.add_argument('--vehicle-assets-root',type=Path,default=LOCAL,help='generated vehicle profiles/models for the vehicle_assets suite')
     args=parser.parse_args()
+    # Keep Python/native child fixtures in the writable workspace. Windows
+    # sandbox temp locations can reject rename/cleanup used by install tests.
+    test_temp=OUTPUT/'test-temp';test_temp.mkdir(parents=True,exist_ok=True)
+    test_env=os.environ.copy();test_env['PYTHONUTF8']='1'
+    for name in ('TMPDIR','TEMP','TMP'):test_env[name]=str(test_temp.resolve())
     if not args.handling_only and not args.skip_build:build()
     if not args.handling_only and not args.suite:
-        subprocess.run([sys.executable,'-m','unittest','discover','-s',str(BASE/'tests'),'-p','test_*.py'],check=True)
+        subprocess.run([sys.executable,'-m','unittest','discover','-s',str(BASE/'tests'),'-p','test_*.py'],check=True,env=test_env)
     references,tfm,version=test_refs()
     for suite in (['handling'] if args.handling_only else args.suite or suites):
         out=OUTPUT/'tests'/suite;out.mkdir(parents=True,exist_ok=True)
         sources=list((BASE/'tests'/suite).glob('*.cs'));refs=list(references);arguments=[]
         if suite=='handling':sources.extend(BASE/'src'/name for name in ('DrivingMath.cs','VehicleHandling.cs','VehicleDriftTuning.cs','SuvTuning.cs','MwChassisTuning.cs','VehicleRideHeight.cs','PerformanceTuning.cs'))
+        elif suite=='frontend':sources.append(BASE/'src/VehicleUndergroundFrontend.cs')
+        elif suite=='paintpalette':sources.append(BASE/'src/PaintPaletteIndex.cs')
+        elif suite=='remote_motion':sources.append(BASE/'src/VehicleRemoteMotion.cs')
         elif suite=='network':sources.extend(BASE/'src'/name for name in ('VehicleNetworkProtocol.cs','VehicleNetworkClient.cs'))
         elif suite=='networkintegration':
             sources.extend(BASE/'src'/name for name in ('CarProfile.cs','VehiclePersistence.cs','VehicleStorageRules.cs','VehicleNetworkProtocol.cs','VehicleNetworkClient.cs','VehicleNetworkServer.cs','VehicleMotionTelemetry.cs'))
@@ -86,7 +94,7 @@ def main():
             jsondll=out/'Newtonsoft.Json.dll';shutil.copy2(valheim_dir()/'valheim_Data/Managed/Newtonsoft.Json.dll',jsondll);refs.append(jsondll)
             arguments=[str(LOCAL/'turret')]
         dll=out/(suite+'Tests.dll');compile_cs(dll,sources,refs);runtime_config(dll,tfm,version)
-        subprocess.run(['dotnet',str(dll),*arguments],check=True)
+        subprocess.run(['dotnet',str(dll),*arguments],check=True,env=test_env)
     print('Requested checks passed. These tests do not execute Unity physics or playback.')
 
 if __name__=='__main__':main()

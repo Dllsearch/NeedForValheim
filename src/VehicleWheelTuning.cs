@@ -75,14 +75,14 @@ public partial class Plugin {
         Vector3 pos;Quaternion rot;
         bool remote=current.networkData!=null&&!current.networkDriving;
         if(remote) {
-            pos=car.transform.TransformPoint(current.networkData.GetVec3(VehicleMotionTelemetry.Prefix+"wheel"+index,anchor));
-            float steer=index<2?current.networkData.GetFloat(VehicleNetworkProtocol.Steering):0;
+            pos=car.transform.TransformPoint(current.networkPresentation?.Wheels[index]??current.networkData.GetVec3(VehicleMotionTelemetry.Prefix+"wheel"+index,anchor));
+            float steer=index<2?(current.networkPresentation?.Steering??current.networkData.GetFloat(VehicleNetworkProtocol.Steering)):0;
             wheels[index].steerAngle=steer;
-            rot=car.transform.rotation*current.networkData.GetQuaternion(VehicleMotionTelemetry.Prefix+"rotation"+index,Quaternion.identity);
+            rot=car.transform.rotation*(current.networkPresentation?.Rotations[index]??current.networkData.GetQuaternion(VehicleMotionTelemetry.Prefix+"rotation"+index,Quaternion.identity));
         } else if(Flying)current.flight.WheelPose(index,out pos,out rot);else wheels[index].GetWorldPose(out pos,out rot);
-        float fold=remote?current.networkData.GetFloat(VehicleMotionTelemetry.Prefix+"fold"):Flying?current.flight.State.Blend:0;
-        float pitch=remote?current.networkData.GetFloat(VehicleMotionTelemetry.Prefix+"pitch"):current.flight?.WheelPitch??0;
-        float roll=remote?current.networkData.GetFloat(VehicleMotionTelemetry.Prefix+"roll"):current.flight?.WheelRoll??0;
+        float fold=remote?(current.networkPresentation?.Fold??current.networkData.GetFloat(VehicleMotionTelemetry.Prefix+"fold")):Flying?current.flight.State.Blend:0;
+        float pitch=remote?(current.networkPresentation?.Pitch??current.networkData.GetFloat(VehicleMotionTelemetry.Prefix+"pitch")):current.flight?.WheelPitch??0;
+        float roll=remote?(current.networkPresentation?.Roll??current.networkData.GetFloat(VehicleMotionTelemetry.Prefix+"roll")):current.flight?.WheelRoll??0;
         var vectoring=fold>0?car.transform.rotation*Quaternion.Euler(pitch*fold,0,roll*fold)*Quaternion.Inverse(car.transform.rotation):Quaternion.identity;
         if(!originalWheels) {
             var folding=Quaternion.AngleAxis(FlightState.WheelTilt(index,0,fold),Vector3.forward);
@@ -104,7 +104,7 @@ public partial class Plugin {
         if(brakeVisuals[index]!=null)brakeVisuals[index].SetPositionAndRotation(pos,vectoring*steering*tilt*mirror);
         UpdateExtraRearPose(index);
         if(current.spinners!=null&&current.spinners[index]!=null) {
-            var motion=current.spinnerMotion[index];motion.Step(Time.deltaTime,remote?current.networkData.GetFloat(VehicleMotionTelemetry.Prefix+"wheelrpm"+index):wheels[index].rpm);
+            var motion=current.spinnerMotion[index];motion.Step(Time.deltaTime,remote?(current.networkPresentation?.WheelRpm[index]??current.networkData.GetFloat(VehicleMotionTelemetry.Prefix+"wheelrpm"+index)):wheels[index].rpm);
             current.spinners[index].SetPositionAndRotation(pos,vectoring*steering*tilt*Quaternion.AngleAxis(motion.Angle,Vector3.right)*mirror);
             float scale=WheelFitMath.Sanitize(RimSetting.Value,rig.rimMin,rig.rimMax,rig.rimNominal)/rig.rimNominal;
             current.spinners[index].localScale=new Vector3(1,scale,scale);

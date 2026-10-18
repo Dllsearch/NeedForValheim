@@ -23,7 +23,9 @@ public partial class Plugin : BaseUnityPlugin {
     VehicleCabinDriver cabinDriver;
     bool DriverInputReady=>cabinDriver==null||cabinDriver.Motion.CanDrive;
     Type playerType, netType; bool ready;
-    bool ParkedRunning=>car!=null&&hasBeenDriven&&!driving&&keepRunning.Value;
+    bool ParkedRunning=>car!=null&&!driving&&(current.networkData!=null&&!current.networkDriving?
+        current.networkData.GetLong(VehicleNetworkProtocol.Driver)==0&&current.networkData.GetBool(VehicleMotionTelemetry.Prefix+"running",VehiclePersistence.WasDriven(current.networkData)&&keepRunning.Value):
+        hasBeenDriven&&keepRunning.Value);
     void Awake() {
         bool autoSave=Config.SaveOnConfigSet;Config.SaveOnConfigSet=false;
         try {
@@ -121,7 +123,9 @@ public partial class Plugin : BaseUnityPlugin {
         }catch(Exception e){Logger.LogError(e);CleanupAll();status="Error \u00b7 see BepInEx/LogOutput.log";}
     }
     Transform AddVisual(ModelPart p, Transform parent, ModelData model, Material paint, Material dark, Material[] materials=null) {
+        bool innerShell=p.group=="body"&&model.schemaVersion>=2&&model.materials[p.material].bodyPaint;
         var obj=new GameObject(p.name);obj.transform.SetParent(parent,false);
+        if(p.neonSegments!=null&&p.neonSegments.Length>0)obj.AddComponent<VehicleNeonMount>().Segments=p.neonSegments;
         Mesh mesh;
         if(p.group!="audio"||!audioMeshes.TryGetValue(p,out mesh)) {
             mesh=new Mesh{name=p.name};vehicleMeshes.Add(mesh);
@@ -130,13 +134,24 @@ public partial class Plugin : BaseUnityPlugin {
             mesh.uv=p.uv!=null?p.uv.Select(v=>new Vector2(v.u,v.v)).ToArray():new Vector2[p.vertices.Length];
             mesh.colors=Enumerable.Repeat(Color.white,p.vertices.Length).ToArray();
             // Audio membranes use the original vertex-to-model mapping.
-            if(p.group!="audio")VehicleMesh.AddBackfaces(mesh);
+            if(p.group!="audio")VehicleMesh.AddBackfaces(mesh,innerShell);
             mesh.RecalculateTangents();mesh.RecalculateBounds();
             if(p.group=="wheel")wheelSizeVisuals?.Track(mesh,p);
             if(p.group=="audio")audioMeshes.Add(p,mesh);
         }
         obj.AddComponent<MeshFilter>().sharedMesh=mesh;
         var renderer=obj.AddComponent<MeshRenderer>();renderer.sharedMaterial=model.schemaVersion>=2?(materials??vehicleMaterials)[p.material]:(p.name.Contains("BASE")?dark:paint);
+        if(innerShell) {
+            if(current.innerBodyMaterial==null) {
+                var liner=new Material(renderer.sharedMaterial){name="Vehicle_InnerBodyLiner"};
+                foreach(var key in new[]{"_MainTex","_BaseMap","_Albedo"})if(liner.HasTexture(key))liner.SetTexture(key,Texture2D.whiteTexture);
+                foreach(var key in new[]{"_Color","_BaseColor"})if(liner.HasColor(key))liner.SetColor(key,new Color(.035f,.035f,.04f,1));
+                if(liner.HasFloat("_Metallic"))liner.SetFloat("_Metallic",0);
+                foreach(var key in new[]{"_Glossiness","_Smoothness","_GlossMapScale"})if(liner.HasFloat(key))liner.SetFloat(key,.12f);
+                current.innerBodyMaterial=liner;
+            }
+            renderer.sharedMaterials=new[]{renderer.sharedMaterial,current.innerBodyMaterial};
+        }
         if(p.group=="wheel")renderer.reflectionProbeUsage=UnityEngine.Rendering.ReflectionProbeUsage.BlendProbes;
         return obj.transform;
     }
@@ -251,11 +266,10 @@ public partial class Plugin : BaseUnityPlugin {
         if(vehicleRadio!=null)try {
             // NFS RIGHT maps to Unity -X (the physical left door), as in the menu.
             vehicleRadio.Tick(driving,audioBlocked,radioVolume.Value,radioEnabled.Value,ParkedRunning,
-                showroom?.State.Progress[1]??0,showroom?.State.Progress[0]??0,showroom?.State.Progress[3]??0);
+                showroom?.State.Progress[1]??0,showroom?.State.Progress[0]??0,showroom?.State.Progress[3]??0,radioAutoPlay.Value);
         }
         catch(Exception e){vehicleRadio.Dispose();vehicleRadio=null;Logger.LogWarning("Vehicle radio disabled: "+e);}
-        if(showroom!=null)try {showroom.TickSubwoofers(vehicleRadio?.SubwooferOffset??0);}
-        catch(Exception e){showroom.Dispose();showroom=null;Logger.LogWarning("Vehicle subwoofer visuals disabled: "+e);}
+        TickShowroomBass();
         if(vehicleAudio!=null)try {
             vehicleAudio.Tick(driving,throttle,brake>0||burnoutHeld&&!burnout,honking,audioBlocked,EffectiveTerrain,soundVolume.Value,burnout,ParkedRunning,Flying,!menuOpen&&DriverInputReady);
         } catch(Exception e) {
@@ -276,6 +290,10 @@ public partial class Plugin : BaseUnityPlugin {
         catch(Exception e){nitroEffects.Dispose();nitroEffects=null;Logger.LogWarning("Vehicle effects disabled: "+e);}
         if(effectsAudio!=null)try {effectsAudio.Tick(boost,purge,backfire,effectsBlocked,soundVolume.Value);}
         catch(Exception e){effectsAudio.Dispose();effectsAudio=null;Logger.LogWarning("Vehicle effect sounds disabled: "+e);}
+    }
+    void TickShowroomBass() {
+        if(showroom!=null)try {showroom.TickSubwoofers(vehicleRadio?.SubwooferOffset??0);}
+        catch(Exception e){showroom.Dispose();showroom=null;Logger.LogWarning("Vehicle subwoofer visuals disabled: "+e);}
     }
     bool FindCabinExit(MonoBehaviour local,out Vector3 position,bool alternatives=false) {
         float side=current.interior?.ExitSide??-Mathf.Max(1.3f,current.Profile.rig.boxSizeX*.5f+.4f);
@@ -404,6 +422,7 @@ public partial class Plugin : BaseUnityPlugin {
         wheelSizeVisuals=null;
         if(vehicleMaterials!=null)foreach(var material in vehicleMaterials)if(material!=null)Destroy(material);
         if(vehicleTextures!=null)foreach(var texture in vehicleTextures)if(texture!=null)Destroy(texture);
+        if(current.innerBodyMaterial!=null)Destroy(current.innerBodyMaterial);current.innerBodyMaterial=null;
         if(chassisMaterial!=null)Destroy(chassisMaterial);
         if(fleet.Contains(current))fleet.Remove(current);
         handling=null;chassisMaterial=null;vehicleMaterials=null;vehicleTextures=null;car=null;body=null;wheels=null;visuals=null;brakeVisuals=null;originalWheels=false;

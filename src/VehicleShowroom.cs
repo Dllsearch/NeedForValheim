@@ -94,11 +94,12 @@ public sealed class VehicleShowroom : IDisposable {
         }
     }
     public void Tick(float dt,bool movingCar,int doorStyle,bool powered,bool neonEnabled,bool pulsing,Color color) {
+        if(!SupportsDoorStyle(doorStyle))doorStyle=0;
         State.Step(dt,movingCar,doorStyle);
         string style=new[]{"REG","SUICIDE","SCISSOR"}[State.DoorStyle];
         string[] tracks={"LEFT_DOOR_"+style,"RIGHT_DOOR_"+style,"HOOD_REG","TRUNK_REG"};
         for(int i=0;i<4;i++) {
-            var track=animations[tracks[i]];
+            if(!animations.TryGetValue(tracks[i],out var track)||track.frames.Length<2)continue;
             float position=State.Progress[i]*(track.frames.Length-1);
             int a=Mathf.FloorToInt(position),b=Mathf.Min(a+1,track.frames.Length-1);float t=position-a;
             var rotation=Quaternion.Slerp(Q(track.frames[a].rotation),Q(track.frames[b].rotation),t);
@@ -115,6 +116,16 @@ public sealed class VehicleShowroom : IDisposable {
         trunkLight.enabled=active&&State.Progress[3]>.01f;trunkLight.color=color;trunkLight.intensity=gain*State.Progress[3]*1.4f;
     }
     static Vector3 V(ModelVertex v)=>new Vector3(v.x,v.y,v.z);
+    public bool SupportsMotion(int part) {
+        if(part<0||part>=4||moving[part]==null||moving[part].childCount==0)return false;
+        string name=new[]{"LEFT_DOOR_REG","RIGHT_DOOR_REG","HOOD_REG","TRUNK_REG"}[part];
+        return animations.TryGetValue(name,out var track)&&track.frames.Length>1;
+    }
+    public bool SupportsDoorStyle(int style) {
+        if(style<0||style>2)return false;
+        string suffix=new[]{"REG","SUICIDE","SCISSOR"}[style];
+        return animations.ContainsKey("LEFT_DOOR_"+suffix)&&animations.ContainsKey("RIGHT_DOOR_"+suffix);
+    }
     public void TickSubwoofers(float offset) {
         foreach(var slot in woofers)if(slot!=null)foreach(var woofer in slot)woofer.Tick(offset);
     }

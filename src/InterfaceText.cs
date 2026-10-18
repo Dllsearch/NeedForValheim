@@ -5,6 +5,23 @@ namespace NeedForValheim {
 public static class InterfaceText {
     // Source text is English; this table renders the German locale.
     static readonly KeyValuePair<string,string>[] German={
+        new KeyValuePair<string,string>("Retrying vehicle setup synchronization…","Fahrzeugeinstellungen werden erneut synchronisiert…"),
+        new KeyValuePair<string,string>("CLOSE  ×","SCHLIESSEN  ×"),
+        new KeyValuePair<string,string>("Gauge design","Instrumentendesign"),
+        new KeyValuePair<string,string>("Appearance","Darstellung"),
+        new KeyValuePair<string,string>("Driving camera settings","Fahrkamera einstellen"),
+        new KeyValuePair<string,string>("Saving changes to server…","\u00c4nderungen werden auf dem Server gespeichert…"),
+        new KeyValuePair<string,string>("Server-confirmed setup","Vom Server best\u00e4tigte Einstellungen"),
+        new KeyValuePair<string,string>("Revision","Revision"),
+        new KeyValuePair<string,string>("Panels","Klappen"),
+        new KeyValuePair<string,string>("Hinges","Scharniere"),
+        new KeyValuePair<string,string>("Equipment","Ausstattung"),
+        new KeyValuePair<string,string>("Lighting","Beleuchtung"),
+        new KeyValuePair<string,string>("Audio","Audio"),
+        new KeyValuePair<string,string>("Close all panels","Alle Klappen schlie\u00dfen"),
+        new KeyValuePair<string,string>("Open panels while parked. Driving closes them automatically.\nOnly panels with imported geometry and animation are available.","Klappen im Stand \u00f6ffnen. Beim Fahren schlie\u00dfen sie automatisch.\nNur Klappen mit importierter Geometrie und Animation sind verf\u00fcgbar."),
+        new KeyValuePair<string,string>("Changing hinges closes both doors before switching animations.","Beim Wechsel der Scharniere schlie\u00dfen zuerst beide T\u00fcren."),
+        new KeyValuePair<string,string>("Visual engine model. Performance upgrades are separate.","Optisches Motormodell. Leistungssteigerungen sind separat."),
         new KeyValuePair<string,string>("Original vehicle parts, opening panels, engine bay and trunk audio.","Originale Fahrzeugteile, bewegliche Klappen, Motorraum und Kofferraum-Audio."),
         new KeyValuePair<string,string>("Idling engine, enabled neon and muffled music. Can also be switched beside the car.\nRemoving the car leaves its cargo in a chest.","Motor im Leerlauf, aktiviertes Neon und ged\u00e4mpfte Musik. Auch neben dem Auto ein-/ausschaltbar.\nBeim Entfernen bleibt Inhalt als Kiste zur\u00fcck."),
         new KeyValuePair<string,string>("W/S: forward/back \u00b7 A/D: turn \u00b7 Shift: up \u00b7 Space: down\nNo input keeps it hovering. Choose a ground mode to land.","W/S: vor/zur\u00fcck \u00b7 A/D: drehen \u00b7 Shift: hoch \u00b7 Leertaste: runter\nOhne Eingabe schweben. Bodenmodus w\u00e4hlen zum Landen."),

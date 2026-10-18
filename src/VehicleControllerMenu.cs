@@ -24,11 +24,14 @@ public partial class Plugin {
     void FocusMenuPane(bool sidebar){uiNavigation.SelectPane(sidebar);uiActivate=false;uiHorizontal=uiVertical=0;uiWaitNeutral=true;MenuSound(0);}
     void MoveMenuFocus(int direction) {
         if(uiNavigation.Sidebar) {
-            if(direction<=2){ChangeMenuTab(NextMenuTab(direction==1?-1:1));MenuSound(0);}
-            else if(direction==3)FocusMenuPane(false);
+            if(direction==3||direction==4){ChangeMenuTab(NextMenuTab(direction==4?-1:1));MenuSound(0);}
+            else if(direction==2)FocusMenuPane(false);
         }else if(uiNavigation.Editing) {
             if(direction<=2)uiVertical=direction==1?-1:1;else uiHorizontal=direction==3?1:-1;
-        }else if(direction<=2){uiFocus=ControlRules.MenuMove(uiFocus,direction==1?-1:1,uiLastCount);MenuSound(0);}
+        }else if(direction<=2){
+            int next=ControlRules.MenuVerticalNeighbor(uiFocus,direction==1?-1:1,uiBounds.ToArray());
+            if(next>=0){uiFocus=next;MenuSound(0);}else if(direction==1)FocusMenuPane(true);
+        }
         else {
             int next=ControlRules.MenuHorizontalNeighbor(uiFocus,direction==3?1:-1,uiBounds.ToArray());
             if(next>=0){uiFocus=next;MenuSound(0);}else if(direction==4)FocusMenuPane(true);

@@ -89,7 +89,7 @@ public partial class Plugin {
         menuSkin.horizontalSliderThumb.fixedWidth=14;menuSkin.horizontalSliderThumb.fixedHeight=16;
         menuSkin.horizontalSliderThumb.border=new RectOffset();
         choiceSelectedStyle=new GUIStyle(button);choiceSelectedStyle.normal.background=selected;choiceSelectedStyle.normal.textColor=Color.black;choiceSelectedStyle.hover.background=selected;choiceSelectedStyle.hover.textColor=Color.black;
-        navStyle=new GUIStyle(button){alignment=TextAnchor.MiddleLeft,fontSize=23,fontStyle=FontStyle.BoldAndItalic,padding=new RectOffset(49,8,0,0),wordWrap=false};
+        navStyle=new GUIStyle(button){alignment=TextAnchor.MiddleCenter,fontSize=18,fontStyle=FontStyle.BoldAndItalic,padding=new RectOffset(6,6,0,0),wordWrap=false};
         navStyle.normal.background=MenuShape(IsMwFrontend?new Color(.13f,.12f,.08f,.48f):new Color(.015f,.03f,.04f,.3f));
         navSelectedStyle=new GUIStyle(navStyle);navSelectedStyle.normal.background=selected;navSelectedStyle.normal.textColor=Color.black;
         navSelectedStyle.hover.background=selected;navSelectedStyle.hover.textColor=Color.black;
@@ -101,20 +101,16 @@ public partial class Plugin {
         int hover=-1,row=0;
         foreach(int i in VisibleMenuOrder()) {
             if(!ControlRules.MenuTabVisible(i,accessible))continue;
-            bool child=Array.IndexOf(MenuRoots,i)<0;
-            float y=160+row++*43;
-            var rect=new Rect(child?34:16,y,child?238:256,38);
+            float width=1552f/VisibleMenuOrder().Length;
+            var rect=new Rect(24+row++*width,119,width-8,45);
             if(rect.Contains(e.mousePosition))hover=i;
             string title=MenuTitle(i);
             bool nativeLabel=IsMwFrontend&&menuAssets!=null&&menuAssets.MwFrontend.ContainsKey("nav_"+i);
-            if(UiButton(rect,nativeLabel?"":title,i==menuTab?navSelectedStyle:navStyle,false)){ChangeMenuTab(i);FocusMenuPane(false);MenuSound(1);}
-            if(nativeLabel)FrontendArt("nav_"+i,new Rect(rect.x+45,y+3,rect.width-54,32),i==menuTab?Color.black:Color.white);
-            Texture2D icon=null;if(IsMwFrontend&&menuAssets!=null)menuAssets.MwFrontend.TryGetValue("icon_"+i,out icon);
-            if(icon==null&&i<11)icon=menuAssets?.Icons[i];
-            if(icon!=null)GUI.DrawTexture(new Rect(24,y+1,33,30),icon,ScaleMode.ScaleToFit,true);
-            else FrontendArt("arrow",new Rect(25,y+2,28,28),i==menuTab?Color.black:MenuAccent);
+            bool selected=i==MenuRoot(menuTab);
+            if(UiButton(rect,nativeLabel?"":title,selected?navSelectedStyle:navStyle,false)){ChangeMenuTab(i);FocusMenuPane(false);MenuSound(1);}
+            if(nativeLabel)FrontendArt("nav_"+i,new Rect(rect.x+8,rect.y+7,rect.width-16,30),selected?Color.black:Color.white);
             if(i==9)DrawRustMenuBadge(rect);
-            if((padActive||keyboardMenuActive)&&uiNavigation.Sidebar&&i==menuTab&&e.type==EventType.Repaint)DrawMenuFocus(rect);
+            if((padActive||keyboardMenuActive)&&uiNavigation.Sidebar&&selected&&e.type==EventType.Repaint)DrawMenuFocus(rect);
         }
         if(!accessible)UiLabel(new Rect(20,184,150,112),"Spawn a vehicle and approach within 5 m to unlock tuning.",mutedStyle);
         GUI.enabled=true;

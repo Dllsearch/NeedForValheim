@@ -1,5 +1,5 @@
 """Build an asset-free dedicated-server payload, separate from artifacts/mod."""
-import argparse,hashlib,json,shutil,zipfile
+import argparse,hashlib,json,shutil,uuid,zipfile
 from pathlib import Path
 from project import BASE,LOCAL,OUTPUT,valheim_dir,bepinex_dir
 from build_support import standard_refs,compile_cs
@@ -30,8 +30,20 @@ def build(game_dir=None):
     entries={p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
     manifest=root/'manifest.json';manifest.write_text(json.dumps({'kind':'headless-server','networkReady':False,'files':entries},indent=2),encoding='utf-8');files.append(manifest)
     archive=OUTPUT/'NFVU2-server.zip'
-    with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
-        for path in files:z.write(path,path.relative_to(root).as_posix())
+    temporary=archive.with_name(archive.name+'.'+uuid.uuid4().hex+'.tmp')
+    try:
+        with zipfile.ZipFile(temporary,'w',zipfile.ZIP_DEFLATED) as z:
+            for path in files:z.write(path,path.relative_to(root).as_posix())
+        with zipfile.ZipFile(temporary) as z:
+            if set(z.namelist())!=set(entries)|{'manifest.json'}:raise RuntimeError('Unexpected server package files')
+            if json.loads(z.read('manifest.json'))!=json.loads(manifest.read_text(encoding='utf-8')):
+                raise RuntimeError('Packaged server manifest mismatch')
+            for name,expected in entries.items():
+                if hashlib.sha256(z.read(name)).hexdigest()!=expected:
+                    raise RuntimeError('Packaged server checksum mismatch: '+name)
+        temporary.replace(archive)
+    finally:
+        temporary.unlink(missing_ok=True)
     digest=hashlib.sha256(archive.read_bytes()).hexdigest()
     archive.with_suffix('.zip.sha256').write_text(digest+'  '+archive.name+'\n',encoding='ascii')
     print('Server package:',archive.name,archive.stat().st_size,'bytes;',len(profiles),'profiles; SHA-256',digest)

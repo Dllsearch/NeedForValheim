@@ -15,6 +15,9 @@ public class Mesh {
     public Color[] colors;
     public int subMeshCount=1;
     int[] indices;
+    readonly int[][] surfaces=new int[2][];
+    public void SetTriangles(int[] values,int slot){surfaces[slot]=values;indices=System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Concat(surfaces[0]??Array.Empty<int>(),surfaces[1]??Array.Empty<int>()));}
+    public int[] GetTriangles(int slot)=>surfaces[slot];
     Rendering.IndexFormat format;
     public Rendering.IndexFormat indexFormat {
         get=>format;

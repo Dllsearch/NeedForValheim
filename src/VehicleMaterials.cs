@@ -79,7 +79,7 @@ public static class VehicleMaterials {
                     .Select(m => m.shader).FirstOrDefault() ?? Shader.Find("Standard");
                 if (wheelShader == null || !wheelShader.isSupported) wheelShader = templates[0].shader;
                 log("Vehicle wheel metal shader: " + wheelShader.name + "; fresh material, environment reflections, no emission");
-                if(model.materials.Any(m=>m.bodyPaint))log("Vehicle metallic paint shader: "+wheelShader.name+"; metallic 0.72, smoothness 0.88");
+                if(model.materials.Any(m=>m.bodyPaint))log("Vehicle paint shader: "+wheelShader.name+"; imported per-material finish");
             }
             for (int i = 0; i < textures.Length; i++) {
                 var data = model.textures[i];
@@ -100,7 +100,12 @@ public static class VehicleMaterials {
                 bool wheelMetal = data.rimPaint||IsWheelMetal(data.name)||((data.name??"").Contains("_wheel_")&&data.metallic>.4f);
                 bool wheelRubber = data.wheelRubber||IsWheelRubber(data.name);
                 bool paint=data.bodyPaint;
-                float metallic=paint ? .72f : data.metallic,smoothness=paint ? .88f : data.smoothness;
+                float metallic=data.metallic,smoothness=data.smoothness;
+                // Explicit MW underbody/dull-plastic roles are not polished
+                // trim. Their old generic fallback made authored arch liners shine.
+                if((data.name??" ").StartsWith("mw_bottom_",StringComparison.Ordinal)||(data.name??" ").Contains("dull_plastic")) {
+                    metallic=0;smoothness=.12f;
+                }
                 // Paint and polished rims must not inherit a
                 // building prop's maps, disabled reflections or shader keywords.
                 // Every imported surface needs a neutral texture/tint pipeline.

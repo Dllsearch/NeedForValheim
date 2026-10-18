@@ -1,6 +1,18 @@
 using System;
 
 namespace NeedForValheim {
+// A newly streamed outside car must never begin as a global 2D source.
+// Once initialized, real entry/exit still crossfades the same playback stream.
+public sealed class RadioCabinBlend {
+    bool initialized;float outside;
+    public float Step(float dt,bool driving) {
+        float target=driving?0:1;
+        if(!initialized){initialized=true;outside=target;return outside;}
+        if(float.IsNaN(dt)||float.IsInfinity(dt))dt=0;
+        float step=Math.Max(0,Math.Min(.1f,dt))*3;
+        outside+=Math.Max(-step,Math.Min(step,target-outside));return outside;
+    }
+}
 // One continuous music stream; opening the cabin changes its exterior mix
 // and moves its apparent origin towards the open door(s) or hatch.
 public readonly struct RadioAcousticMix {

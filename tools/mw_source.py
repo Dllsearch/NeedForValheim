@@ -28,7 +28,10 @@ class Source:
                 self.vehicles[model]=dict(collection=name,fields=fields)
 
     @lru_cache(maxsize=12)
-    def meshes(self,folder):return parse(self.root/'CARS'/folder/'GEOMETRY.BIN')
+    def meshes(self,folder):
+        if not isinstance(folder,str) or not folder or folder in ('.','..') or any(c in folder for c in ('/','\\',':')):
+            raise ValueError('MW car folder must be a single local folder name')
+        return parse(self.root/'CARS'/folder/'GEOMETRY.BIN')
 
     @lru_cache(maxsize=64)
     def pack(self,path):return TexturePack(self.root/path)

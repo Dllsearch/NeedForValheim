@@ -3,6 +3,18 @@ using UnityEngine;
 namespace NeedForValheim {
 public partial class Plugin {
     GUIStyle frontendHeading,frontendSmall;
+    static Rect GaragePreviewRect=>new Rect(0,180,950,630);
+    string GarageStatusLine() {
+        if(workshopMessage.Length>0)return Tr(workshopMessage);
+        var vehicle=GaragePreviewReady?garagePreview.networkPreviewOf??current:current;
+        if(NetworkSessionActive&&PreviewTab(menuTab)&&vehicle?.networkSettings!=null) {
+            string blocked=NetworkVehicleEditBlock(vehicle);
+            if(blocked!=null)return Tr(blocked);
+            return vehicle.networkSetupInFlight||vehicle.networkSettings.Version!=vehicle.networkSetupAcknowledgedVersion?
+                Tr("Saving changes to server…"):Tr("Server-confirmed setup")+" · "+Tr("Revision")+" "+vehicle.networkSetupRevision;
+        }
+        return "GARAGE  "+fleet.Count+" / 4    •    "+(IsMwFrontend?"MOST WANTED":"UNDERGROUND 2")+"    •    THREE SAVED BUILDS PER CAR";
+    }
     void FrontendArt(string name,Rect rect,Color? tint=null) {
         if(menuAssets==null)return;
         Texture2D texture=null;if(IsMwFrontend||name.StartsWith("car_mw-",StringComparison.Ordinal))menuAssets.MwFrontend.TryGetValue(name,out texture);
@@ -24,56 +36,57 @@ public partial class Plugin {
             GUI.matrix=Matrix4x4.identity;FrontendFill(new Rect(0,0,Screen.width,Screen.height),new Color(.012f,.018f,.022f,1));
             float scale=Mathf.Min(Screen.width/1600f,Screen.height/900f);
             GUI.matrix=Matrix4x4.TRS(new Vector3((Screen.width-1600*scale)*.5f,(Screen.height-900*scale)*.5f,0),Quaternion.identity,Vector3.one*scale);
-            if(garageFrame!=null)GUI.DrawTexture(new Rect(0,0,1200,900),garageFrame,ScaleMode.StretchToFill,false);
-            FrontendFill(new Rect(0,0,1600,128),IsMwFrontend?new Color(.075f,.07f,.045f,.65f):new Color(.008f,.014f,.022f,.42f));
-            FrontendFill(new Rect(0,128,290,686),new Color(.008f,.014f,.022f,.18f));
-            FrontendFill(new Rect(1040,128,560,686),IsMwFrontend?new Color(.045f,.04f,.025f,.96f):new Color(.012f,.022f,.028f,.96f));
-            FrontendFill(new Rect(0,814,1600,86),new Color(.008f,.014f,.022f,.6f));
+            if(garageFrame!=null)GUI.DrawTexture(GaragePreviewRect,garageFrame,ScaleMode.StretchToFill,false);
+            FrontendFill(new Rect(0,0,1600,110),IsMwFrontend?new Color(.075f,.07f,.045f,.95f):new Color(.008f,.014f,.022f,.95f));
+            FrontendFill(new Rect(0,110,1600,62),new Color(.008f,.014f,.022f,.9f));
+            FrontendFill(new Rect(964,180,612,630),IsMwFrontend?new Color(.045f,.04f,.025f,.96f):new Color(.012f,.022f,.028f,.96f));
+            FrontendFill(new Rect(964,180,612,3),MenuAccent);
+            FrontendFill(new Rect(0,822,1600,78),new Color(.008f,.014f,.022f,.9f));
             if(IsMwFrontend){
-                FrontendArt("grit",new Rect(-115,110,445,705),new Color(.7f,.68f,.56f,.26f));
-                FrontendArt("banner",new Rect(1030,120,570,145),new Color(.6f,.58f,.45f,.36f));
-                FrontendArt("vignette",new Rect(1000,664,620,155),new Color(.6f,.58f,.45f,.25f));
-                if(menuTab==1)FrontendArt("trax",new Rect(1000,300,35,115));
-                FrontendArt("graf",new Rect(27,684,236,115),new Color(1,1,1,.55f));
-                UiLabel(new Rect(38,11,410,22),"NEED FOR SPEED",frontendSmall);FrontendArt("wordmark",new Rect(28,27,430,89));
+                FrontendArt("grit",new Rect(0,180,950,630),new Color(.7f,.68f,.56f,.08f));
+                FrontendArt("banner",new Rect(964,183,612,100),new Color(.6f,.58f,.45f,.2f));
+                FrontendArt("vignette",new Rect(964,655,612,155),new Color(.6f,.58f,.45f,.18f));
+                UiLabel(new Rect(30,9,320,20),"NEED FOR SPEED",frontendSmall);FrontendArt("wordmark",new Rect(25,30,330,68));
                 string header="nav_"+MenuRoot(menuTab);
-                if(menuAssets!=null&&menuAssets.MwFrontend.ContainsKey(header))FrontendArt(header,new Rect(510,32,620,48));
-                else UiLabel(new Rect(510,32,620,48),MenuTitle(MenuRoot(menuTab)),frontendHeading);
+                if(menuAssets!=null&&menuAssets.MwFrontend.ContainsKey(header))FrontendArt(header,new Rect(390,22,610,40));
+                else UiLabel(new Rect(390,22,610,40),MenuTitle(MenuRoot(menuTab)),frontendHeading);
             }else{
-                FrontendArt("fx",new Rect(1030,120,570,170),new Color(.2f,.85f,1,.38f));
-                FrontendArt("logo",new Rect(30,18,430,96));
-                UiLabel(new Rect(510,34,660,45),MenuTitle(MenuRoot(menuTab)),frontendHeading);
+                FrontendArt("fx",new Rect(964,183,612,100),new Color(.2f,.85f,1,.2f));
+                FrontendArt("logo",new Rect(25,16,330,82));
+                UiLabel(new Rect(390,22,610,40),MenuTitle(MenuRoot(menuTab)),frontendHeading);
             }
-            UiLabel(new Rect(514,82,750,27),"NFVU2  /  "+FrontendProfile.displayName+"  /  "+(garagePreviewStatus.Length>0?garagePreviewStatus:"CUSTOMIZE YOUR RIDE"),frontendSmall);
-            if(MenuButton(new Rect(1423,40,148,43),"BACK  ×")){CloseVehicleMenu();return;}
-            if(MenuButton(new Rect(1178,40,100,40),"U2",!IsMwFrontend?choiceSelectedStyle:null)){menuFrontend.Value="U2";Config.Save();}
-            if(MenuButton(new Rect(1288,40,100,40),"MW",IsMwFrontend?choiceSelectedStyle:null)){menuFrontend.Value="MW";Config.Save();}
+            UiLabel(new Rect(394,70,720,26),"NFVU2  /  "+FrontendProfile.displayName,frontendSmall);
+            if(MenuButton(new Rect(1423,34,148,43),"CLOSE  ×")){CloseVehicleMenu();return;}
+            if(MenuButton(new Rect(1178,36,100,40),"U2",!IsMwFrontend?choiceSelectedStyle:null)){menuFrontend.Value="U2";Config.Save();}
+            if(MenuButton(new Rect(1288,36,100,40),"MW",IsMwFrontend?choiceSelectedStyle:null)){menuFrontend.Value="MW";Config.Save();}
             MenuNavigation(true);
-            UiLabel(new Rect(321,153,650,38),FrontendProfile.displayName.ToUpperInvariant(),frontendHeading);
-            FrontendArt("car_"+FrontendProfile.id,new Rect(332,197,320,74));
-            if(garagePreviewStatus.Length>0)UiLabel(new Rect(420,391,570,100),garagePreviewStatus,frontendHeading);
-            FrontendFill(new Rect(315,718,710,87),new Color(.01f,.02f,.025f,.78f));
-            UiLabel(new Rect(335,731,650,33),Mathf.RoundToInt(FrontendProfile.rig.mass)+" KG   /   "+FrontendProfile.sound.gearRatios.Length+" SPEED   /   "+FrontendProfile.rig.rimNominal+" INCH",frontendSmall);
-            UiLabel(new Rect(335,768,650,27),"RIGHT MOUSE / RIGHT STICK: ROTATE    •    WHEEL: ZOOM",frontendSmall);
+            UiLabel(new Rect(30,201,880,38),FrontendProfile.displayName.ToUpperInvariant(),frontendHeading);
+            FrontendArt("car_"+FrontendProfile.id,new Rect(35,250,285,66));
+            if(garagePreviewStatus.Length>0)UiLabel(new Rect(140,420,670,100),garagePreviewStatus,frontendHeading);
+            FrontendFill(new Rect(20,735,910,65),new Color(.01f,.02f,.025f,.78f));
+            UiLabel(new Rect(36,742,870,25),Mathf.RoundToInt(FrontendProfile.rig.mass)+" KG   /   "+FrontendProfile.sound.gearRatios.Length+" SPEED   /   "+FrontendProfile.rig.rimNominal+" INCH",frontendSmall);
+            UiLabel(new Rect(36,771,870,24),"RIGHT MOUSE / RIGHT STICK: ROTATE    •    WHEEL: ZOOM",frontendSmall);
             var actual=current;
             bool preview=PreviewTab(menuTab);
-            if(preview&&GaragePreviewReady)current=garagePreview;
+            bool borrowedPreview=preview&&GaragePreviewReady;
+            if(borrowedPreview)current=garagePreview;
             uiBuilding=true;
-            GUI.BeginGroup(new Rect(1040,115,560,560));
+            GUI.BeginGroup(new Rect(990,200,560,594));
+            GUI.BeginGroup(new Rect(0,-99,560,693));
             try {
-                UiLabel(new Rect(25,99,510,35),Tr(MenuNames[menuTab]).ToUpperInvariant(),frontendHeading);
+                UiLabel(new Rect(25,99,510,35),MenuTitle(MenuRoot(menuTab)),frontendHeading);
                 if(preview&&!GaragePreviewReady)UiLabel(new Rect(25,175,510,120),garagePreviewStatus.Length==0?"Loading car preview…":garagePreviewStatus,labelStyle);
                 else switch(menuTab){case 16:DrawShowcaseMenu();break;case 15:DrawBuildMenu();break;case 14:DrawStylingMenu();break;case 13:DrawPerformanceMenu();break;case 12:DrawExhaustMenu();break;case 11:DrawInterfaceSettings();break;case 10:DrawGarageMenu();break;case 0:DrawVehiclePages();break;case 1:DrawRadioMenu();break;case 2:DrawLightsMenu();break;case 3:DrawNeonMenu();break;case 4:DrawNitroMenu();break;case 5:DrawWheelMenu();break;case 6:DrawBodyMenu();break;case 7:DrawTrunkMenu();break;case 8:DrawDrivingDisplayMenu();break;case 9:DrawTurretMenu();break;}
-            }finally{GUI.EndGroup();current=actual;uiBuilding=false;}
+            }finally{GUI.EndGroup();GUI.EndGroup();if(borrowedPreview)current=actual;uiBuilding=false;}
             if(menuTab==16&&(showcasePage==2||showcasePage==3)) {
                 uiBuilding=true;
-                UiLabel(new Rect(1065,692,510,27),"LIVE PREVIEW · no nitro consumption",frontendSmall);
-                garageEffectMode=UiToolbar(new Rect(1065,731,510,34),garageEffectMode,new[]{"Off","Flames","Purge","Backfire"});
+                UiLabel(new Rect(1015,706,510,27),"LIVE PREVIEW · no nitro consumption",frontendSmall);
+                garageEffectMode=UiToolbar(new Rect(1015,745,510,34),garageEffectMode,new[]{"Off","Flames","Purge","Backfire"});
                 uiBuilding=false;
             }
             uiLastCount=uiCount;uiFocus=Math.Min(uiFocus,Math.Max(0,uiCount-1));
             UiLabel(new Rect(32,835,1420,31),padActive?"B: BACK    •    LB/RB: CATEGORIES / CONTENT    •    A: SELECT    •    RIGHT STICK: ROTATE":"ESC: BACK    •    ↑↓←→: NAVIGATE    •    TAB: CATEGORIES / CONTENT    •    ENTER: SELECT    •    MOUSE: SELECT / ROTATE",frontendSmall);
-            UiLabel(new Rect(32,870,1420,25),workshopMessage.Length>0?Tr(workshopMessage):"GARAGE  "+fleet.Count+" / 4    •    "+(IsMwFrontend?"MOST WANTED":"UNDERGROUND 2")+"    •    THREE SAVED BUILDS PER CAR",frontendSmall);
+            UiLabel(new Rect(32,870,1536,25),GarageStatusLine(),frontendSmall);
             if(Event.current.type==EventType.Repaint){uiActivate=false;uiHorizontal=uiVertical=0;}
         }finally{GUI.depth=oldDepth;GUI.matrix=oldMatrix;GUI.skin=oldSkin;GUI.enabled=oldEnabled;GUI.color=oldColor;GUI.contentColor=oldContent;GUI.backgroundColor=oldBackground;GUI.changed|=oldChanged;uiBuilding=false;}
     }

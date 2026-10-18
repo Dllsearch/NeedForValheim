@@ -15,6 +15,13 @@ class Program {
   foreach(var art in artwork.entries){var bytes=VinylCatalog.Unpack(art.data,art.width*art.height*4);Check(Enumerable.Range(0,art.width*art.height).Any(i=>bytes[i*4+3]>0),"Original decal artwork coverage: "+art.name);}
   foreach(var car in catalog) {
    var data=ModelFile.Load(Path.Combine(root,car.assets.modelFile));var library=ModelFile.Load(Path.Combine(root,"styling",car.id+".json"));
+   var cavities=data.materials.Concat(library.materials).Where(m=>m.name.IndexOf("plainnothing",StringComparison.OrdinalIgnoreCase)>=0).ToArray();
+   foreach(var material in cavities)Check(!material.bodyPaint&&!material.rimPaint&&material.texture==-1&&material.metallic==0&&material.smoothness<=.12f&&material.color.Take(3).Max()<.03f,car.id+" native black cavity cannot receive paint or vinyl: "+material.name);
+   if(new[]{"mw-cobaltss","mw-gto","mw-mustanggt"}.Contains(car.id)) {
+    Check(cavities.Length>0,car.id+" reproduces the shared PLAINNOTHING material case");
+    Check(data.materials.Concat(library.materials).Any(m=>m.bodyPaint),car.id+" retains paintable exterior surfaces");
+    Console.WriteLine(car.id+": "+cavities.Length+" original cavity descriptors protected; exterior paint retained");
+   }
    if(!string.IsNullOrEmpty(car.assets.decalFile)) {
     var decals=ModelFile.Load(Path.Combine(root,car.assets.decalFile));
     Check(decals.decalSlots.Select(s=>s.key).SequenceEqual(car.assets.decalSlots),car.id+" decal metadata agrees with the garage slots");

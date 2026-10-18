@@ -80,7 +80,8 @@ class Compiler:
         glass='WINDOW' in name or 'GLASS' in name
         if 'HEADLIGHT' in name:key=bin_hash(self.car+'_KIT00_HEADLIGHT_ON')
         elif 'BRAKELIGHT' in name:key=bin_hash(self.car+'_KIT00_BRAKELIGHT_ON')
-        paint=name.startswith('BODY') and not any(x in name for x in ('CHROME','ALUMINUM','MOLDING','PLASTIC','CARBON','BOTTOM','BADGING'))
+        plain='PLAINNOTHING' in name
+        paint=name.startswith('BODY') and not plain and not any(x in name for x in ('CHROME','ALUMINUM','MOLDING','PLASTIC','CARBON','BOTTOM','BADGING'))
         generated={bin_hash(self.car+suffix) for suffix in ('_SKIN1','_SKIN2','_SKIN3','_WHEEL')}|{bin_hash(n) for n in ('GLOBAL_SKIN1','SPOILER_SKIN1','ROOF_SKIN','ROOF_SKIN1')}
         shared_brake=key in SHARED_BRAKE_KEYS
         disc=name.startswith('DISC') or 'ROTOR' in name
@@ -93,12 +94,21 @@ class Compiler:
             self.adapted.add(f'{key:08x}: empty shared brake texture; stock MW rotor artwork or neutral solid hardware')
         if key in generated:self.generated.add(f'{key:08x}')
         colour=[1.,1.,1.,1.];metal=.08;smooth=.45;alpha='opaque'
-        if paint:
+        if plain:
+            # A black cavity/occluder, not a user-painted skin. Replacing its
+            # texture with the vinyl composite exposes coloured wheel wells.
+            colour,metal,smooth,tex=[.025,.025,.028,1.],0.,.12,-1
+        elif paint:
             metal,smooth=.55,.7
             if tex<0:colour=[.68,.7,.73,1.]
         elif glass:
             colour,metal,smooth,alpha=([.75,.85,.9,.08] if 'HEADLIGHT' in name or 'BRAKELIGHT' in name else [.05,.08,.1,.42]),.1,.95,'blend'
         elif any(x in name for x in ('CHROME','SILVER','ALUMINUM','ROTOR','DISC')):metal,smooth=.85,.75
+        elif name.startswith('BOTTOM') or 'DULL_PLASTIC' in name:
+            # Authored underbody/arch trim must match the runtime matte-role
+            # correction, including in exported previews and future bundles.
+            metal,smooth=0.,.12
+            if tex<0:colour=[.13,.13,.14,1.]
         elif name.startswith('TIRE'):smooth=.12
         elif 'CALIPER' in name:
             metal,smooth=.4,.55

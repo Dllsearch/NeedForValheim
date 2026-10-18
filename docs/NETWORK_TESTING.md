@@ -65,6 +65,95 @@ then apply the matching network DLL to both clients while closed. Keep original
 DLL backups, avoid duplicate plugin copies and do not use the asset-free server
 DLL on a gameplay client. No game or BepInEx binaries are in the patch ZIP.
 
+## Current follow-up patch
+
+Refresh only the small client patch, without stopping/touching a live server:
+
+```powershell
+.venv/Scripts/python.exe tools/prepare_lan_test.py --package-only
+```
+
+For the original neon/purge mounts, include the regenerated U2 data as well:
+
+```powershell
+.venv/Scripts/python.exe tools/prepare_lan_test.py --package-only --include-u2-assets
+```
+
+This produces artifacts/NFVU2-network-U2-update.zip with the network DLL, all
+30 U2 model JSON files, their 30 styling catalogs and cars.json. It omits music,
+MW assets, settings and worlds, so it requires an existing full client install.
+Before extracting, close Valheim and back up every installed path listed in the
+manifest; both clients need the same update. Each archived payload file is
+SHA-256 checked before the completed archive replaces any previous update.
+
+The DLL-only command above writes artifacts/NFVU2-network-client-patch.zip and its SHA-256 file after
+validating the full network build stamp. It does not stage server files, edit
+launchers, touch installed clients, or start/stop anything. Both players need
+the matching client update and the server needs its separately built payload;
+replace each only after its process has closed, preserving backups.
+
+Prioritize these manual regressions after updating:
+
+- Own parked car: open styling, change multiple values quickly, wait, reopen,
+  then reconnect and compare. Report the exact edit-denial text if blocked.
+- Change local music/engine volume while driving a borrowed car. Disable
+  autoplay, spawn/enter, use manual Play, exit/re-enter; playback should wait.
+- Race together across zone boundaries and out past 180 m/back. Check silent
+  visual streaming, motion/turning, wheels and continuous engine pitch.
+  The new arrival-time buffer adapts between 120 and 350 ms and reconciles late
+  extrapolation errors over 150 ms. Inspect both sparse updates and a delayed
+  stop/turn; a stopped car must settle exactly rather than keep drifting. Test
+  high speed across a packet gap and explicit recovery separately: only recovery
+  should reset immediately. Replay tests do not replace this live timing check.
+- Owner disconnects: nearby other player removes the vacant obstruction; cargo
+  remains a native chest. Reconnected owners and occupied/open-cargo cars reject
+  foreign removal.
+- Inspect body finish, inside wheel arches and neon in garage/ground/flight.
+
+## U2 interior synchronization follow-up (pending gameplay acceptance)
+
+The current builds retain setup drafts through revision conflicts and transport
+uncertainty. Hard authority/capacity refusals still reject that submission. The
+server explicitly refuses malformed unloaded inventory data without replacing
+its bytes. Automated coverage is recorded in `artifacts/interior-sync-retry-tests.log`;
+it does not exercise native inventory UI or the Plugin's live update loop.
+
+When manual testing is available:
+
+- On a freshly spawned, undriven car, approach from behind and open cargo. Repeat
+  after driving, streaming and recovery. Check a stock 350Z and a long MW vehicle;
+  cargo access should use the same rear point throughout, without shifting the car.
+- On an owned parked U2 car, change layout, several audio sockets, engine
+  appearance, hinge style and tint. Wait for server acknowledgement, reopen the
+  menu, then reconnect and compare the persisted values and visible equipment.
+- Change more values while a save is pending. Later edits must survive the first
+  acknowledgement; retry notices must clear after a successful save.
+- Reject a capacity reduction with too much cargo. Contents must remain intact,
+  with an explicit refusal rather than an endless save indicator.
+- Opening/closing panels is transient presentation, separate from saved hinge
+  style and equipment. It is not evidence that the interior snapshot persisted.
+
+The user controls all game/server interaction; these are deferred acceptance
+cases, not a request to interrupt rest or operate running installations.
+
+## Garage selection workflow (pending gameplay acceptance)
+
+Also verify parked audio after updating: exit a driven car, switch Keep running
+after exit off/on nearby, then change paint while the engine is stopped. Only the
+running switch should start/stop parked playback. While another player drives,
+local radio Play/Pause and volume should remain usable. Re-enter streamed range
+and listen for any global music burst; outside playback should start spatial and
+fall off with distance. Observe configured subwoofers during network playback.
+
+When manual testing is available, select a different parked car in My garage,
+then open performance/styling and verify the selected model is still the target.
+Remove the currently selected car and verify the replacement remains selected;
+the removed runtime must not reappear through the UI's temporary preview context.
+Browse the car lot across pages, switch U2/MW and return to a selected model.
+The preview, highlighted model, title and purchase/recall action should agree.
+Check keyboard/controller Up/Down across wheel, gauge and paint grids. These
+cases require native interaction; drawing/page doubles only verify frame logic.
+
 ## Two-client procedure (pending)
 
 Keep the current single-player installation backed up. Build the experimental

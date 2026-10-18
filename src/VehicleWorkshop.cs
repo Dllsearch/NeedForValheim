@@ -18,6 +18,8 @@ public partial class Plugin {
     ConfigEntry<bool> paintTrim=>VehicleConfig(baseConfig_paintTrim);
     ConfigEntry<int> paintChoice=>VehicleConfig(baseConfig_paint);
     ConfigEntry<int> paintFinish=>VehicleConfig(baseConfig_finish);
+    ConfigEntry<int> baseConfig_shiftColor;
+    ConfigEntry<int> paintShiftColor=>VehicleConfig(baseConfig_shiftColor);
     ConfigEntry<int> rimColor=>VehicleConfig(baseConfig_rimColor);
     ConfigEntry<int> vinylChoice=>VehicleConfig(baseConfig_vinyl);
     ConfigEntry<int> vinylColor=>VehicleConfig(baseConfig_vinylColor);
@@ -30,6 +32,26 @@ public partial class Plugin {
     static readonly string[] PaintNames={"Original","Black","White","Silver","Graphite","Red","Orange","Yellow","Lime","Green","Cyan","Blue","Purple","Pink","Bronze"};
     internal static readonly Color[] PaintColors={Color.white,new Color(.035f,.035f,.04f),new Color(.92f,.92f,.9f),new Color(.65f,.68f,.72f),new Color(.18f,.2f,.23f),new Color(.8f,.025f,.04f),new Color(1,.25f,.02f),new Color(1,.78f,.04f),new Color(.6f,1,.025f),new Color(.02f,.6f,.16f),new Color(.02f,.8f,.85f),new Color(.025f,.12f,.8f),new Color(.45f,.04f,.7f),new Color(.95f,.08f,.4f),new Color(.5f,.3f,.11f)};
     internal static int PaintPaletteSize=>PaintColors.Length;
+    internal static int BodyPaintPaletteSize=>PaintPaletteIndex.Count(PaintPaletteSize);
+    internal static Color BodyPaintColor(int id) {
+        int family=PaintPaletteIndex.Family(id,PaintPaletteSize),shade=PaintPaletteIndex.Shade(id,PaintPaletteSize);
+        var basis=PaintColors[family];
+        return shade<3?new Color(basis.r*(shade+1)*.25f,basis.g*(shade+1)*.25f,basis.b*(shade+1)*.25f,1):shade==3?basis:Color.Lerp(basis,Color.white,(shade-3)*.2f);
+    }
+    void DrawBodyPaintPalette() {
+        int family=PaintPaletteIndex.Family(paintChoice.Value,PaintPaletteSize),shade=PaintPaletteIndex.Shade(paintChoice.Value,PaintPaletteSize);
+        int selected=UiGrid(new Rect(25,220,510,112),family,PaintNames,4);
+        if(selected!=family){family=selected;paintChoice.Value=PaintPaletteIndex.Id(family,shade,PaintPaletteSize);}
+        string[] shades={"Deep","Dark","Rich","Base","Light","Pale","Pastel"};
+        bool enabled=GUI.enabled;GUI.enabled=enabled&&family!=0;
+        UiLabel(new Rect(25,340,510,22),"SHADE",mutedStyle);
+        for(int i=0;i<shades.Length;i++) {
+            var rect=new Rect(25+i*73,365,69,30);int id=PaintPaletteIndex.Id(family,i,PaintPaletteSize);
+            if(UiButton(rect,shades[i],i==shade?choiceSelectedStyle:null))paintChoice.Value=id;
+            var old=GUI.color;GUI.color=BodyPaintColor(id);GUI.DrawTexture(new Rect(rect.x+5,rect.yMax-7,rect.width-10,4),Texture2D.whiteTexture);GUI.color=old;
+        }
+        GUI.enabled=enabled;
+    }
     int workshopTab,styleCategory,stylePage,buildSlot;
     string buildName="My build",workshopMessage="";
     ConfigEntry<int> WorkshopInt(string section,string key,int value,int max)=>BindVehicle(section,key,value,new ConfigDescription("Saved independently for each vehicle. Zero preserves the original setup.",new AcceptableValueRange<int>(0,max)));
@@ -39,7 +61,8 @@ public partial class Plugin {
         baseConfig_engineStage=WorkshopInt("Performance","Engine",0,3);baseConfig_turboStage=WorkshopInt("Performance","Turbo",0,3);
         baseConfig_gearStage=WorkshopInt("Performance","Transmission",0,3);baseConfig_tyreStage=WorkshopInt("Performance","Tyres",0,3);
         baseConfig_brakeStage=WorkshopInt("Performance","Brakes",0,3);baseConfig_nosStage=WorkshopInt("Performance","Nitrous",0,3);
-        baseConfig_paint=WorkshopInt("Styling","Paint",0,PaintNames.Length-1);baseConfig_finish=WorkshopInt("Styling","Finish",0,3);
+        baseConfig_paint=WorkshopInt("Styling","Paint",0,BodyPaintPaletteSize-1);baseConfig_finish=WorkshopInt("Styling","Finish",0,5);
+        baseConfig_shiftColor=WorkshopInt("Styling","ShiftColor",12,BodyPaintPaletteSize-1);
         baseConfig_paintTrim=BindVehicle("Styling","PaintChromeTrim",true,"With a custom body colour, also paint exterior chrome trim. Factory preserves original chrome. Independent from rim colour.");
         baseConfig_rimColor=WorkshopInt("Styling","RimColor",0,PaintNames.Length-1);baseConfig_vinyl=WorkshopInt("Styling","Vinyl",0,int.MaxValue);baseConfig_vinylColor=WorkshopInt("Styling","VinylColor",2,PaintNames.Length-1);
         InitializeVinylLayers();
@@ -78,7 +101,7 @@ public partial class Plugin {
             if(current.styling.HasCatalog&&!current.styling.Options(category).Any(o=>o.id==setting.Value))setting.Value=0;
             current.styleSelection[category]=setting.Value;
         }
-        current.styling.Tick(current.styleSelection,paintChoice.Value,paintFinish.Value,rimColor.Value,vinylChoice.Value,vinylColor.Value,paintTrim.Value,CurrentVinylLayers());
+        current.styling.Tick(current.styleSelection,paintChoice.Value,paintFinish.Value,rimColor.Value,vinylChoice.Value,vinylColor.Value,paintTrim.Value,CurrentVinylLayers(),paintShiftColor.Value);
         current.styling.SetWindowTint(glassColour.Value,glassShade.Value);
         TickDecals();
     }
@@ -98,7 +121,7 @@ public partial class Plugin {
         if(MenuButton(new Rect(25,454,245,32),"Stock performance"))SetPerformancePackage(0);
         if(MenuButton(new Rect(285,454,245,32),"Stage 3 package"))SetPerformancePackage(3);
         GUI.enabled=true;
-        UiLabel(new Rect(25,491,510,40),WorkshopParked?(string.IsNullOrEmpty(workshopMessage)?GarageEconomySummary:workshopMessage):"Park and finish the horde run before changing parts.",mutedStyle);
+        UiLabel(new Rect(25,491,510,40),WorkshopParked?(string.IsNullOrEmpty(workshopMessage)?GarageEconomySummary:workshopMessage):WorkshopBlockedMessage,mutedStyle);
     }
     void SetPerformancePackage(int stage){var wanted=Enumerable.Repeat(stage,6).ToArray();if(!current.Profile.capabilities.nitro)wanted[5]=0;PurchasePerformance(wanted,()=>{var entries=PerformanceEntries();for(int i=0;i<6;i++)entries[i].Value=wanted[i];});}
     void DrawStylingMenu() {
@@ -110,10 +133,19 @@ public partial class Plugin {
         GUI.enabled=WorkshopParked;
         if(workshopTab==0) {
             UiLabel(new Rect(25,185,510,28),"Body paint",labelStyle);
-            paintChoice.Value=UiGrid(new Rect(25,220,510,152),paintChoice.Value,PaintNames,3);
+            DrawBodyPaintPalette();
             UiLabel(new Rect(25,395,510,25),"Finish",labelStyle);
-            paintFinish.Value=UiToolbar(new Rect(25,428,510,32),paintFinish.Value,new[]{"Original","Gloss","Metallic","Matte"});
-            paintTrim.Value=UiToggle(new Rect(25,465,510,25),paintTrim.Value," Paint chrome trim with the body");
+            bool customAvailable=VehiclePaintShader.Get()!=null;
+            paintFinish.Value=UiGrid(new Rect(25,423,510,64),paintFinish.Value,customAvailable?new[]{"Original","Gloss","Metallic","Matte","Pearl","Chameleon"}:new[]{"Original","Gloss","Metallic","Matte"},customAvailable?3:2);
+            if(customAvailable&&paintFinish.Value>=4) {
+                int family=Math.Max(1,PaintPaletteIndex.Family(paintShiftColor.Value,PaintPaletteSize));
+                int shade=PaintPaletteIndex.Shade(paintShiftColor.Value,PaintPaletteSize);
+                int direction=UiToolbar(new Rect(25,494,510,30),1,new[]{"‹ Shift colour",PaintNames[family],"Shift colour ›"});
+                if(direction!=1)family=1+(family-1+(direction==0?PaintPaletteSize-2:1))%(PaintPaletteSize-1);
+                shade=UiToolbar(new Rect(25,530,510,30),shade,new[]{"Deep","Dark","Rich","Base","Light","Pale","Pastel"});
+                paintShiftColor.Value=PaintPaletteIndex.Id(family,shade,PaintPaletteSize);
+            }
+            paintTrim.Value=UiToggle(new Rect(25,customAvailable&&paintFinish.Value>=4?567:495,510,25),paintTrim.Value," Paint chrome trim with the body");
         }else if(workshopTab==4) {
             UiLabel(new Rect(25,185,510,28),"Window tint",labelStyle);
             glassColour.Value=UiGrid(new Rect(25,220,510,152),glassColour.Value,PaintNames,3);
@@ -123,7 +155,7 @@ public partial class Plugin {
             DrawVinylWorkshop();
         }
         GUI.enabled=true;
-        UiLabel(new Rect(25,495,510,25),WorkshopParked?"Live preview · saved for this vehicle · Builds stores full setups.":"Park before changing the setup.",mutedStyle);
+        UiLabel(new Rect(25,workshopTab==0?(paintFinish.Value>=4?604:532):495,510,25),WorkshopParked?(string.IsNullOrEmpty(workshopMessage)?"Live preview · saved for this vehicle · Builds stores full setups.":workshopMessage):WorkshopBlockedMessage,mutedStyle);
     }
     void DrawPartsBrowser(bool rims) {
         var style=current.styling;
@@ -136,17 +168,18 @@ public partial class Plugin {
         }
         string category=rims?"Rims":StyleCategories[styleCategory];
         var options=style.Options(category);var entry=VehicleConfig(styleSettings[category]);
-        stylePage=Mathf.Clamp(stylePage,0,(options.Length-1)/9);
+        const int pageSize=6;
+        stylePage=Mathf.Clamp(stylePage,0,(options.Length-1)/pageSize);
         bool supported=style.Supports(category,VehicleConfig(styleSettings["Bodykit"]).Value);
         GUI.enabled=WorkshopParked&&supported;
-        int offset=stylePage*9;var page=options.Skip(offset).Take(9).ToArray();
+        int offset=stylePage*pageSize;var page=options.Skip(offset).Take(pageSize).ToArray();
         int selected=Array.FindIndex(page,o=>o.id==entry.Value);
-        int choice=UiGrid(new Rect(25,296,510,135),selected,page.Select(o=>o.title).ToArray(),3);
+        int choice=UiGrid(new Rect(25,296,510,135),selected,page.Select(o=>o.title).ToArray(),2);
         if(choice!=selected&&choice>=0){entry.Value=page[choice].id;if(category=="Rims"&&page[choice].rimInches>0)RimSetting.Value=page[choice].rimInches;}
         GUI.enabled=true;
         GUI.enabled=stylePage>0;if(MenuButton(new Rect(25,448,120,30),"‹ Previous"))stylePage--;GUI.enabled=true;
-        UiLabel(new Rect(159,451,240,27),category+"   "+(stylePage+1)+" / "+((options.Length+8)/9),labelStyle);
-        GUI.enabled=offset+9<options.Length;if(MenuButton(new Rect(410,448,120,30),"Next ›"))stylePage++;GUI.enabled=true;
+        UiLabel(new Rect(159,451,240,27),category+"   "+(stylePage+1)+" / "+((options.Length+pageSize-1)/pageSize),labelStyle);
+        GUI.enabled=offset+pageSize<options.Length;if(MenuButton(new Rect(410,448,120,30),"Next ›"))stylePage++;GUI.enabled=true;
         UiLabel(new Rect(25,487,510,32),!supported?"Widebody uses integrated bumpers and skirts. Choose the standard bodykit first.":"Original "+(current.Profile.sourceGame==CarCatalog.MostWanted?"MW":"U2")+" geometry · factory restores the installed model.",mutedStyle);
     }
     IEnumerable<ConfigEntryBase> CurrentBuildSettings() {

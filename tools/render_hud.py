@@ -25,12 +25,14 @@ def render(design,charge=.65,rpm=4500,speed=86,mph=False,turbo_pressure=18,turbo
     pointer=Image.new('RGBA',(280,280));art=image(d['needle']);height=116/d['needlePivot'];width=height*art.width/art.height
     pointer.alpha_composite(art.resize((round(width),round(height))),(round(140-width/2),24))
     pointer=pointer.rotate(-(180+240*rpm/7500),resample=Image.Resampling.BICUBIC,center=(140,140))
-    nos_rect=(-53.33,-58.47,520.45,248.70)  # HudMath.U2Nos*: shared, reference U2 08
+    from fit_u2_nos import fit
+    fit_data=fit();nos_rect=fit_data['rectangle']
     paste(image(data['nitroBacking']),nos_rect,(165,165,165,255))
     nitro=image(data['nitro']);pixels=nitro.load()
     for y in range(nitro.height):
         for x in range(nitro.width):
-            progress=0 if x<92.5 and y>=110.5 else max(0,min(1,(math.degrees(math.atan2(y-110.5,x-92.5))+180)/150))
+            cx,cy=fit_data['sourceCenter']
+            progress=0 if x<cx and y>=cy else max(0,min(1,(math.degrees(math.atan2(y-cy,x-cx))+180)/150))
             if charge==0 or progress>charge:pixels[x,y]=(*pixels[x,y][:3],0)
     paste(nitro,nos_rect,accent)
     draw=ImageDraw.Draw(canvas)

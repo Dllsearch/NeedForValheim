@@ -18,7 +18,7 @@ public partial class Plugin {
     ConfigEntry<string> trunkNeonColor=>VehicleConfig(baseConfig_trunkNeonColor);
     ConfigEntry<float> baseConfig_windowTint;
     ConfigEntry<float> windowTint=>VehicleConfig(baseConfig_windowTint);
-    int selectedAudioSlot;
+    int selectedAudioSlot,bodyDetailPage,trunkDetailPage;
     void InitializeShowroomMenu() {
         baseConfig_windowTint=BindVehicle("Cabin","WindowTint",.16f,new ConfigDescription("Vehicle window tint: 0 clear, 1 dark. The driver's window stays open while occupied.",new AcceptableValueRange<float>(0,1)));
         baseConfig_trunkLayout=BindVehicle("Showroom","TrunkLayout",2,new ConfigDescription("Trunk audio enclosure: 0 stock, 1 two slots, 2 four slots, 3 six slots.",new AcceptableValueRange<int>(0,3)));
@@ -40,55 +40,80 @@ public partial class Plugin {
     }
     void MotionButton(Rect rect,int part,string label) {
         bool stationary=!Flying&&body!=null&&body.linearVelocity.magnitude<=.5f;
-        GUI.enabled=(stationary||showroom.State.Open[part])&&!(driving&&cabinDriver!=null&&!DriverInputReady&&part==1);
-        if(MenuButton(rect,label+(showroom.State.Open[part]?" close":" open")))showroom.State.Toggle(part,stationary);
+        bool supported=showroom.SupportsMotion(part);
+        GUI.enabled=supported&&(stationary||showroom.State.Open[part])&&!(driving&&cabinDriver!=null&&!DriverInputReady&&part==1);
+        if(MenuButton(rect,label+(supported?(showroom.State.Open[part]?" close":" open"):" unavailable")))showroom.State.Toggle(part,stationary);
         GUI.enabled=true;
     }
     void DrawBodyMenu() {
         if(!ShowroomReady())return;
-        UiLabel(new Rect(25,140,510,26),"Doors and lids",labelStyle);
-        // The existing car conversion maps the NFS RIGHT mesh to Unity -X.
-        MotionButton(new Rect(25,179,245,36),1,"Left door");
-        MotionButton(new Rect(285,179,245,36),0,"Right door");
-        MotionButton(new Rect(25,225,245,36),2,"Hood");
-        MotionButton(new Rect(285,225,245,36),3,"Trunk");
-        UiLabel(new Rect(25,273,510,24),"Door hinges",labelStyle);
-        GUI.enabled=!(driving&&cabinDriver!=null&&!DriverInputReady);
-        doorStyle.Value=UiToolbar(new Rect(25,302,505,32),doorStyle.Value,new[]{"Normal","Suicide","Scissor doors"});
-        GUI.enabled=true;
-        UiLabel(new Rect(25,345,510,24),"Engine appearance",labelStyle);
-        engineStyle.Value=UiToolbar(new Rect(25,374,505,32),engineStyle.Value,new[]{"Stock","Style 1","Style 2"});
-        bool tintAvailable=current.interior!=null&&current.interior.SupportsTint;
-        UiLabel(new Rect(25,418,510,24),"Window tint   "+Mathf.RoundToInt(CabinAppearance.Tint(windowTint.Value)*100)+" %",labelStyle);
-        GUI.enabled=tintAvailable;
-        float tint=Mathf.Round(UiSlider(new Rect(25,450,505,18),CabinAppearance.Tint(windowTint.Value),0,1)*100)/100;
-        if(tintAvailable&&tint!=windowTint.Value)windowTint.Value=tint;
-        GUI.enabled=true;
-        UiLabel(new Rect(25,480,510,44),tintAvailable?"0% clear \u00b7 100% dark. Driver window open while seated.\nDoors can also be opened from inside at rest.":"Window tint requires an interior and a transparent glass shader.",mutedStyle);
+        bodyDetailPage=UiToolbar(new Rect(25,142,510,34),bodyDetailPage,new[]{"Panels","Hinges","Engine","Glass"});
+        if(bodyDetailPage==0) {
+            // The existing car conversion maps the NFS RIGHT mesh to Unity -X.
+            MotionButton(new Rect(25,201,245,40),1,"Left door");
+            MotionButton(new Rect(285,201,245,40),0,"Right door");
+            MotionButton(new Rect(25,255,245,40),2,"Hood");
+            MotionButton(new Rect(285,255,245,40),3,"Trunk");
+            if(MenuButton(new Rect(25,317,510,36),"Close all panels"))showroom.State.CloseAll();
+            UiLabel(new Rect(25,379,510,66),"Open panels while parked. Driving closes them automatically.\nOnly panels with imported geometry and animation are available.",mutedStyle);
+        }else if(bodyDetailPage==1) {
+            UiLabel(new Rect(25,201,510,26),"Door hinges",labelStyle);
+            string[] names={"Normal","Suicide","Scissor doors"};
+            for(int i=0;i<names.Length;i++) {
+                GUI.enabled=WorkshopParked&&showroom.SupportsDoorStyle(i)&&!(driving&&cabinDriver!=null&&!DriverInputReady);
+                if(MenuButton(new Rect(25,241+i*46,510,36),names[i],doorStyle.Value==i?choiceSelectedStyle:null))doorStyle.Value=i;
+            }
+            GUI.enabled=true;
+            MotionButton(new Rect(25,399,245,36),1,"Left door");
+            MotionButton(new Rect(285,399,245,36),0,"Right door");
+            UiLabel(new Rect(25,455,510,42),"Changing hinges closes both doors before switching animations.",mutedStyle);
+        }else if(bodyDetailPage==2) {
+            UiLabel(new Rect(25,201,510,26),"Engine appearance",labelStyle);
+            GUI.enabled=WorkshopParked;
+            engineStyle.Value=UiGrid(new Rect(25,243,510,100),engineStyle.Value,new[]{"Stock","Style 1","Style 2"},1);
+            GUI.enabled=true;
+            MotionButton(new Rect(25,369,510,38),2,"Hood");
+            UiLabel(new Rect(25,437,510,42),"Visual engine model. Performance upgrades are separate.",mutedStyle);
+        }else {
+            bool tintAvailable=current.interior!=null&&current.interior.SupportsTint;
+            UiLabel(new Rect(25,201,510,28),"Window tint   "+Mathf.RoundToInt(CabinAppearance.Tint(windowTint.Value)*100)+" %",labelStyle);
+            GUI.enabled=WorkshopParked&&tintAvailable;
+            float tint=Mathf.Round(UiSlider(new Rect(25,259,510,22),CabinAppearance.Tint(windowTint.Value),0,1)*100)/100;
+            if(tintAvailable&&tint!=windowTint.Value)windowTint.Value=tint;
+            GUI.enabled=true;
+            UiLabel(new Rect(25,327,510,80),tintAvailable?"0% clear \u00b7 100% dark. Driver window open while seated.\nDoors can also be opened from inside at rest.":"Window tint requires an interior and a transparent glass shader.",mutedStyle);
+        }
     }
     void DrawTrunkMenu() {
         if(!ShowroomReady())return;
-        int layout=UiToolbar(new Rect(25,143,505,32),trunkLayout.Value,showroom.Layouts.Select(l=>l.title).ToArray());
-        if(layout!=trunkLayout.Value)SetTrunkLayout(layout);
-        int slots=showroom.Layouts[trunkLayout.Value].sockets.Length;
-        if(slots>0) {
-            selectedAudioSlot=Mathf.Clamp(selectedAudioSlot,0,slots-1);
-            selectedAudioSlot=UiToolbar(new Rect(25,188,505,30),selectedAudioSlot,Enumerable.Range(1,slots).Select(i=>"Slot "+i).ToArray());
-            var choices=showroom.Choices(trunkLayout.Value,selectedAudioSlot);
-            VehicleConfig(audioSlots[selectedAudioSlot]).Value=UiGrid(new Rect(25,225,505,128),VehicleConfig(audioSlots[selectedAudioSlot]).Value,choices.Select(c=>c.title).ToArray(),4,songButtonStyle);
-        } else UiLabel(new Rect(25,205,505,80),"Stock trunk. Select a layout to add subwoofers, amplifiers and displays.",labelStyle);
-        trunkNeonEnabled.Value=UiToggle(new Rect(25,363,250,28),trunkNeonEnabled.Value," trunk neon");
-        trunkNeonPulsing.Value=UiToggle(new Rect(285,363,245,28),trunkNeonPulsing.Value," Pulsierend");
-        int color=Math.Max(0,Array.IndexOf(ColorNames,trunkNeonColor.Value));
-        int next=UiGrid(new Rect(25,402,505,50),color,ColorNames,4);
-        if(next!=color)trunkNeonColor.Value=ColorNames[next];
-        MotionButton(new Rect(25,478,245,34),3,"Trunk");
-        if(MenuButton(new Rect(285,478,245,34),"Default system")) {
-            if(!SetTrunkLayout(2))return;
-            foreach(var slot in audioSlots)VehicleConfig(slot).Value=1;
-            trunkNeonEnabled.Value=true;trunkNeonPulsing.Value=false;trunkNeonColor.Value="Green";
+        trunkDetailPage=UiToolbar(new Rect(25,142,510,34),trunkDetailPage,new[]{"Layout","Equipment","Lighting"});
+        int layoutIndex=Mathf.Clamp(trunkLayout.Value,0,showroom.Layouts.Length-1);
+        int slots=showroom.Layouts[layoutIndex].sockets.Length;
+        GUI.enabled=WorkshopParked;
+        if(trunkDetailPage==0) {
+            int layout=UiGrid(new Rect(25,201,510,100),layoutIndex,showroom.Layouts.Select(l=>l.title).ToArray(),2);
+            if(layout!=layoutIndex)SetTrunkLayout(layout);
+            UiLabel(new Rect(25,323,510,54),Tr("Storage")+": "+VehicleStorageRules.Capacity(current.Profile,trunkLayout.Value)+" "+Tr("Slots")+"\n"+Tr("More audio equipment, less cargo space."),mutedStyle);
+            if(MenuButton(new Rect(25,399,510,36),"Default system")&&SetTrunkLayout(2)) {
+                foreach(var slot in audioSlots)VehicleConfig(slot).Value=1;
+                trunkNeonEnabled.Value=true;trunkNeonPulsing.Value=false;trunkNeonColor.Value="Green";
+            }
+        }else if(trunkDetailPage==1) {
+            if(slots>0) {
+                selectedAudioSlot=Mathf.Clamp(selectedAudioSlot,0,slots-1);
+                selectedAudioSlot=UiToolbar(new Rect(25,201,510,32),selectedAudioSlot,Enumerable.Range(1,slots).Select(i=>"Slot "+i).ToArray());
+                var choices=showroom.Choices(layoutIndex,selectedAudioSlot);
+                VehicleConfig(audioSlots[selectedAudioSlot]).Value=UiGrid(new Rect(25,253,510,156),VehicleConfig(audioSlots[selectedAudioSlot]).Value,choices.Select(c=>c.title).ToArray(),4,songButtonStyle);
+            }else UiLabel(new Rect(25,211,510,100),"Stock trunk. Select a layout to add subwoofers, amplifiers and displays.",labelStyle);
+        }else {
+            trunkNeonEnabled.Value=UiToggle(new Rect(25,201,245,32),trunkNeonEnabled.Value,"Trunk neon");
+            trunkNeonPulsing.Value=UiToggle(new Rect(285,201,245,32),trunkNeonPulsing.Value,"Pulse");
+            int color=Math.Max(0,Array.IndexOf(ColorNames,trunkNeonColor.Value));
+            int next=UiGrid(new Rect(25,257,510,136),color,ColorNames,4);
+            if(next!=color)trunkNeonColor.Value=ColorNames[next];
         }
-        UiLabel(new Rect(25,456,505,21),Tr("Storage")+": "+VehicleStorageRules.Capacity(current.Profile,trunkLayout.Value)+" "+Tr("Slots")+" · "+Tr("More audio equipment, less cargo space."),mutedStyle);
+        GUI.enabled=true;
+        MotionButton(new Rect(25,455,510,38),3,"Trunk");
     }
 }
 }

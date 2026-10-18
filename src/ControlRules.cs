@@ -29,6 +29,16 @@ public static class ControlRules {
         }
         return best;
     }
+    public static int MenuVerticalNeighbor(int focus,int direction,MenuControlBounds[] items) {
+        if(focus<0||focus>=items.Length)return -1;
+        var current=items[focus];int best=-1;float row=float.MaxValue,column=float.MaxValue;
+        for(int i=0;i<items.Length;i++) {
+            var candidate=items[i];float dy=(candidate.Y-current.Y)*direction,dx=Math.Abs(candidate.X-current.X);
+            if(i==focus||candidate.Region!=current.Region||dy<=Math.Max(candidate.Height,current.Height)*.5f)continue;
+            if(dy<row-.5f||Math.Abs(dy-row)<=.5f&&dx<column){best=i;row=dy;column=dx;}
+        }
+        return best;
+    }
     public static void Pedals(float gas,float reverse,float speed,out float throttle,out float brake) {
         gas=Math.Max(0,Math.Min(1,gas));reverse=Math.Max(0,Math.Min(1,reverse));
         brake=reverse>0&&DrivingMath.DirectionBrake(speed,-1)?reverse:gas>0&&DrivingMath.DirectionBrake(speed,1)?gas:0;

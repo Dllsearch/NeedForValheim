@@ -32,8 +32,10 @@ public static class HudFile {
 }
 public static class HudMath {
     // Shared layout for all U2 designs, calibrated against the visible 08 face.
-    // IMGUI pixels before the overall HUD scale. X/Y move; Width/Height stretch.
-    public const float U2NosX=-53.33f,U2NosY=-58.47f,U2NosWidth=520.45f,U2NosHeight=248.70f;
+    // Measured inner edge of the source artwork (tools/fit_u2_nos.py).
+    // Preserve its circle and align it with the tachometer before HUD scaling.
+    public const float U2NosCenterX=95.01085f,U2NosCenterY=113.09155f,U2NosScale=140f/70.26089f;
+    public const float U2NosX=140-U2NosCenterX*U2NosScale,U2NosY=170-U2NosCenterY*U2NosScale,U2NosWidth=256*U2NosScale,U2NosHeight=128*U2NosScale;
     public static float Unit(float value)=>float.IsNaN(value)||float.IsInfinity(value)?0:DrivingMath.Clamp(value,0,1);
     public static float NeedleAngle(float rpm)=>180+240*Unit(rpm/7500);
     public static float MwNeedleAngle(float rpm)=>-115+230*Unit(rpm/8000);
@@ -50,8 +52,8 @@ public static class HudMath {
     public static float NitroPixelProgress(int x,int y) {
         // The short lower-left tail belongs to the empty end of the arc;
         // atan2 wraps it to +180 degrees unless handled explicitly.
-        if(x<92.5f&&y>=110.5f)return 0;
-        return Unit(((float)Math.Atan2(y-110.5f,x-92.5f)*(180f/(float)Math.PI)+180)/150);
+        if(x<U2NosCenterX&&y>=U2NosCenterY)return 0;
+        return Unit(((float)Math.Atan2(y-U2NosCenterY,x-U2NosCenterX)*(180f/(float)Math.PI)+180)/150);
     }
 }
 }

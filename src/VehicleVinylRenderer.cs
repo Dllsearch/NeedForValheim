@@ -60,7 +60,9 @@ public sealed class VehicleVinylRenderer:IDisposable {
                 if(layer.design==2||layer.design==3)art=VinylComposite.LegacyMask(layer.design,triangles);
                 else {var entry=entries.FirstOrDefault(e=>e.id==layer.design);if(entry==null)continue;art=VinylCatalog.Unpack(entry.data,512*512*4);fixedColors=entry.fixedColors||layer.originalColors;}
                 var colors=palette[Math.Max(0,Math.Min(palette.Length-1,layer.primary))].Concat(palette[Math.Max(0,Math.Min(palette.Length-1,layer.secondary))]).Concat(palette[Math.Max(0,Math.Min(palette.Length-1,layer.tertiary))]).ToArray();
-                VinylComposite.Blend(canvas,art,colors,fixedColors,layer.opacity);
+                // Alpha retains the uncovered body contribution for angle-shift
+                // paint; opaque Standard rendering continues using RGB only.
+                VinylComposite.Blend(canvas,art,colors,fixedColors,layer.opacity,true);
             }token.ThrowIfCancellationRequested();return canvas;
         },token);Observe(rendering);
     }

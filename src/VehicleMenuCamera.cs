@@ -24,11 +24,13 @@ public partial class Plugin {
     }
     void EndMenuCamera(){menuMouseLookHeld=false;menuGroundCamera=null;if(menuCamera!=null)menuCamera.transform.SetPositionAndRotation(showroomCameraPosition,showroomCameraRotation);}
     void TickMenuCamera() {
-        bool mouseLook=Input.GetMouseButton(1)&&!Input.GetMouseButton(0)&&!menuPlacement.Dragging;
         Vector2 degrees=Vector2.zero;
         float scale=Mathf.Min(Screen.width/1600f,Screen.height/900f);
         float pointerX=(Input.mousePosition.x-(Screen.width-1600*scale)*.5f)/scale;
-        float scroll=pointerX>290&&pointerX<1040?Input.mouseScrollDelta.y:0;
+        float pointerY=(Screen.height-Input.mousePosition.y-(Screen.height-900*scale)*.5f)/scale;
+        bool inPreview=GaragePreviewRect.Contains(new Vector2(pointerX,pointerY));
+        bool mouseLook=Input.GetMouseButton(1)&&!Input.GetMouseButton(0)&&!menuPlacement.Dragging&&(menuMouseLookHeld||inPreview);
+        float scroll=inPreview?Input.mouseScrollDelta.y:0;
         if(mouseLook) {
             // Ignore cursor recentering on the first captured frame.
             if(menuMouseLookHeld) {

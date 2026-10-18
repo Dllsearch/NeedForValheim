@@ -21,7 +21,14 @@ public partial class Plugin {
         var entry=!byVehicle.TryGetValue(current.Profile.ConfigPrefix,out var other)?stock:(ConfigEntry<T>)other;
         return NetworkSetting(entry);
     }
-    ConfigEntry<T> NetworkSetting<T>(ConfigEntry<T> entry)=>current.networkSettings!=null?current.networkSettings.Get(entry):entry;
+    ConfigEntry<T> NetworkSetting<T>(ConfigEntry<T> entry) {
+        // Listening preferences belong to this player, never the car owner or
+        // a parked-vehicle setup transaction. Keep per-model local persistence.
+        string section=entry.Definition.Section;
+        bool local=section=="Radio"||section.EndsWith(".Radio",System.StringComparison.Ordinal)||
+            entry.Definition.Key=="Volume"&&(section=="Audio"||section.EndsWith(".Audio",System.StringComparison.Ordinal));
+        return !local&&current.networkSettings!=null?current.networkSettings.Get(entry):entry;
+    }
     ConfigEntry<bool> baseConfig_terrainMode;
     ConfigEntry<bool> terrainMode {get=>VehicleConfig(baseConfig_terrainMode);set=>baseConfig_terrainMode=value;}
     ConfigEntry<float> baseConfig_soundVolume;

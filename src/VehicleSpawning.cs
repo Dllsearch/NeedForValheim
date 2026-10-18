@@ -240,7 +240,7 @@ public partial class Plugin {
         SaveWorldVehicle();
         car.SetActive(true);fleet.Add(current);fleetOwner=local;spawnCommitted=true;
         status=VehicleName+" ready. Approach and use E to enter.";
-        if(MessageHud.instance!=null)
+        if(savedPose==null&&MessageHud.instance!=null)
             MessageHud.instance.ShowMessage(MessageHud.MessageType.Center,Tr("Spawned:")+" "+VehicleName,log:false);
     }
 }

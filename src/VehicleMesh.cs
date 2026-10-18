@@ -6,7 +6,7 @@ namespace NeedForValheim {
 // Imported vehicle surfaces are thin shells. Give each side its own normals
 // instead of relying on shader-specific culling switches or smoothing the seam.
 internal static class VehicleMesh {
-    public static void AddBackfaces(Mesh mesh) {
+    public static void AddBackfaces(Mesh mesh,bool separateInterior=false) {
         var vertices=mesh.vertices;var normals=mesh.normals;
         var uv=mesh.uv;var colors=mesh.colors;var front=mesh.triangles;
         int count=vertices.Length;
@@ -23,7 +23,11 @@ internal static class VehicleMesh {
         // Changing the index format clears the index buffer; assign triangles last.
         if(count*2>65535)mesh.indexFormat=IndexFormat.UInt32;
         mesh.vertices=Duplicate(vertices);mesh.normals=bothNormals;
-        mesh.uv=Duplicate(uv);mesh.colors=Duplicate(colors);mesh.triangles=indices;
+        mesh.uv=Duplicate(uv);mesh.colors=Duplicate(colors);
+        if(separateInterior) {
+            var back=new int[front.Length];Array.Copy(indices,front.Length,back,0,front.Length);
+            mesh.subMeshCount=2;mesh.SetTriangles(front,0);mesh.SetTriangles(back,1);
+        }else mesh.triangles=indices;
         // Caller recalculates tangents/bounds after completing the mesh.
     }
     static T[] Duplicate<T>(T[] source) {

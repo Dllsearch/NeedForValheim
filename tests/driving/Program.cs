@@ -37,7 +37,9 @@ class DrivingTests {
         Check(HudMath.TurboNeedleAngle(-100)==-165&&HudMath.TurboNeedleAngle(100)==45,"pressure needle clamps outside the signed dial range");
         Check(HudMath.TurboNeedleAngle(float.NaN)==-75&&HudMath.TurboNeedleAngle(float.PositiveInfinity)==-75,"invalid pressure returns needle to zero");
         Check(HudMath.Unit(-1)==0&&HudMath.Unit(2)==1&&HudMath.Unit(float.NaN)==0,"nitro fill clamps depleted full and invalid tank levels");
-        Check(HudMath.NitroPixelProgress(14,117)<.05f&&HudMath.NitroPixelProgress(160,45)>.9f,"NOS arc fills from lower left toward upper right");
+        Check(HudMath.NitroPixelProgress(14,117)<.05f&&HudMath.NitroPixelProgress(160,75)>.9f,"NOS arc fills from lower-left tail toward upper-right N2O tip");
+        Check(Math.Abs(HudMath.U2NosWidth/256-HudMath.U2NosHeight/128)<.00001f,"U2 NOS retains one circular scale on both axes");
+        Check(Math.Abs(HudMath.U2NosX+HudMath.U2NosCenterX*HudMath.U2NosScale-140)<.001f&&Math.Abs(HudMath.U2NosY+HudMath.U2NosCenterY*HudMath.U2NosScale-170)<.001f,"U2 NOS and tachometer share their circle centre");
         Check(HudMath.MwNeedleAngle(0)==-115&&HudMath.MwNeedleAngle(4000)==0&&HudMath.MwNeedleAngle(8000)==115,"MW needle follows the authored 0, 4 and 8 markings");
         var data=HudFile.Load(args[0]);Check(data.designs.Length==22&&data.nitro.rgba.Length==256*128*4,"eleven U2 and eleven native MW tachometers load");
         Check(data.designs[11].kind=="mw-tach"&&data.designs[21].kind=="mw-tach"&&data.designs[11].lines.name=="8000_LINES_00","MW uses actual labeled tachometers rather than race meter arcs");

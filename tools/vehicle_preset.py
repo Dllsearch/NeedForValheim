@@ -189,6 +189,7 @@ def export_dday(output=None):
     extra,layouts,components=showroom_assets.catalog(car,parse(ASSETS/'CARS/AUDIO/GEOMETRY.BIN'),pick,transform,'350Z')
     selected.extend(extra)
     for p,group,matrix,family in selected:
+        first_part=len(parts)
         sections=[entry for section in p['slices'] for entry in (wheel_finish_sections(p,section) if group=='wheel' else rear_lens_sections(p,family,section))]
         for number,(s,lens_role) in enumerate(sections):
             key=s['materialKey']
@@ -243,6 +244,10 @@ def export_dday(output=None):
                           'rotatesWithWheel':group=='brake' and key==0xb1aae6bb,'vertices':vertices,'normals':normals,
                           'uv':visual_uv(p,s,family), 'indices':ids,
                           'material':material(key,tex,group,'HOOD' in family,'showroom' if showroom else lens_role)})
+        if group=='body' and len(parts)>first_part:
+            from vehicle_markers import neon_segments
+            segments=neon_segments(p,lambda v:transform(v,matrix))
+            if segments:parts[first_part]['neonSegments']=segments
     # Shared plate geometry was not identified. This small authored rectangle
     # uses the original fixed UNDRGND 2 texture at the rear-centre kit socket.
     # The socket's purpose is inferred from its position/orientation, not its hash.
@@ -275,11 +280,8 @@ def export_dday(output=None):
                 emitters.append({'role':'exhaust','position':point,'direction':transform((-1,0,0),socket,exhaust=True,normal=True)})
         exhaust_variants.append({'style':style,'emitters':emitters})
     emitters=list(exhaust_variants[7]['emitters'])
-    # No verified NFS purge sockets were found. Mod-authored bumper positions
-    # and hood surface anchors provide paired jets without changing geometry.
-    for side in (-1,1):
-        emitters.append({'role':'purge','position':{'x':side*.62,'y':.53,'z':2.11},'direction':{'x':side*.3,'y':.65,'z':.7}})
-        emitters.append({'role':'purge','position':{'x':side*.412741,'y':.833191,'z':.987397},'direction':{'x':side*.25,'y':1,'z':.12}})
+    from vehicle_markers import purge_emitters
+    emitters+=purge_emitters(pick(car,'350Z_BASE'),lambda v:transform(v,None),lambda v:transform(v,None,normal=True))
     model={'schemaVersion':2,'preset':'DDAY_PLAYER_CAR','wheelVisualLift':WHEEL_LIFT,'lights':lights,'neonTexture':neon_id,
            'animations':showroom_assets.animations(ASSETS/'CARS/350Z/PARTS_ANIMATIONS.bin',BODY_LIFT,'350Z'),
            'trunkLayouts':layouts,'audioComponents':components,
@@ -302,7 +304,7 @@ def export_dday(output=None):
         'sportBrakes':{'source':'BRAKE_STYLE03_A + original BRAKE_STYLE03 rotor atlas','adaptation':'38cm round opaque rotor replaces alpha-masked square; original closed caliper geometry painted red, misleading ring overlays removed, opaque hub and bolt discs replace atlas billboards; visual only'},
         'wheelFinish':{'source':'original RACINGHART_STYLE07 geometry and gold/silver atlas; shared material split at existing radial loops','adaptation':'fully metallic polished chrome lip and lightly cooled original gold star; fresh runtime material with environment reflections, no emission; NFVU2 finish approximation'},
         'exhaustVariants':{'source':'original CARS/EXHAUST STYLE01..STYLE10_LEVEL1_A at both original KITW02 exhaust sockets','default':'STYLE08 from DDAY_PLAYER_CAR','flames':'connected mouth-face centres, 6mm beyond outer lip; native NFS effect timing not recovered'},
-        'nitroEffects':{'textures':'original InGameCommon SFX_FIREB and SFX_SMOKE_B_CS; runtime tint/animation adapted','exhaust':'original mouth-face centres for selected style, offset 6mm outward','purge':'mod-authored bumper pair and measured hood surface pair; original nozzle sockets not identified'},
+        'nitroEffects':{'textures':'original InGameCommon SFX_FIREB and SFX_SMOKE_B_CS; runtime tint/animation adapted','exhaust':'original mouth-face centres for selected style, offset 6mm outward','purge':'original BASE NOS_PURGE_LEFT/RIGHT positions and local-Z nozzle axes, converted to Unity; runtime timing adapted'},
         'visualFit':{'wheelRadius':WHEEL_RADIUS,'wheelWidth':WHEEL_WIDTH,'wheelWidthFit':'outer face retained, widened inward; inverse-transpose normals','brakeRadius':BRAKE_RADIUS,'bodyLift':BODY_LIFT,'frontOffset':FRONT_WHEEL_OFFSET,'rearOffset':REAR_WHEEL_OFFSET,'preview':'approximate terrain-mode loaded suspension; not a Unity simulation'}},indent=2),encoding='utf-8')
     print(f'DDAY visual preset: {len(parts)} material slices, {sum(len(p["indices"])//3 for p in parts)} triangles, {len(textures)} textures')
 

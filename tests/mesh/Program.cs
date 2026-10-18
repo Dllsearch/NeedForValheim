@@ -37,6 +37,9 @@ class Program {
             Check(mesh.indexFormat==(count*2>65535?IndexFormat.UInt32:IndexFormat.UInt16)&&mesh.triangles.Max()==count*2-1,
                 "index buffer survives vertex duplication at "+count+" source vertices");
         }
+        mesh=Surface();VehicleMesh.AddBackfaces(mesh,true);
+        Check(mesh.subMeshCount==2&&mesh.GetTriangles(0).SequenceEqual(new[]{0,1,2,1,3,2}),"separate interior preserves the exterior material surface");
+        Check(mesh.GetTriangles(1).SequenceEqual(new[]{4,6,5,5,6,7}),"inward triangles have a separate material slot with reverse winding");
         mesh=Surface();mesh.subMeshCount=2;
         bool rejected=false;try{VehicleMesh.AddBackfaces(mesh);}catch(ArgumentException){rejected=true;}
         Check(rejected&&mesh.vertices.Length==4,"unexpected multi-material meshes fail before modification");

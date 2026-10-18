@@ -78,6 +78,19 @@ static class Program {
         Check(ControlRules.MenuHorizontalNeighbor(5,-1,bounds)==-1&&ControlRules.MenuHorizontalNeighbor(0,-1,Array.Empty<MenuControlBounds>())==-1,"disappearing controls cannot break horizontal navigation");
         var scrolled=new[]{new MenuControlBounds(100,200,32),new MenuControlBounds(300,200,32,1)};
         Check(ControlRules.MenuHorizontalNeighbor(0,1,scrolled)==-1,"clipped song rows cannot become horizontal neighbors of controls outside their scroll region");
+        var grid=new[]{new MenuControlBounds(100,200,32),new MenuControlBounds(300,200,32),new MenuControlBounds(500,200,32),
+            new MenuControlBounds(100,250,32),new MenuControlBounds(300,250,32),new MenuControlBounds(500,250,32)};
+        Check(ControlRules.MenuVerticalNeighbor(0,1,grid)==3&&ControlRules.MenuVerticalNeighbor(2,1,grid)==5&&ControlRules.MenuVerticalNeighbor(5,-1,grid)==2,
+            "up/down preserve the visual column in multi-column garage grids");
+        Check(ControlRules.MenuVerticalNeighbor(1,-1,grid)==-1&&ControlRules.MenuVerticalNeighbor(4,1,grid)==-1,
+            "vertical grid edges do not move sideways or wrap into unrelated controls");
+        Check(ControlRules.MenuVerticalNeighbor(1,1,bounds)==2,"incomplete rows choose the nearest available column");
+        Check(ControlRules.MenuVerticalNeighbor(-1,1,grid)==-1&&ControlRules.MenuVerticalNeighbor(0,1,Array.Empty<MenuControlBounds>())==-1,
+            "loading or disappearing controls cannot break vertical navigation");
+        var tallRow=new[]{new MenuControlBounds(100,200,32),new MenuControlBounds(300,214,60),new MenuControlBounds(100,270,32)};
+        Check(ControlRules.MenuVerticalNeighbor(0,1,tallRow)==2,"different-height buttons on the same row are not mistaken for a lower row");
+        var regions=new[]{new MenuControlBounds(100,200,32),new MenuControlBounds(100,250,32,1)};
+        Check(ControlRules.MenuVerticalNeighbor(0,1,regions)==-1,"vertical navigation respects independent control regions");
         Check((InterfaceText.Translate("Window tint   75 %",false)=="Window tint   75 %"&&InterfaceText.Translate("Window tint   75 %",true)=="Scheibentönung   75 %"),"English dynamic tuning label retains the numeric value");
         Check(InterfaceText.Translate("Fahrmodus",true)=="Fahrmodus","German mode preserves authored text");
         Check((InterfaceText.Translate("Trunk neon",false)=="Trunk neon"&&InterfaceText.Translate("Trunk neon",true)=="Kofferraum-Neon"),"specific labels translate before general fragments");

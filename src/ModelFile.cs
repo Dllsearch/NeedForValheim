@@ -33,7 +33,8 @@ public sealed class ModelAudioSocket { public string size; public ModelVertex po
 public sealed class ModelAudioComponent { public string id,title,kind,size; }
 public sealed class ModelEffectEmitter { public string role; public ModelVertex position,direction; }
 public sealed class ModelExhaustVariant { public int style; public ModelEffectEmitter[] emitters; }
-public sealed class ModelPart { public string name, group, axle, lightRole, movingPart, optionGroup, option; public bool rotatesWithWheel; public int material,vertexCount,indexCount; public string packedGeometry; public int sourceKit=-1;public int rimInches;public float wheelBead,wheelOutside; public ModelVertex[] vertices, normals; public ModelUV[] uv; public int[] indices; }
+public sealed class ModelNeonSegment { public ModelVertex start,end; }
+public sealed class ModelPart { public ModelNeonSegment[] neonSegments; public string name, group, axle, lightRole, movingPart, optionGroup, option; public bool rotatesWithWheel; public int material,vertexCount,indexCount; public string packedGeometry; public int sourceKit=-1;public int rimInches;public float wheelBead,wheelOutside; public ModelVertex[] vertices, normals; public ModelUV[] uv; public int[] indices; }
 public sealed class ModelLight { public string role; public ModelVertex position, direction; }
 public struct ModelVertex { public float x, y, z; }
 public struct ModelUV { public float u, v; }
@@ -88,6 +89,14 @@ public static class ModelFile {
                 if (material == null || (material.alphaMode!=null&&material.alphaMode!="opaque"&&material.alphaMode!="blend"&&material.alphaMode!="mask") || material.color == null || material.color.Length != 4 || material.texture < -1 || material.texture >= model.textures.Length ||
                     !Unit(material.metallic) || !Unit(material.smoothness)) throw new InvalidDataException("Invalid material");
                 foreach (var c in material.color) if (!Unit(c)) throw new InvalidDataException("Invalid material color");
+                // Older MW exports classified BODY_PLAINNOTHING as paint,
+                // allowing vinyl replacement to turn black cavities into skin.
+                // Correct descriptors before styling, wetness and mesh setup.
+                if(material.name!=null&&material.name.StartsWith("mw_",StringComparison.Ordinal)&&material.name.IndexOf("plainnothing",StringComparison.OrdinalIgnoreCase)>=0) {
+                    material.bodyPaint=false;material.rimPaint=false;
+                    material.color=new[]{.025f,.025f,.028f,1f};
+                    material.metallic=0;material.smoothness=.12f;material.texture=-1;
+                }
             }
             if (model.neonTexture < -1 || model.neonTexture >= model.textures.Length) throw new InvalidDataException("Invalid neon texture");
             if(model.nitroAtlasColumns<1||model.nitroAtlasColumns>8||model.nitroAtlasRows<1||model.nitroAtlasRows>8)throw new InvalidDataException("Invalid nitro atlas grid");
@@ -115,6 +124,14 @@ public static class ModelFile {
             }
         }
         foreach (var part in model.parts) {
+            if(part?.neonSegments!=null) {
+                if(part.group!="body"||part.neonSegments.Length>7)throw new InvalidDataException("Invalid source neon segment count");
+                foreach(var segment in part.neonSegments) {
+                    if(segment==null)throw new InvalidDataException("Missing source neon segment");
+                    foreach(var v in new[]{segment.start,segment.end})if(!ValidCoordinate(v.x)||!ValidCoordinate(v.y)||!ValidCoordinate(v.z))throw new InvalidDataException("Invalid source neon endpoint");
+                }
+            }
+
             if (part == null || string.IsNullOrWhiteSpace(part.name) || part.vertices == null ||
                 part.vertices.Length < 3 || part.vertices.Length > 65535 ||
                 part.indices == null || part.indices.Length < 3 || part.indices.Length % 3 != 0)

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using BepInEx.Configuration;
 using UnityEngine;
 namespace NeedForValheim {
@@ -7,6 +8,7 @@ public partial class Plugin {
     ConfigEntry<int> hudDesign;
     ConfigEntry<float> cameraFollow,hudScale;
     ConfigEntry<string> hudColor;
+    int gaugeSettingsPage;
     static readonly string[] GaugeNames={"NFSU2 01","NFSU2 02","NFSU2 03","NFSU2 04","NFSU2 05","NFSU2 06","NFSU2 07","NFSU2 08","NFSU2 09","NFSU2 10","NFSU2 11","MW 01","MW 02","MW 03","MW 04","MW 05","MW 06","MW 07","MW 08","MW 09","MW 10","MW 11"};
     void InitializeDrivingMenu() {
         driftMode=BindVehicle("Driving","DriftMode",false,"Optional drift setup: rear drive, lower rear lateral grip and rear handbrake on Space.");
@@ -22,18 +24,28 @@ public partial class Plugin {
     void ApplyDriveMode(){if(Flying)return;var caps=current.Profile.capabilities;if(EffectiveDrift&&caps.drift)handling?.SetDriftMode();else handling?.SetTerrainMode(EffectiveTerrain);if(caps.suvTuning&&body!=null)SuvTuning.Configure(body,wheels);else if(body!=null&&current.Profile.sourceGame==CarCatalog.MostWanted)MwChassisTuning.Configure(body,wheels);current.appliedGrip=1;}
     string DriveModeName=>Flying?(current.flight.State.Landing?"Flight / landing":current.flight.State.Phase==FlightPhase.Folding?"Flight / take-off":"Flight / hovering"):EffectiveDrift&&current.Profile.capabilities.drift?"Drift / rear-wheel drive":EffectiveTerrain?"Off-road / all-wheel assist":"Road / rear-wheel drive";
     void DrawDrivingDisplayMenu() {
-        hudEnabled.Value=UiToggle(new Rect(25,142,250,28),hudEnabled.Value," Show gauges");
-        hudMph.Value=UiToggle(new Rect(310,142,210,28),hudMph.Value," MPH instead of KM/H");
-        hudDesign.Value=UiGrid(new Rect(25,177,510,96),hudDesign.Value,GaugeNames,6);
-        UiLabel(new Rect(25,280,510,24),"Size  "+Mathf.RoundToInt(hudScale.Value*100)+" %",labelStyle);
-        hudScale.Value=UiSlider(new Rect(25,311,510,18),hudScale.Value,.65f,1.4f);
+        gaugeSettingsPage=UiToolbar(new Rect(25,142,510,32),gaugeSettingsPage,new[]{"Gauge design","Appearance"});
         int selected=Math.Max(0,Array.IndexOf(ColorNames,hudColor.Value));
-        hudColor.Value=ColorNames[UiGrid(new Rect(25,343,510,52),selected,ColorNames,4)];
-        dynamicCamera.Value=UiToggle(new Rect(25,406,510,28),dynamicCamera.Value," Dynamic chase camera");
-        UiLabel(new Rect(25,440,510,25),"Camera follow: smooth                         direct",mutedStyle);
-        GUI.enabled=dynamicCamera.Value;
-        cameraFollow.Value=UiSlider(new Rect(25,470,510,18),cameraFollow.Value,1,6);GUI.enabled=true;
-        UiLabel(new Rect(25,495,510,24),dashboard==null?"Original artwork missing \u00b7 basic display active.":padActive?"RS: camera \u00b7 R3: horn":"Middle mouse: centre camera",mutedStyle);
+        if(gaugeSettingsPage==0) {
+            int family=UiToolbar(new Rect(25,190,510,32),hudDesign.Value/11,new[]{"Underground 2","Most Wanted"});
+            int design=hudDesign.Value%11;
+            for(int i=0;i<11;i++) {
+                var cell=new Rect(25+i%3*171,239+i/3*65,167,61);
+                if(UiButton(cell,"",i==design?choiceSelectedStyle:null))design=i;
+                dashboard?.DrawDesignPreview(new Rect(cell.x+5,cell.y+5,51,51),family*11+i,NeonColors[selected]);
+                var contentColor=GUI.contentColor;GUI.contentColor=i==design?Color.black:Color.white;
+                UiLabel(new Rect(cell.x+66,cell.y+18,94,27),(family==0?"U2 ":"MW ")+(i+1).ToString("00"),labelStyle);
+                GUI.contentColor=contentColor;
+            }
+            hudDesign.Value=family*11+design;
+        }else {
+            hudEnabled.Value=UiToggle(new Rect(25,195,250,30),hudEnabled.Value," Show gauges");
+            hudMph.Value=UiToggle(new Rect(310,195,210,30),hudMph.Value," MPH instead of KM/H");
+            UiLabel(new Rect(25,250,510,26),"Size  "+Mathf.RoundToInt(hudScale.Value*100)+" %",labelStyle);
+            hudScale.Value=UiSlider(new Rect(25,289,510,20),hudScale.Value,.65f,1.4f);
+            hudColor.Value=ColorNames[UiGrid(new Rect(25,341,510,96),selected,ColorNames,4)];
+            if(MenuButton(new Rect(25,460,510,36),"Driving camera settings")){ChangeMenuTab(11);interfaceSettingsPage=1;}
+        }
     }
     void DrawDashboard() {
         if(!driving||body==null||!hudEnabled.Value||audioBlocked||menuOpen||Hud.IsUserHidden())return;
